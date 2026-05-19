@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-19T19:56:01Z">
+<meta name="app-version" content="2026-05-19T20:57:59Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1792,13 +1792,21 @@ function scheduleGistSync(){
   _gistTimer = setTimeout(pushToGist, 3000);
 }
 
+// NUNCA inclui segredos no payload sincronizado — eles ficam só no localStorage local
+const SYNC_BLOCKLIST = ['apiKey'];
+function sanitizeForSync(d){
+  const clean = JSON.parse(JSON.stringify(d));
+  for(const k of SYNC_BLOCKLIST) delete clean[k];
+  return clean;
+}
+
 async function pushToGist(){
   const token = getGistToken();
   if(!token || _gistSyncing) return;
   _gistSyncing = true;
   setSyncStatus('syncing');
   try {
-    const payload = { files: { [GIST_FILE]: { content: JSON.stringify({ data: D, savedAt: Date.now(), version: 1 }, null, 2) } } };
+    const payload = { files: { [GIST_FILE]: { content: JSON.stringify({ data: sanitizeForSync(D), savedAt: Date.now(), version: 1 }, null, 2) } } };
     let gistId = getGistId();
     let res;
     if(gistId){
