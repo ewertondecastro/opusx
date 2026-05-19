@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-19T20:57:59Z">
+<meta name="app-version" content="2026-05-19T21:13:11Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1814,7 +1814,10 @@ async function pushToGist(){
         method:'PATCH', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json', Accept:'application/vnd.github+json' },
         body: JSON.stringify(payload),
       });
-    } else {
+      // Gist was deleted externally — clear stale id and fall through to create
+      if(res.status === 404){ setGistId(''); gistId = ''; }
+    }
+    if(!gistId){
       res = await fetch('https://api.github.com/gists', {
         method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json', Accept:'application/vnd.github+json' },
         body: JSON.stringify({ description:'Opus X — backup automático', public:false, files: payload.files }),
@@ -1838,6 +1841,7 @@ async function pullFromGist(){
       headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
       cache:'no-store',
     });
+    if(res.status === 404){ setGistId(''); setSyncStatus('idle'); return false; }
     if(!res.ok) throw new Error('HTTP '+res.status);
     const j = await res.json();
     const f = j.files && j.files[GIST_FILE];
@@ -1861,15 +1865,43 @@ async function pullFromGist(){
   }
 }
 
+async function findExistingOpusGist(token){
+  try {
+    const res = await fetch('https://api.github.com/gists?per_page=100', {
+      headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
+      cache:'no-store',
+    });
+    if(!res.ok) return null;
+    const list = await res.json();
+    const found = list.find(g => g.files && g.files[GIST_FILE]);
+    return found ? found.id : null;
+  } catch(e){ return null; }
+}
+
 async function saveGistToken(){
   const tok = (document.getElementById('gist-field')||{}).value || '';
-  setGistToken(tok.trim());
-  if(!tok.trim()){ setGistId(''); setSyncStatus('idle'); toast('Sync desligado'); return; }
-  toast('Token salvo, testando…');
-  // try pulling first (in case there's existing data); if no gist yet, push creates it
-  await pullFromGist();
+  const trimmed = tok.trim();
+  setGistToken(trimmed);
+  if(!trimmed){ setGistId(''); setSyncStatus('idle'); toast('Sync desligado'); return; }
+  // Always start fresh — old gistId in localStorage may point to deleted gist
+  setGistId('');
+  toast('Testando token…');
+  setSyncStatus('syncing');
+  // First: verify the token actually works by listing gists
+  const existingId = await findExistingOpusGist(trimmed);
+  if(existingId === null){
+    // either auth failed or fetch failed
+    setSyncStatus('error', 'token inválido — confira o scope gist');
+    toast('Token inválido — confira o scope gist');
+    return;
+  }
+  if(existingId){
+    setGistId(existingId);
+    await pullFromGist();
+  }
   await pushToGist();
   if(getGistId()){ toast('Sync ligado ✓'); renderAll(); }
+  else { setSyncStatus('error', 'falhou — verifique token'); }
 }
 
 function clearGistToken(){
