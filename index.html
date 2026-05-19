@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-19T18:43:08Z">
+<meta name="app-version" content="2026-05-19T19:28:44Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1452,13 +1452,28 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <button class="btn btn-gold" onclick="saveKey()" style="flex:2;margin:0" id="sheet-save">Salvar</button>
     </div>
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bdr)">
-      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px">BACKUP / RESTORE</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-outline" onclick="exportBackup()" style="flex:1;font-size:11px">EXPORTAR DADOS</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700">SYNC EM NUVEM (GIST)</div>
+        <div id="sync-status" style="font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:1px">desligado</div>
+      </div>
+      <div style="font-size:11px;color:var(--mid);line-height:1.5;margin-bottom:10px">
+        Cole um <strong>token GitHub</strong> (scope <code style="color:var(--gold)">gist</code>) e seus dados sincronizam em Gist privado entre iPhone, iPad e Mac.
+        <a href="https://github.com/settings/tokens/new?scopes=gist&description=Opus%20X%20Sync" target="_blank" style="color:var(--gold);text-decoration:underline">Criar token →</a>
+      </div>
+      <input class="sheet-input" id="gist-field" type="password" placeholder="ghp_…" style="margin-bottom:8px">
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-outline" onclick="clearGistToken()" style="flex:1;font-size:11px">DESLIGAR</button>
+        <button class="btn btn-gold" onclick="saveGistToken()" style="flex:2;margin:0;font-size:11px">ATIVAR SYNC</button>
+      </div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px">BACKUP MANUAL</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-outline" onclick="exportBackup()" style="flex:1;font-size:11px">EXPORTAR</button>
         <label class="btn btn-outline" style="flex:1;font-size:11px;cursor:pointer;text-align:center">
-          IMPORTAR DADOS<input type="file" accept=".json" onchange="importBackup(event)" style="display:none">
+          IMPORTAR<input type="file" accept=".json" onchange="importBackup(event)" style="display:none">
         </label>
       </div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px">INDICAR AMIGO</div>
+      <button class="btn btn-outline" onclick="shareApp()" style="width:100%;font-size:11px">📤 COMPARTILHAR LINK DO APP</button>
     </div>
   </div>
 </div>
@@ -1567,6 +1582,23 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 <script>
 'use strict';
+
+// ══════════════════════════════════════
+// ANALYTICS (PostHog) — fill POSTHOG_KEY to enable
+// ══════════════════════════════════════
+const POSTHOG_KEY = ''; // ← cole sua project key de posthog.com aqui pra ligar
+const POSTHOG_HOST = 'https://us.i.posthog.com';
+(function(){
+  if(!POSTHOG_KEY) return;
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getPageViewId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+  posthog.init(POSTHOG_KEY,{api_host:POSTHOG_HOST, person_profiles:'identified_only', capture_pageview:true});
+})();
+
+function track(event, props){
+  try { if(window.posthog && POSTHOG_KEY) posthog.capture(event, props||{}); }
+  catch(e){}
+}
+
 // ══════════════════════════════════════
 // LANGUAGE
 // ══════════════════════════════════════
@@ -1726,8 +1758,120 @@ function load() {
   }
 }
 function save() {
+  D.lastSavedAt = Date.now();
   localStorage.setItem('apex_v2', JSON.stringify(D));
   localStorage.setItem('apex_api', D.apiKey);
+  // Trigger debounced sync to GitHub Gist
+  scheduleGistSync();
+}
+
+// ══════════════════════════════════
+// GIST SYNC — persistência em Gist privado do GitHub
+// ══════════════════════════════════
+const GIST_FILE = 'opusx-data.json';
+let _gistTimer = null;
+let _gistSyncing = false;
+
+function getGistToken(){ return localStorage.getItem('apex_gist_token') || ''; }
+function setGistToken(t){ localStorage.setItem('apex_gist_token', t); }
+function getGistId(){ return localStorage.getItem('apex_gist_id') || ''; }
+function setGistId(id){ localStorage.setItem('apex_gist_id', id); }
+
+function setSyncStatus(status, msg){
+  const el = document.getElementById('sync-status');
+  if(!el) return;
+  const colors = {idle:'var(--dim)', syncing:'var(--gold)', synced:'var(--green)', error:'var(--red)'};
+  el.style.color = colors[status] || 'var(--dim)';
+  const labels = {idle:'desligado', syncing:'sincronizando…', synced:'sincronizado', error:'erro'};
+  el.textContent = msg || labels[status] || '';
+}
+
+function scheduleGistSync(){
+  if(!getGistToken()) return;
+  clearTimeout(_gistTimer);
+  _gistTimer = setTimeout(pushToGist, 3000);
+}
+
+async function pushToGist(){
+  const token = getGistToken();
+  if(!token || _gistSyncing) return;
+  _gistSyncing = true;
+  setSyncStatus('syncing');
+  try {
+    const payload = { files: { [GIST_FILE]: { content: JSON.stringify({ data: D, savedAt: Date.now(), version: 1 }, null, 2) } } };
+    let gistId = getGistId();
+    let res;
+    if(gistId){
+      res = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method:'PATCH', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json', Accept:'application/vnd.github+json' },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      res = await fetch('https://api.github.com/gists', {
+        method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json', Accept:'application/vnd.github+json' },
+        body: JSON.stringify({ description:'Opus X — backup automático', public:false, files: payload.files }),
+      });
+      if(res.ok){ const j = await res.json(); setGistId(j.id); }
+    }
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    setSyncStatus('synced');
+  } catch(e){
+    console.warn('[gist] push failed', e);
+    setSyncStatus('error', 'falhou — verifique token');
+  } finally { _gistSyncing = false; }
+}
+
+async function pullFromGist(){
+  const token = getGistToken(), gistId = getGistId();
+  if(!token || !gistId) return false;
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
+      cache:'no-store',
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const j = await res.json();
+    const f = j.files && j.files[GIST_FILE];
+    if(!f || !f.content){ setSyncStatus('synced'); return false; }
+    const parsed = JSON.parse(f.content);
+    const remoteSavedAt = parsed.savedAt || 0;
+    const localSavedAt = D.lastSavedAt || 0;
+    if(remoteSavedAt > localSavedAt && parsed.data){
+      // remote is newer — replace local
+      Object.assign(D, parsed.data);
+      localStorage.setItem('apex_v2', JSON.stringify(D));
+      setSyncStatus('synced', 'restaurado do Gist');
+      return true;
+    }
+    setSyncStatus('synced');
+    return false;
+  } catch(e){
+    console.warn('[gist] pull failed', e);
+    setSyncStatus('error', 'falhou — verifique token');
+    return false;
+  }
+}
+
+async function saveGistToken(){
+  const tok = (document.getElementById('gist-field')||{}).value || '';
+  setGistToken(tok.trim());
+  if(!tok.trim()){ setGistId(''); setSyncStatus('idle'); toast('Sync desligado'); return; }
+  toast('Token salvo, testando…');
+  // try pulling first (in case there's existing data); if no gist yet, push creates it
+  await pullFromGist();
+  await pushToGist();
+  if(getGistId()){ toast('Sync ligado ✓'); renderAll(); }
+}
+
+function clearGistToken(){
+  setGistToken(''); setGistId(''); setSyncStatus('idle');
+  const f = document.getElementById('gist-field'); if(f) f.value='';
+  toast('Sync desligado');
+}
+
+function renderAll(){
+  try { renderProfilePage(); renderTodayWorkout(); renderWater(); renderWeek(); renderFastHistory(); renderWeightPage(); renderWorkoutHistory(); buildWorkoutUI(); } catch(e){}
 }
 
 // ══════════════════════════════════
@@ -2442,8 +2586,13 @@ function openEditProfile() {
   },100);
 }
 
-window.onload = () => {
+window.onload = async () => {
   load();
+  // Try restoring data from Gist before first render (silent if no token)
+  if(getGistToken() && getGistId()){
+    try { await pullFromGist(); } catch(e){}
+  }
+  track('app_opened', {has_sync: !!(getGistToken() && getGistId()), onboarded: !!D.onboarded});
   applyLang();
   initHome();
   initWater();
@@ -2664,6 +2813,7 @@ function beginFast() {
 function endFast() {
   const elapsed = Math.floor((Date.now()-D.fastStart)/1000);
   const goal = D.fastH*3600; const pct = elapsed/goal;
+  track('fast_ended', {goal_h:D.fastH, elapsed_h:Math.round(elapsed/3600), complete:pct>=1});
   D.fastHistory = D.fastHistory||[];
   D.fastHistory.unshift({date:TODAY, ts:D.fastStart, endTs:Date.now(), goal:D.fastH, elapsed:Math.floor(elapsed/60), complete:pct>=1});
   D.fastHistory = D.fastHistory.slice(0,30);
@@ -2959,6 +3109,7 @@ function logSession(dayKey) {
   const session = plan[dayKey];
   const total = (session.exercises||[]).length;
   const done = (session.exercises||[]).filter((_,i)=>(D.exChecked||{})[dayKey+'_ex_'+i]).length;
+  track('workout_logged', {day:dayKey, done, total, complete:done===total});
   if(!D.workoutHistory) D.workoutHistory=[];
   D.workoutHistory.unshift({
     date:TODAY, ts:Date.now(), day:dayKey,
@@ -3132,6 +3283,7 @@ function logWeight(){
   const v=parseFloat(document.getElementById('w-input').value);
   if(!v||v<5||v>700){toast(tr('t_weight_inv'));return;}
   const lbs=inpToLbs(v);
+  track('weight_logged', {lbs:Math.round(lbs)});
   if(!D.weightLog)D.weightLog=[];
   D.weightLog=D.weightLog.filter(w=>w.date!==TODAY);
   D.weightLog.push({date:TODAY,lbs,ts:Date.now()});
@@ -3977,7 +4129,9 @@ function renderSecaHoje() {
 
 function secaSeriesDone(sk, el, autoTimer) {
   if(!D.exChecked) D.exChecked = {};
+  const wasOff = !D.exChecked[sk];
   D.exChecked[sk] = !D.exChecked[sk];
+  if(wasOff) track('series_completed', {sk});
   // Update checkbox visual
   const parts = sk.split('_'); // sb_planIdx_i_sS
   const rowEl = document.getElementById('srow-'+sk);
@@ -4668,9 +4822,25 @@ function openStreakDetail() {
 
 // ── SHEET / MODAL
 // ══════════════════════════════════
-function openSheet(id){document.getElementById('api-field').value=D.apiKey;document.getElementById(id).classList.add('show');}
+function openSheet(id){
+  const apiF = document.getElementById('api-field'); if(apiF) apiF.value = D.apiKey || '';
+  const gistF = document.getElementById('gist-field'); if(gistF) gistF.value = getGistToken();
+  if(id==='api-ov'){ setSyncStatus(getGistToken() && getGistId() ? 'synced' : 'idle'); }
+  document.getElementById(id).classList.add('show');
+}
 function closeSheet(id){document.getElementById(id).classList.remove('show');}
 function saveKey(){D.apiKey=document.getElementById('api-field').value.trim();localStorage.setItem('apex_api',D.apiKey);closeSheet('api-ov');toast(tr('t_api_saved'));}
+
+async function shareApp(){
+  const url = 'https://ewertondecastro.github.io/opusx/';
+  const text = 'Tô usando o Opus X — protocolo de força, jejum e nutrição. Dá uma olhada:';
+  track('invite_share');
+  if(navigator.share){
+    try { await navigator.share({title:'Opus X', text, url}); return; } catch(e){}
+  }
+  try { await navigator.clipboard.writeText(url); toast('Link copiado!'); }
+  catch(e){ prompt('Copie o link:', url); }
+}
 
 // ══════════════════════════════════
 // UTILS
