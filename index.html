@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-19T21:13:11Z">
+<meta name="app-version" content="2026-05-19T21:23:29Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1865,38 +1865,52 @@ async function pullFromGist(){
   }
 }
 
+// Retorna {ok:true, gistId} | {ok:false, status, body}
 async function findExistingOpusGist(token){
   try {
     const res = await fetch('https://api.github.com/gists?per_page=100', {
-      headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
+      headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28' },
       cache:'no-store',
     });
-    if(!res.ok) return null;
+    if(!res.ok){
+      let body = '';
+      try { body = await res.text(); } catch(e){}
+      return { ok:false, status:res.status, body:body.slice(0,200) };
+    }
     const list = await res.json();
     const found = list.find(g => g.files && g.files[GIST_FILE]);
-    return found ? found.id : null;
-  } catch(e){ return null; }
+    return { ok:true, gistId: found ? found.id : '' };
+  } catch(e){ return { ok:false, status:0, body:String(e).slice(0,200) }; }
 }
 
 async function saveGistToken(){
   const tok = (document.getElementById('gist-field')||{}).value || '';
   const trimmed = tok.trim();
-  setGistToken(trimmed);
-  if(!trimmed){ setGistId(''); setSyncStatus('idle'); toast('Sync desligado'); return; }
-  // Always start fresh — old gistId in localStorage may point to deleted gist
-  setGistId('');
-  toast('Testando token…');
-  setSyncStatus('syncing');
-  // First: verify the token actually works by listing gists
-  const existingId = await findExistingOpusGist(trimmed);
-  if(existingId === null){
-    // either auth failed or fetch failed
-    setSyncStatus('error', 'token inválido — confira o scope gist');
-    toast('Token inválido — confira o scope gist');
+  if(!trimmed){ setGistToken(''); setGistId(''); setSyncStatus('idle'); toast('Sync desligado'); return; }
+  if(trimmed.startsWith('github_pat_')){
+    setSyncStatus('error', 'use token classic (ghp_)');
+    toast('Token "github_pat_" não funciona com Gist — gere classic (ghp_)');
     return;
   }
-  if(existingId){
-    setGistId(existingId);
+  setGistToken(trimmed);
+  setGistId(''); // always start fresh
+  toast('Testando token…');
+  setSyncStatus('syncing');
+  const r = await findExistingOpusGist(trimmed);
+  if(!r.ok){
+    let hint = '';
+    if(r.status === 401) hint = 'token inválido (401)';
+    else if(r.status === 403) hint = 'sem scope gist (403)';
+    else if(r.status === 404) hint = 'endpoint não encontrado (404)';
+    else if(r.status === 0)   hint = 'sem rede / CORS';
+    else                       hint = 'HTTP '+r.status;
+    setSyncStatus('error', hint);
+    console.warn('[gist] auth check failed:', r);
+    alert('GitHub respondeu: '+hint+'\n\nDetalhe:\n'+(r.body||'(sem corpo)')+'\n\nPrimeiros 8 chars do token colado: '+trimmed.slice(0,8)+'… (length '+trimmed.length+')');
+    return;
+  }
+  if(r.gistId){
+    setGistId(r.gistId);
     await pullFromGist();
   }
   await pushToGist();
