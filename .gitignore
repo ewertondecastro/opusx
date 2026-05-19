@@ -1,3 +1,5 @@
 .DS_Store
 *.log
 .auto-push.lock
+icons/*.b64
+logs/
