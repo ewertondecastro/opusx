@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T01:22:09Z">
+<meta name="app-version" content="2026-05-20T14:43:38Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -473,6 +473,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .ai-spin{width:36px;height:36px;border:2px solid var(--bdr);border-top-color:var(--gold);border-right-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Celebration */
+#confetti-layer{position:fixed;inset:0;z-index:9998;pointer-events:none;overflow:hidden}
+.confetti-bit{position:absolute;top:-20px;width:10px;height:14px;opacity:.95;will-change:transform}
+@keyframes confettiFall{to{transform:translateY(108vh) rotate(720deg);opacity:.9}}
+#celebrate-banner{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);z-index:9999;pointer-events:none;text-align:center;opacity:0}
+#celebrate-banner.show{animation:celebPop .5s cubic-bezier(.2,1.4,.4,1) forwards}
+@keyframes celebPop{to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.celeb-title{font-family:'Bebas Neue',sans-serif;font-size:54px;color:var(--gold);letter-spacing:1px;text-shadow:0 4px 30px rgba(0,0,0,.6);line-height:1}
+.celeb-sub{font-size:16px;color:var(--text);margin-top:8px;font-weight:600}
+
 /* Progress fill for rings */
 .r-arc{fill:none;stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)}
 
@@ -831,6 +841,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
     <!-- Fast history -->
     <div class="hist-section" id="hs-fast">
+      <button onclick="openManualFast()" id="add-manual-fast-btn" style="width:calc(100% - 28px);margin:0 14px 10px;padding:13px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:var(--rs);color:var(--gold);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">+ ADICIONAR JEJUM ESQUECIDO</button>
       <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);margin:0 14px;overflow:hidden">
         <div id="fast-history-list"><div class="empty">Nenhum jejum registrado ainda.</div></div>
       </div>
@@ -1644,7 +1655,60 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
 </div>
 
+<!-- MANUAL FAST SHEET -->
+<div class="overlay" id="manual-fast-ov" onclick="if(event.target===this)closeSheet('manual-fast-ov')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">ADICIONAR JEJUM</div>
+    <div class="sheet-desc">Esqueceu de registrar? Informe quando começou e terminou.</div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">DATA DE INÍCIO</div>
+      <input class="sheet-input" id="mf-date" type="date" style="margin-bottom:0">
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">COMEÇOU ÀS</div>
+        <input class="sheet-input" id="mf-start" type="time" style="margin-bottom:0">
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">TERMINOU ÀS</div>
+        <input class="sheet-input" id="mf-end" type="time" style="margin-bottom:0">
+      </div>
+    </div>
+    <div class="sheet-note" id="mf-note">Se terminou no dia seguinte, tudo bem — o app calcula a duração.</div>
+    <div class="sheet-btns">
+      <button class="btn btn-outline" onclick="closeSheet('manual-fast-ov')" style="flex:1">Cancelar</button>
+      <button class="btn btn-gold" onclick="saveManualFast()" style="flex:2;margin:0">Salvar jejum</button>
+    </div>
+  </div>
+</div>
+
+<!-- SKIP / MOTIVATION SHEET -->
+<div class="overlay" id="skip-ov" onclick="if(event.target===this)closeSheet('skip-ov')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div style="text-align:center;font-size:40px;margin-bottom:6px">🛑</div>
+    <div class="sheet-title" style="text-align:center">ESPERA AÍ</div>
+    <div class="sheet-desc" style="text-align:center">Você está prestes a pular <strong style="color:var(--gold)" id="skip-modal-target">esse exercício</strong>. Antes, dois segundos:</div>
+    <div style="background:var(--red-bg);border:1px solid rgba(224,82,82,.25);border-radius:var(--rs);padding:14px;margin-bottom:10px">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--red);font-weight:700;margin-bottom:6px">SE VOCÊ PULAR</div>
+      <div style="font-size:14px;color:var(--text);line-height:1.6">Você ensina seu cérebro que desistir é uma opção. O resultado atrasa. E amanhã vai ser mais fácil pular de novo — porque virou hábito.</div>
+    </div>
+    <div style="background:var(--green-bg);border:1px solid rgba(82,168,120,.25);border-radius:var(--rs);padding:14px;margin-bottom:14px">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:6px">SE VOCÊ FIZER</div>
+      <div style="font-size:14px;color:var(--text);line-height:1.6">Você prova pra si mesmo que é maior que a preguiça. Constrói músculo E disciplina. Sai mais forte — de corpo e de mente.</div>
+    </div>
+    <div style="text-align:center;font-size:15px;color:var(--gold);font-weight:600;font-style:italic;line-height:1.5;margin-bottom:18px" id="skip-modal-punch"></div>
+    <div class="sheet-btns">
+      <button class="btn btn-outline" onclick="skipConfirm()" style="flex:1;font-size:12px">Pular assim mesmo</button>
+      <button class="btn btn-gold" onclick="skipCancel()" style="flex:2;margin:0">VOU FAZER 💪</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
+<div id="confetti-layer"></div>
+<div id="celebrate-banner"><div class="celeb-title" id="celeb-title">FEITO!</div><div class="celeb-sub" id="celeb-sub"></div></div>
 
 <script>
 'use strict';
@@ -3018,7 +3082,117 @@ function setCustom(v) {
   setEl('fm-goal', h+'H'); save();
 }
 
+// ══════════════════════════════════
+// CELEBRAÇÃO
+// ══════════════════════════════════
+function celebrate(title, sub){
+  const layer = document.getElementById('confetti-layer');
+  const banner = document.getElementById('celebrate-banner');
+  if(!layer || !banner) return;
+  const colors = ['#C9A96E','#E8CC99','#52A878','#5289C9','#E05252','#fff'];
+  layer.innerHTML = '';
+  for(let i=0;i<70;i++){
+    const bit = document.createElement('div');
+    bit.className = 'confetti-bit';
+    bit.style.left = Math.random()*100+'vw';
+    bit.style.background = colors[i%colors.length];
+    bit.style.borderRadius = Math.random()>.5?'50%':'2px';
+    const dur = 2.2 + Math.random()*1.8;
+    const delay = Math.random()*0.5;
+    bit.style.animation = `confettiFall ${dur}s ${delay}s cubic-bezier(.3,.1,.5,1) forwards`;
+    layer.appendChild(bit);
+  }
+  setEl('celeb-title', title || 'FEITO!');
+  setEl('celeb-sub', sub || '');
+  banner.classList.remove('show'); void banner.offsetWidth; banner.classList.add('show');
+  if(navigator.vibrate) navigator.vibrate([40,60,40,60,120]);
+  setTimeout(()=>{ banner.classList.remove('show'); }, 3200);
+  setTimeout(()=>{ layer.innerHTML=''; }, 4800);
+}
+
+// ══════════════════════════════════
+// MOTIVAÇÃO — malhar a mente também
+// ══════════════════════════════════
+const MOTIVATION = [
+  'Disciplina é fazer mesmo sem vontade. Hoje é dia de provar pra você mesmo.',
+  'Ninguém nunca se arrependeu de ter treinado. Vai lá.',
+  'O treino que você não quer fazer é exatamente o que mais te transforma.',
+  'Você não precisa estar com vontade. Precisa só começar.',
+  'Cada série feita é um voto na pessoa que você quer se tornar.',
+  'O corpo segue. É a mente que decide. Decida agora.',
+  'A versão de você daqui a 1 ano está sendo construída hoje.',
+  'Não conte os dias. Faça os dias contarem. Começa pelo treino.',
+  'Desculpa não constrói músculo. Repetição constrói.',
+  'O esforço de hoje é o orgulho de amanhã. Não negocie com a preguiça.',
+  'Foco no processo. O resultado é do tamanho do seu esforço.',
+  'Você é mais forte do que a sua desculpa. Prova isso agora.',
+];
+function getDailyMotivation(){
+  const d = new Date();
+  const dayOfYear = Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000);
+  return MOTIVATION[dayOfYear % MOTIVATION.length];
+}
+
+// Modal "não vou fazer" — motiva e mostra consequências/benefícios
+function openSkipModal(kind, label){
+  setEl('skip-modal-target', label || (kind==='cardio'?'o cardio':'esse exercício'));
+  const punch = MOTIVATION[Math.floor(Math.random()*MOTIVATION.length)];
+  setEl('skip-modal-punch', punch);
+  document.getElementById('skip-ov')?.classList.add('show');
+  track('skip_modal_open', {kind});
+}
+function skipConfirm(){
+  closeSheet('skip-ov');
+  toast('Tudo bem. Mas amanhã não dá pra fugir de novo. 👊');
+  track('skip_confirmed');
+}
+function skipCancel(){
+  closeSheet('skip-ov');
+  toast('Essa é a atitude. 🔥 Bora!');
+  track('skip_cancelled');
+}
+
 function toggleFast() { D.fastStart ? endFast() : beginFast(); }
+
+function openManualFast(){
+  const today = new Date().toISOString().slice(0,10);
+  const d = document.getElementById('mf-date'); if(d) d.value = today;
+  const s = document.getElementById('mf-start'); if(s) s.value = '20:00';
+  const e = document.getElementById('mf-end'); if(e) e.value = '12:00';
+  openSheet('manual-fast-ov');
+}
+
+function saveManualFast(){
+  const dateVal = document.getElementById('mf-date').value;
+  const startVal = document.getElementById('mf-start').value;
+  const endVal = document.getElementById('mf-end').value;
+  if(!dateVal || !startVal || !endVal){ toast('Preencha data, início e fim'); return; }
+  const start = new Date(dateVal+'T'+startVal);
+  let end = new Date(dateVal+'T'+endVal);
+  // se o fim é antes/igual ao início, assume que terminou no dia seguinte
+  if(end <= start) end = new Date(end.getTime() + 86400000);
+  const elapsedMin = Math.floor((end - start)/60000);
+  if(elapsedMin <= 0 || elapsedMin > 7*24*60){ toast('Duração inválida'); return; }
+  const goal = D.fastH || 16;
+  D.fastHistory = D.fastHistory || [];
+  D.fastHistory.push({
+    date: start.toDateString(),
+    ts: start.getTime(),
+    endTs: end.getTime(),
+    goal,
+    elapsed: elapsedMin,
+    complete: elapsedMin/60 >= goal,
+    manual: true,
+  });
+  // mantém ordenado por data (mais recente primeiro) e limita
+  D.fastHistory.sort((a,b)=>b.ts-a.ts);
+  D.fastHistory = D.fastHistory.slice(0,60);
+  save();
+  closeSheet('manual-fast-ov');
+  const h = Math.floor(elapsedMin/60), m = elapsedMin%60;
+  toast(`Jejum de ${h}h${m?' '+m+'min':''} adicionado ✓`);
+  renderFastHistory(); renderFastHistory2(); setEl('h-fasts',(D.fastHistory||[]).length);
+}
 
 function beginFast() {
   D.fastStart = Date.now(); save();
@@ -3750,6 +3924,8 @@ const ALTERNATIVES = {
   'Elevação Lateral': [
     { name: 'Cabecinho na Polia Baixa', detail: '3×15 cada lado · 5lb · Mais resistência constante' },
     { name: 'Remada Alta com Halteres', detail: '3×12 · 20lb total · Ombro + trapézio' },
+    { name: 'Elevação Lateral na Máquina', detail: '3×15 · Se disponível · Trajetória guiada e segura' },
+    { name: 'Elevação Lateral com Elástico', detail: '3×20 · Elástico médio · Em casa, sem peso' },
   ],
   'Tríceps na Polia': [
     { name: 'Tríceps com Haltere (Francês)', detail: '3×12 · 15lb · Deitado ou sentado' },
@@ -3779,6 +3955,8 @@ const ALTERNATIVES = {
   'Rosca Direta': [
     { name: 'Rosca Concentrada', detail: '3×12 · 15lb · Cotovelo no joelho, isolamento total' },
     { name: 'Rosca na Polia Baixa', detail: '3×12 · 20lb · Tensão constante' },
+    { name: 'Rosca com Halteres Alternada', detail: '3×12 cada · 15lb · Sem barra, foco unilateral' },
+    { name: 'Rosca com Elástico', detail: '3×20 · Elástico médio · Em casa, sem equipamento' },
   ],
   'Encolhimento': [
     { name: 'Encolhimento na Máquina', detail: '4×15 · Se disponível · Mais estabilidade' },
@@ -3788,26 +3966,33 @@ const ALTERNATIVES = {
   'Facepull': [
     { name: 'Remada Alta com Halteres', detail: '3×15 · 15lb cada · Ativa ombro posterior e trapézio' },
     { name: 'Crucifixo Invertido (Bent Over)', detail: '3×15 · 10lb cada · Posterior do ombro' },
+    { name: 'Facepull com Elástico', detail: '3×20 · Elástico médio · Mesma função, em casa' },
   ],
   'Prancha Lateral': [
     { name: 'Abdominal Oblíquo Cruzado', detail: '3×20 · Corporal · Cotovelo ao joelho oposto' },
     { name: 'Toque no Calcanhar', detail: '3×20 · Corporal · Deitado, flexão lateral' },
+    { name: 'Russian Twist', detail: '3×20 · Corporal ou 10lb · Rotação de tronco sentado' },
   ],
   'Supino Reto': [
+    { name: 'Supino com Halteres', detail: '3×12 · 25lb cada · Mais amplitude que a barra' },
     { name: 'Crucifixo Reto com Halteres', detail: '3×15 · 12lb cada · Sem banco inclinado' },
     { name: 'Peck Deck', detail: '3×15 · 45lb · Máquina de crucifixo' },
+    { name: 'Flexão de Braço', detail: '3×máximo · Corporal · Sem equipamento' },
   ],
   'Rosca Martelo': [
     { name: 'Rosca Direta com Barra EZ', detail: '3×12 · 30lb · Menos stress no pulso' },
     { name: 'Rosca Inversa', detail: '3×12 · 15lb · Pronada, ativa braquiorradial' },
+    { name: 'Rosca Martelo na Polia com Corda', detail: '3×15 · 25lb · Tensão constante' },
   ],
   'Tríceps Testa': [
     { name: 'Tríceps no Cabo com Barra Reta', detail: '3×12 · 25lb · Cabeça longa do tríceps' },
     { name: 'Dips entre Bancos', detail: '3×máximo · Corporal · Joelhos dobrados, sem impacto' },
+    { name: 'Tríceps Francês com Halter', detail: '3×12 · 20lb · Sentado, acima da cabeça' },
   ],
   'Rosca Scott': [
     { name: 'Rosca Concentrada no Banco', detail: '3×12 · 15lb · Mesmo isolamento do bíceps' },
     { name: 'Rosca na Polia (ambos os lados)', detail: '3×12 · 15lb · Tensão constante' },
+    { name: 'Rosca Scott com Halter', detail: '3×12 cada · 15lb · No banco inclinado, unilateral' },
   ],
   'Cadeira Abdominal': [
     { name: 'Abdominal no Solo (Crunch)', detail: '3×25 · Corporal · Mãos atrás da cabeça leve' },
@@ -3894,25 +4079,69 @@ const ALTERNATIVES = {
   ],
 };
 
-function openAlternatives(exName) {
+let _altContext = null; // {type, i, exName} quando aberto a partir do treino SECA
+
+function openAlternatives(exName, type, i) {
   const list = document.getElementById('alt-list');
-  setEl('alt-title', 'ALTERNATIVAS');
+  setEl('alt-title', 'SUBSTITUIR EXERCÍCIO');
   setEl('alt-desc', `Substituições para: <strong style="color:var(--gold)">${exName}</strong>`);
+
+  const canSubstitute = (typeof type !== 'undefined' && typeof i !== 'undefined');
+  _altContext = canSubstitute ? {type, i, exName} : null;
 
   // Find matching alternatives
   const key = Object.keys(ALTERNATIVES).find(k => exName.includes(k));
   const alts = key ? ALTERNATIVES[key] : null;
 
+  let html = '';
+
+  // Se já está substituído, oferece voltar ao original
+  if(canSubstitute && (D.exSub||{})[type+'_'+i]){
+    html += `<div style="background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:var(--rs);padding:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="font-size:13px;color:var(--mid);flex:1">Este exercício está substituído.</div>
+      <button onclick="revertExercise()" style="padding:8px 12px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">↩ Voltar ao original</button>
+    </div>`;
+  }
+
   if(!alts||!alts.length){
-    list.innerHTML = `<div style="font-size:14px;color:var(--mid);padding:10px 0">${lang==='pt'?'Nenhuma alternativa cadastrada para este exercício. Pergunte ao seu personal trainer IA.':'No alternatives registered. Ask your AI personal trainer.'}</div>`;
+    html += `<div style="font-size:14px;color:var(--mid);padding:10px 0">${lang==='pt'?'Nenhuma alternativa cadastrada. Pergunte ao seu personal trainer IA na aba do treino.':'No alternatives registered. Ask your AI trainer.'}</div>`;
   } else {
-    list.innerHTML = alts.map(a=>`
+    html += alts.map((a,ai)=>`
       <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px">
-        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">${a.name}</div>
-        <div style="font-size:13px;color:var(--mid)">${a.detail}</div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">${a.name}</div>
+            <div style="font-size:13px;color:var(--mid)">${a.detail}</div>
+          </div>
+          ${canSubstitute?`<button onclick="substituteExercise(${ai})" style="padding:9px 12px;background:var(--gold);border:none;border-radius:6px;color:var(--bg);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">SUBSTITUIR</button>`:''}
+        </div>
       </div>`).join('');
   }
+  // guarda os alts atuais pra o substituteExercise
+  _altContext && (_altContext.alts = alts || []);
+  list.innerHTML = html;
   openSheet('alt-ov');
+}
+
+function substituteExercise(altIdx){
+  if(!_altContext || !_altContext.alts || !_altContext.alts[altIdx]) return;
+  const a = _altContext.alts[altIdx];
+  if(!D.exSub) D.exSub = {};
+  D.exSub[_altContext.type+'_'+_altContext.i] = { name:a.name, detail:a.detail };
+  save();
+  track('exercise_substituted', {to:a.name});
+  closeSheet('alt-ov');
+  toast('Exercício substituído por: '+a.name);
+  renderSecaHoje();
+}
+
+function revertExercise(){
+  if(!_altContext || !D.exSub) return;
+  delete D.exSub[_altContext.type+'_'+_altContext.i];
+  save();
+  closeSheet('alt-ov');
+  toast('Voltou ao exercício original ✓');
+  renderSecaHoje();
 }
 
 // ══════════════════════════════════
@@ -4141,12 +4370,29 @@ function renderSecaHoje() {
     ${isDone?'<div class="badge badge-green">✓ FEITO</div>':'<div class="badge badge-gold">PRÓXIMO</div>'}
   </div>`;
 
+  // Banner de motivação diária
+  html += `<div style="margin:10px 14px 0;background:var(--gold-bg);border:1px solid rgba(201,169,110,.25);border-left:3px solid var(--gold);border-radius:var(--rs);padding:13px 15px">
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px">💬 FOCO DO DIA</div>
+    <div style="font-size:14px;color:var(--text);line-height:1.5;font-style:italic">${getDailyMotivation()}</div>
+  </div>`;
+
   const exercises = type === 'A' ? SECA_TREINO_A : SECA_TREINO_B;
   const SERIES_COUNT = 3;
 
   html += `<div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden">`;
 
-  exercises.forEach((ex, i) => {
+  exercises.forEach((origEx, i) => {
+    // Aplica substituição de exercício, se houver
+    const subKey = type+'_'+i;
+    const sub = (D.exSub||{})[subKey];
+    const ex = sub ? {
+      ...origEx,
+      name: sub.name,
+      yt: encodeURIComponent(sub.name + ' execução técnica'),
+      notes: sub.detail || origEx.notes,
+      _substituted: true,
+      _origName: origEx.name,
+    } : origEx;
     const loadKey = `load_seca_${type}_${i}`;
     const loadHistory = (D.loadHistory||{})[loadKey] || [];
     // Get last session's per-series data for reference
@@ -4249,13 +4495,13 @@ function renderSecaHoje() {
           <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.5;stroke-linecap:round;display:${exAllDone?'block':'none'}"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:15px;color:var(--text);font-weight:700;line-height:1.2">${ex.name}${ex.warn?` <span style="color:var(--red);font-size:11px">⚠️ JOELHO</span>`:''}
+          <div style="font-size:15px;color:var(--text);font-weight:700;line-height:1.2">${ex.name}${ex.warn?` <span style="color:var(--red);font-size:11px">⚠️ JOELHO</span>`:''}${ex._substituted?` <span style="color:var(--gold);font-size:10px;font-weight:700">↔ SUBSTITUÍDO</span>`:''}
           </div>
           <div style="font-size:12px;color:var(--mid);margin-top:2px">${ex.sets}×${ex.reps} · ${ex.rest} · <span id="exprog-${planIdx}-${i}" style="color:${exAllDone?'var(--green)':'var(--gold)'};font-weight:700">${exDoneCount}/${SERIES_COUNT}</span></div>
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
           <a class="ex-yt-btn" href="https://www.youtube.com/results?search_query=${ex.yt}" target="_blank" onclick="event.stopPropagation()" style="font-size:10px;padding:6px 8px">YT</a>
-          <div class="ex-yt-btn" onclick="event.stopPropagation();openAlternatives('${ex.name}')" style="background:var(--gold-bg);border-color:rgba(201,169,110,.25);color:var(--gold);cursor:pointer;font-size:10px;padding:6px 8px">ALT</div>
+          <div class="ex-yt-btn" onclick="event.stopPropagation();openAlternatives('${(ex._substituted?ex._origName:ex.name).replace(/'/g,'')}','${type}',${i})" style="background:var(--gold-bg);border-color:rgba(201,169,110,.25);color:var(--gold);cursor:pointer;font-size:10px;padding:6px 8px">ALT</div>
           <div onclick="event.stopPropagation();toggleLoadPanel('hist-${planIdx}-${i}')" style="padding:6px 8px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;color:var(--dim);font-size:12px;cursor:pointer">📈</div>
           <div id="exchev-${planIdx}-${i}" style="padding:6px 4px;color:var(--dim);font-size:14px;transition:transform .2s;transform:rotate(${exExpanded?'180deg':'0deg'})">▾</div>
         </div>
@@ -4263,6 +4509,9 @@ function renderSecaHoje() {
       <!-- Per-series rows (collapsible) -->
       <div id="exseries-${planIdx}-${i}" style="display:${exExpanded?'block':'none'}">
         ${seriesRowsHtml}
+        <div style="padding:10px 14px;border-bottom:1px solid var(--bdr)">
+          <button onclick="openSkipModal('exercise','${ex.name.replace(/'/g,'')}')" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer">😮‍💨 Não vou fazer esse exercício</button>
+        </div>
       </div>
       <!-- History panel -->
       <div class="load-input-wrap" id="hist-${planIdx}-${i}">
@@ -4313,11 +4562,33 @@ function renderSecaHoje() {
       }).join('')}
       <span style="font-size:13px;color:var(--dim);margin-left:4px">rounds</span>
     </div>`:''}
+    <div style="padding:10px 16px 14px">
+      <button onclick="openSkipModal('cardio','o cardio')" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer">😮‍💨 Não vou fazer o cardio</button>
+    </div>
   </div>`;
   const btnLabel = isDone ? '✓ SESSÃO CONCLUÍDA' : 'MARCAR SESSÃO COMO EXECUTADA';
   const btnCls = isDone ? 'btn-executed done' : 'btn-executed';
+  // Horários de início/fim do treino
+  const _skey = getCurrentWeekKey()+'_'+planIdx;
+  const _slog = (D.secaLog||{})[_skey];
+  const _sstart = (D.secaSessionStart||{})[_skey];
+  let timesHtml = '';
+  if(_slog && _slog.done && _slog.startTs && _slog.endTs){
+    const durMin = Math.round((_slog.endTs - _slog.startTs)/60000);
+    const dh = Math.floor(durMin/60), dm = durMin%60;
+    timesHtml = `<div style="margin-top:10px;display:flex;gap:8px;justify-content:center;font-size:12px;color:var(--mid)">
+      <span>🕐 Início <strong style="color:var(--text)">${fmt12(new Date(_slog.startTs))}</strong></span>
+      <span>·</span>
+      <span>🏁 Fim <strong style="color:var(--text)">${fmt12(new Date(_slog.endTs))}</strong></span>
+      <span>·</span>
+      <span><strong style="color:var(--gold)">${dh?dh+'h ':''}${dm}min</strong></span>
+    </div>`;
+  } else if(_sstart && !(_slog && _slog.done)){
+    timesHtml = `<div style="margin-top:10px;text-align:center;font-size:12px;color:var(--mid)">🕐 Treino iniciado às <strong style="color:var(--text)">${fmt12(new Date(_sstart))}</strong></div>`;
+  }
   html += `<div style="padding:0 14px">
     <button class="${btnCls}" onclick="markSecaDone(${planIdx},'${type}')">${btnLabel}</button>
+    ${timesHtml}
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
       <div style="font-size:13px;color:var(--dim);flex:1">Esqueceu de marcar um dia anterior?</div>
       <button onclick="openRetroactive()" style="padding:8px 14px;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;color:var(--mid);font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;cursor:pointer">CORRIGIR ›</button>
@@ -4350,11 +4621,20 @@ function renderSecaHoje() {
   renderSecaChatHistory();
 }
 
+function markSecaStart(sk){
+  // Registra o horário de início do treino na 1ª série marcada
+  const parts = sk.replace('sb_','').split('_'); // [planIdx, i, sS]
+  const planIdx = parts[0];
+  const key = getCurrentWeekKey()+'_'+planIdx;
+  if(!D.secaSessionStart) D.secaSessionStart = {};
+  if(!D.secaSessionStart[key]) D.secaSessionStart[key] = Date.now();
+}
+
 function secaSeriesDone(sk, el, autoTimer) {
   if(!D.exChecked) D.exChecked = {};
   const wasOff = !D.exChecked[sk];
   D.exChecked[sk] = !D.exChecked[sk];
-  if(wasOff) track('series_completed', {sk});
+  if(wasOff){ track('series_completed', {sk}); markSecaStart(sk); }
   // Update checkbox visual
   const parts = sk.split('_'); // sb_planIdx_i_sS
   const rowEl = document.getElementById('srow-'+sk);
@@ -4419,6 +4699,7 @@ function toggleSecaExAll(planIdx, i, type){
   let allDone = true;
   for(let s=0;s<total;s++){ if(!D.exChecked[`sb_${planIdx}_${i}_s${s}`]){ allDone = false; break; } }
   const newVal = !allDone;
+  if(newVal) markSecaStart(`sb_${planIdx}_${i}_s0`);
   for(let s=0;s<total;s++){
     const sk = `sb_${planIdx}_${i}_s${s}`;
     D.exChecked[sk] = newVal;
@@ -4830,6 +5111,15 @@ function markSecaDone(planIdx, type) {
     D.secaGlobal = D.secaGlobal.slice(-60); // keep last 60 sessions
   if(!alreadyDone) {
     snapshotSeriesHistory(type, planIdx);
+    if(D.secaSessionStart && D.secaSessionStart[key]){
+      D.secaLog[key].startTs = D.secaSessionStart[key];
+      D.secaLog[key].endTs = Date.now();
+    }
+    track('workout_logged', {type, planIdx});
+    celebrate(
+      lang==='pt'?'TREINO FEITO!':'WORKOUT DONE!',
+      lang==='pt'?('Você não parou. 💪 Próximo: Treino '+(type==='A'?'B':'A')):('You showed up. Next: Workout '+(type==='A'?'B':'A'))
+    );
     toast(lang==='pt'?'Sessão registrada! 💪 Próximo: '+(type==='A'?'B':'A'):'Logged! Next: '+(type==='A'?'B':'A'));
     // Auto-generate daily report after short delay
     if(D.apiKey) {
