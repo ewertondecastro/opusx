@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T15:57:28Z">
+<meta name="app-version" content="2026-05-20T15:59:05Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1220,6 +1220,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div id="profile-limitations" style="font-size:15px;color:var(--mid)">—</div>
     </div>
 
+    <!-- Aparência / tema -->
+    <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:12px">APARÊNCIA · COR DO APP</div>
+      <div class="theme-picker" style="display:flex;gap:10px"></div>
+    </div>
+
     <!-- Backup dos dados (API key fica no menu de engrenagem, fora da vista do usuário) -->
     <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px" id="profile-backup-title">MEUS DADOS</div>
@@ -1535,7 +1541,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bdr)">
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px" id="theme-section-title">TEMA / PALETA</div>
-      <div id="theme-picker" style="display:flex;gap:10px"></div>
+      <div class="theme-picker" style="display:flex;gap:10px"></div>
     </div>
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bdr)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -1762,10 +1768,10 @@ function setTheme(themeKey){
   toast((lang==='pt'?'Tema: ':'Theme: ')+(THEMES[themeKey]||THEMES.gold).name);
 }
 function renderThemePicker(){
-  const wrap = document.getElementById('theme-picker');
-  if(!wrap) return;
+  const wraps = document.querySelectorAll('.theme-picker');
+  if(!wraps.length) return;
   const current = localStorage.getItem('apex_theme') || 'gold';
-  wrap.innerHTML = Object.keys(THEMES).map(k=>{
+  const inner = Object.keys(THEMES).map(k=>{
     const t = THEMES[k];
     const on = k===current;
     return `<div onclick="setTheme('${k}')" style="flex:1;min-width:60px;cursor:pointer;text-align:center">
@@ -1773,6 +1779,7 @@ function renderThemePicker(){
       <div style="font-size:11px;margin-top:5px;color:${on?'var(--text)':'var(--dim)'};font-weight:${on?'700':'400'}">${t.name}</div>
     </div>`;
   }).join('');
+  wraps.forEach(w=>{ w.innerHTML = inner; });
 }
 applyTheme(localStorage.getItem('apex_theme') || 'gold');
 
@@ -2765,6 +2772,7 @@ function obSkip() {
 // PROFILE PAGE
 // ══════════════════════════════════
 function renderProfilePage() {
+  renderThemePicker();
   const p = D.userProfile || {};
   const name = D.name || '—';
   const initials = name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
