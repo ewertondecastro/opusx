@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T17:04:28Z">
+<meta name="app-version" content="2026-05-20T18:59:04Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1667,6 +1667,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-desc" id="alt-desc">Máquina ocupada ou exercício impossível? Escolha:</div>
     <div id="alt-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px"></div>
     <button class="btn btn-outline btn-full" onclick="closeSheet('alt-ov')">Fechar</button>
+  </div>
+</div>
+
+<!-- FOOD SUBSTITUTION SHEET -->
+<div class="overlay" id="foodsub-ov" onclick="if(event.target===this)closeSheet('foodsub-ov')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="foodsub-title">SUBSTITUIÇÕES</div>
+    <div class="sheet-desc" id="foodsub-desc"></div>
+    <div id="foodsub-list" style="display:flex;flex-direction:column;gap:9px;margin-bottom:18px"></div>
+    <button class="btn btn-outline btn-full" onclick="closeSheet('foodsub-ov')">Fechar</button>
   </div>
 </div>
 
@@ -4499,6 +4510,95 @@ const SECA_DIETAS = [
   { dia: 'DIA 15', almoco: ['Batata baroa 335g', 'Bife grelhado 130g', 'Folhas à vontade + legumes à vontade'], lanche: ['Iogurte desnatado 300ml', 'Pera 100g', 'Aveia em flocos 15g'], jantar: ['Inhame 220g', 'Frango grelhado 140g', 'Folhas à vontade + legumes à vontade'] },
 ];
 
+// Tabela de substituição de alimentos (ebook Renato Cariani)
+const SUB_GROUPS = {
+  carbcombo: { title:'Carboidrato + Leguminosa', desc:'Combinações equivalentes (~250 kcal · ~50g carbo · ~10g proteína)', items:[
+    { name:'Arroz branco + feijão carioca', info:'165g + 140g · 50g carbo · 10g prot · 249 kcal' },
+    { name:'Arroz integral + feijão preto', info:'160g + 140g · 47g carbo · 10g prot · 246 kcal' },
+    { name:'Cuscuz de milho + lentilha', info:'130g + 120g · 50g carbo · 10g prot · 249 kcal' },
+    { name:'Batata-doce + grão-de-bico', info:'150g + 120g · 48g carbo · 9g prot · 237 kcal' },
+    { name:'Inhame + feijão-fradinho', info:'160g + 130g · 50g carbo · 10g prot · 249 kcal' },
+    { name:'Quinoa + lentilha', info:'130g + 130g · 49g carbo · 11g prot · 258 kcal' },
+    { name:'Macarrão integral + ervilha', info:'140g + 130g · 48g carbo · 10g prot · 250 kcal' },
+  ]},
+  carb: { title:'Carboidratos complexos', desc:'Porções equivalentes (~50g carbo · ~170 kcal)', items:[
+    { name:'Mandioca cozida', info:'210g · 50g carbo · 2,6g fibra · 170 kcal' },
+    { name:'Arroz branco cozido', info:'185g · 50g carbo · 4g prot · 170 kcal' },
+    { name:'Batata-doce cozida', info:'265g · 50g carbo · 4g fibra · 170 kcal' },
+    { name:'Inhame cozido', info:'250g · 50g carbo · 3g fibra · 170 kcal' },
+    { name:'Cuscuz de milho cozido', info:'220g · 50g carbo · 1,5g fibra · 170 kcal' },
+    { name:'Aveia em flocos', info:'65g · 50g carbo · 7g prot · 273 kcal' },
+    { name:'Milho verde cozido (grãos)', info:'200g · 50g carbo · 5g prot · 238 kcal' },
+  ]},
+  protein: { title:'Fontes de proteína', desc:'Porções equivalentes (~32g de proteína)', items:[
+    { name:'Frango grelhado (sassami)', info:'140g · 32g prot · 3g gord · 165 kcal' },
+    { name:'Carne bovina magra (patinho)', info:'145g · 32g prot · 6g gord · 190 kcal' },
+    { name:'Tilápia grelhada', info:'160g · 32g prot · 3g gord · 160 kcal' },
+    { name:'Ovos inteiros cozidos', info:'4 unidades (200g) · 28g prot · 280 kcal' },
+    { name:'Whey protein concentrado', info:'1 scoop (30g) · 25g prot · 120 kcal' },
+    { name:'Sardinha em lata (na água)', info:'2 latas (170g) · 30g prot · 210 kcal' },
+    { name:'Tofu firme grelhado', info:'250g · 32g prot · 10g gord · 240 kcal' },
+    { name:'Queijo cottage (baixa gordura)', info:'220g · 30g prot · 4g gord · 180 kcal' },
+    { name:'Grão-de-bico cozido', info:'240g · 15g prot · 35g carbo · 250 kcal' },
+  ]},
+  whey: { title:'Substitutos do whey protein', desc:'Equivalentes a 1 scoop de whey (~24g proteína)', items:[
+    { name:'Whey protein concentrado', info:'30g (1 scoop) · 24g prot · 120 kcal' },
+    { name:'Frango grelhado (sassami)', info:'120g · 26g prot · 130 kcal' },
+    { name:'Carne magra (patinho) grelhada', info:'120g · 25g prot · 160 kcal' },
+    { name:'Tilápia grelhada', info:'140g · 26g prot · 130 kcal' },
+    { name:'Clara de ovo cozida', info:'10 unidades (330g) · 28g prot · 145 kcal' },
+    { name:'Tofu firme grelhado', info:'200g · 24g prot · 190 kcal' },
+    { name:'Queijo cottage', info:'200g · 24g prot · 160 kcal' },
+    { name:'Pasta de amendoim + ½ scoop whey', info:'15g + 15g · 23g prot · 150 kcal' },
+    { name:'Proteína vegetal em pó (ervilha/arroz)', info:'30g · 22g prot · 125 kcal' },
+  ]},
+  cereal: { title:'Cereais e fibras', desc:'Opções equivalentes para o lanche', items:[
+    { name:'Aveia em flocos', info:'15g · 9g carbo · 1,5g fibra · 57 kcal' },
+    { name:'Farelo de aveia', info:'15g · 8g carbo · 2g fibra · 54 kcal' },
+    { name:'Farelo de trigo', info:'10g · 4g carbo · 3,5g fibra · 35 kcal' },
+    { name:'Granola sem açúcar', info:'15g · 10g carbo · 1,5g fibra · 60 kcal' },
+    { name:'Farinha de linhaça dourada', info:'10g · 3g carbo · 3g fibra · 55 kcal' },
+    { name:'Chia (sementes)', info:'10g · 4g carbo · 4g fibra · 58 kcal' },
+  ]},
+  fruit: { title:'Frutas e opções', desc:'Frutas equivalentes (~20g carbo · ~80 kcal)', items:[
+    { name:'Melão', info:'300g · 21g carbo · 80 kcal' },
+    { name:'Maçã com casca', info:'160g (1 grande) · 21g carbo · 82 kcal' },
+    { name:'Laranja com bagaço', info:'180g (1 unid.) · 20g carbo · 78 kcal' },
+    { name:'Melancia', info:'300g · 22g carbo · 85 kcal' },
+    { name:'Mamão formosa', info:'220g (1 fatia) · 22g carbo · 90 kcal' },
+    { name:'Banana-prata', info:'100g (1 média) · 22g carbo · 89 kcal' },
+    { name:'Pêra', info:'150g (1 média) · 20g carbo · 85 kcal' },
+    { name:'Água de coco natural', info:'300ml · 18g carbo · 70 kcal' },
+  ]},
+};
+
+function foodSubGroup(f){
+  const n = (f||'').toLowerCase();
+  if(/folhas|legumes/.test(n)) return null;
+  if(n.includes('+') && /feij[aã]o|lentilha|ervilha|gr[aã]o|milho|quinoa/.test(n)) return 'carbcombo';
+  if(/whey/.test(n)) return 'whey';
+  if(/frango|bife|carne|til[aá]pia|salm[aã]o|atum|sardinha|\bovo|omelete|tofu|cottage/.test(n)) return 'protein';
+  if(/aveia|granola|farelo|linha[cç]a|\bchia/.test(n)) return 'cereal';
+  if(/mel[aã]o|melancia|banana|mam[aã]o|morango|\buva|abacaxi|p[eê]ra|ma[cç][aã]|laranja/.test(n)) return 'fruit';
+  if(/mandioca|arroz|batata|inhame|macarr[aã]o|cuscuz|mandioquinha|baroa|tapioca/.test(n)) return 'carb';
+  return null;
+}
+
+function openFoodSub(groupKey, foodLabel){
+  const g = SUB_GROUPS[groupKey];
+  if(!g) return;
+  setEl('foodsub-title', g.title);
+  setEl('foodsub-desc', `Substituições para <strong style="color:var(--gold)">${foodLabel}</strong> — ${g.desc}`);
+  const list = document.getElementById('foodsub-list');
+  list.innerHTML = g.items.map(it=>`
+    <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:var(--rs);padding:13px">
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px">${it.name}</div>
+      <div style="font-size:12px;color:var(--mid)">${it.info}</div>
+    </div>`).join('');
+  track('food_sub_open', {group:groupKey});
+  openSheet('foodsub-ov');
+}
+
 let secaDayIdx = 0;
 
 function showSecaTab(id, el) {
@@ -5509,9 +5609,13 @@ function renderSecaDiet() {
         <div style="font-size:14px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${MEAL_COLORS[mi]}">${MEAL_NAMES[mi]}</div>
         <div style="margin-left:auto;font-size:13px;color:var(--dim)">${mi===0?'516 kcal':mi===1?'273 kcal':'516 kcal'}</div>
       </div>
-      ${foods.map(f => `
-        <div style="padding:11px 16px;border-bottom:1px solid var(--bdr);font-size:15px;color:var(--text)">${f}</div>
-      `).join('')}
+      ${foods.map(f => {
+        const grp = foodSubGroup(f);
+        return `<div style="padding:11px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">
+          <span style="flex:1;font-size:15px;color:var(--text)">${f}</span>
+          ${grp?`<button onclick="openFoodSub('${grp}','${f.replace(/'/g,'')}')" style="flex-shrink:0;padding:6px 10px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:6px;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">⇄ substituir</button>`:''}
+        </div>`;
+      }).join('')}
       <div style="padding:10px 16px;font-size:13px;color:var(--dim)">
         ${mi===0||mi===2?'Temperar com sal, limão ou qualquer molho zero.':''}
       </div>
