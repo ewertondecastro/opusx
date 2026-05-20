@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T19:04:00Z">
+<meta name="app-version" content="2026-05-20T19:05:26Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -2884,24 +2884,65 @@ function renderProfilePage() {
   setEl('profile-limitations', lims.length ? lims.join(', ') : 'Nenhuma restrição informada');
 
   // Avatar
-  if(D.profilePhoto) {
-    document.getElementById('profile-avatar-img').src = D.profilePhoto;
-    document.getElementById('profile-avatar-img').style.display = 'block';
-    document.getElementById('profile-avatar-init').style.display = 'none';
+  const avImg = document.getElementById('profile-avatar-img');
+  const avInit = document.getElementById('profile-avatar-init');
+  if(D.profilePhoto && avImg && avInit) {
+    avImg.src = D.profilePhoto;
+    avImg.style.display = 'block';
+    avInit.style.display = 'none';
+  } else if(avImg && avInit) {
+    avImg.style.display = 'none';
+    avInit.style.display = '';
   }
 }
 
 function changeAvatar() {
-  const inp = document.createElement('input');
-  inp.type='file'; inp.accept='image/*';
+  // input fica no DOM — iOS não abre o seletor de input solto
+  let inp = document.getElementById('avatar-file-input');
+  if(!inp){
+    inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.id = 'avatar-file-input';
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+  }
   inp.onchange = e => {
-    const file = e.target.files[0]; if(!file) return;
+    const file = e.target.files && e.target.files[0];
+    inp.value = '';
+    if(!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      D.profilePhoto = ev.target.result;
-      save();
-      renderProfilePage();
+      const img = new Image();
+      img.onload = () => {
+        // recorta quadrado central e redimensiona p/ 320px (mantém o arquivo pequeno)
+        const SIZE = 320;
+        const canvas = document.createElement('canvas');
+        canvas.width = SIZE; canvas.height = SIZE;
+        const ctx = canvas.getContext('2d');
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+        let dataUrl;
+        try { dataUrl = canvas.toDataURL('image/jpeg', 0.82); }
+        catch(err){ toast('Não foi possível processar a imagem'); return; }
+        const prev = D.profilePhoto;
+        D.profilePhoto = dataUrl;
+        try {
+          save();
+          renderProfilePage();
+          toast('Foto do perfil atualizada ✓');
+        } catch(err){
+          D.profilePhoto = prev || null;
+          console.warn('[avatar] save failed', err);
+          toast('Erro ao salvar a foto — tente outra imagem');
+        }
+      };
+      img.onerror = () => toast('Imagem inválida — tente outra');
+      img.src = ev.target.result;
     };
+    reader.onerror = () => toast('Erro ao ler o arquivo');
     reader.readAsDataURL(file);
   };
   inp.click();
