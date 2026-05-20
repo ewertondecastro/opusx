@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T15:04:35Z">
+<meta name="app-version" content="2026-05-20T15:57:28Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -686,6 +686,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="fm-cell"><div class="fm-val" id="fm-pct">0%</div><div class="fm-lbl" id="fm-pct-l">Progresso</div></div>
   </div>
 
+  <div class="fast-btns">
+    <button class="btn btn-gold btn-full" id="fast-btn" onclick="toggleFast()">INICIAR JEJUM</button>
+    <button class="btn btn-outline" onclick="openFastEdit()" style="flex-shrink:0;padding:17px 16px;font-size:11px" title="Editar início">✎</button>
+    <button class="btn btn-outline" onclick="resetFast()" style="flex-shrink:0;padding:17px 16px;font-size:11px">RST</button>
+  </div>
+
   <div class="card">
     <div class="card-hd"><div class="card-title" id="proto-eye">PROTOCOLO</div></div>
     <div class="proto-grid" id="proto-grid">
@@ -711,12 +717,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="card">
     <div class="card-hd"><div class="card-title" id="zones-eye">ZONAS DE JEJUM</div></div>
     <div class="zones-list" id="zones-list"></div>
-  </div>
-
-  <div class="fast-btns">
-    <button class="btn btn-gold btn-full" id="fast-btn" onclick="toggleFast()">INICIAR JEJUM</button>
-    <button class="btn btn-outline" onclick="openFastEdit()" style="flex-shrink:0;padding:17px 16px;font-size:11px" title="Editar início">✎</button>
-    <button class="btn btn-outline" onclick="resetFast()" style="flex-shrink:0;padding:17px 16px;font-size:11px">RST</button>
   </div>
 
   <div class="window-card" id="win-card"><div class="wc-eye" id="win-eye">JANELA DE ALIMENTAÇÃO</div><div class="wc-info" id="win-info"></div></div>
