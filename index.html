@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T14:54:03Z">
+<meta name="app-version" content="2026-05-20T14:56:53Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1696,16 +1696,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <div class="overlay" id="skip-ov" onclick="if(event.target===this)closeSheet('skip-ov')">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <div style="text-align:center;font-size:40px;margin-bottom:6px">🛑</div>
-    <div class="sheet-title" style="text-align:center">ESPERA AÍ</div>
+    <div style="text-align:center;font-size:40px;margin-bottom:6px" id="skip-emoji">🛑</div>
+    <div class="sheet-title" style="text-align:center" id="skip-title">ESPERA AÍ</div>
     <div class="sheet-desc" style="text-align:center">Você está prestes a pular <strong style="color:var(--gold)" id="skip-modal-target">esse exercício</strong>. Antes, dois segundos:</div>
     <div style="background:var(--red-bg);border:1px solid rgba(224,82,82,.25);border-radius:var(--rs);padding:14px;margin-bottom:10px">
       <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--red);font-weight:700;margin-bottom:6px">SE VOCÊ PULAR</div>
-      <div style="font-size:14px;color:var(--text);line-height:1.6">Você ensina seu cérebro que desistir é uma opção. O resultado atrasa. E amanhã vai ser mais fácil pular de novo — porque virou hábito.</div>
+      <div style="font-size:14px;color:var(--text);line-height:1.6" id="skip-consequence"></div>
     </div>
     <div style="background:var(--green-bg);border:1px solid rgba(82,168,120,.25);border-radius:var(--rs);padding:14px;margin-bottom:14px">
       <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:6px">SE VOCÊ FIZER</div>
-      <div style="font-size:14px;color:var(--text);line-height:1.6">Você prova pra si mesmo que é maior que a preguiça. Constrói músculo E disciplina. Sai mais forte — de corpo e de mente.</div>
+      <div style="font-size:14px;color:var(--text);line-height:1.6" id="skip-benefit"></div>
     </div>
     <div style="text-align:center;font-size:15px;color:var(--gold);font-weight:600;font-style:italic;line-height:1.5;margin-bottom:18px" id="skip-modal-punch"></div>
     <div class="sheet-btns">
@@ -3154,13 +3154,56 @@ function getDailyMotivation(){
   return MOTIVATION[dayOfYear % MOTIVATION.length];
 }
 
-// Modal "não vou fazer" — motiva e mostra consequências/benefícios
+// Argumentos do modal "não vou fazer" — rotacionam a cada toque
+const SKIP_ARGS = [
+  { emoji:'🛑', title:'ESPERA AÍ',
+    consequence:'Você ensina seu cérebro que desistir é uma opção. E amanhã vai ser mais fácil pular de novo — porque virou hábito.',
+    benefit:'Você prova pra si mesmo que é maior que a preguiça. Constrói músculo E disciplina. Sai mais forte de corpo e de mente.' },
+  { emoji:'🤔', title:'PENSA RÁPIDO',
+    consequence:'Daqui a 1 hora você nem vai lembrar da preguiça de agora. Mas vai lembrar que desistiu. E isso pesa.',
+    benefit:'Daqui a 1 hora você vai estar orgulhoso. Esse orgulho vale mais que os 10 minutos que você ia "economizar".' },
+  { emoji:'🪞', title:'QUEM VOCÊ ESTÁ SENDO?',
+    consequence:'Cada exercício pulado é um voto na versão de você que desiste. Você está se tornando essa pessoa?',
+    benefit:'Cada exercício feito é um voto na pessoa disciplinada que você quer ser. É assim que se constrói identidade.' },
+  { emoji:'📉', title:'A CONTA NÃO FECHA',
+    consequence:'Não é um treino. É o efeito composto. Pular hoje custa barato — mas o desconto vai aparecer no espelho em semanas.',
+    benefit:'Resultado é juros compostos de esforço. Cada série soma. A consistência é que transforma — e ela começa agora.' },
+  { emoji:'💬', title:'DESCULPA NÃO TREINA',
+    consequence:'A desculpa parece boa agora. Mas desculpa nenhuma já levantou um peso ou queimou uma caloria.',
+    benefit:'Ação vence intenção. Você não precisa de vontade — precisa só começar a primeira repetição. O resto vem.' },
+  { emoji:'🧠', title:'TREINE A MENTE TAMBÉM',
+    consequence:'O corpo até aguentaria. É a mente querendo fugir. Se ela vencer hoje, ela manda em você amanhã.',
+    benefit:'Fazer mesmo sem vontade é o treino mais importante: o da mente. É isso que te torna imparável.' },
+  { emoji:'🔓', title:'DISCIPLINA É LIBERDADE',
+    consequence:'Pular parece liberdade, mas é o contrário: te prende no ciclo de recomeçar. Sempre do zero, nunca à frente.',
+    benefit:'Quem cumpre o combinado consigo mesmo vira livre. Confia em si. Faz o que precisa sem negociar.' },
+  { emoji:'😤', title:'NINGUÉM SE ARREPENDE',
+    consequence:'Pergunte a qualquer pessoa: ninguém nunca terminou um treino e pensou "que pena que eu fiz". O arrependimento é só de quem não foi.',
+    benefit:'Você vai sair desse treino melhor do que entrou. Sempre. Esse é o único resultado garantido da vida.' },
+  { emoji:'🏋️', title:'A SÉRIE QUE PESA',
+    consequence:'O exercício que você quer pular é justamente o que mais te transforma. Fugir dele é fugir do progresso.',
+    benefit:'A repetição difícil é a que conta dobrado. É no desconforto que o corpo muda. Encara ela.' },
+  { emoji:'🔥', title:'NÃO QUEBRE O RITMO',
+    consequence:'Você está com o momento a seu favor. Pular agora apaga a chama — e reacender custa muito mais energia.',
+    benefit:'Terminar o que começou mantém o motor ligado. Amanhã será mais fácil porque hoje você não parou.' },
+];
+let _lastSkipArg = -1;
+
 function openSkipModal(kind, label){
   setEl('skip-modal-target', label || (kind==='cardio'?'o cardio':'esse exercício'));
+  // sorteia um argumento diferente do último mostrado
+  let idx = Math.floor(Math.random()*SKIP_ARGS.length);
+  if(SKIP_ARGS.length>1 && idx===_lastSkipArg) idx = (idx+1)%SKIP_ARGS.length;
+  _lastSkipArg = idx;
+  const arg = SKIP_ARGS[idx];
+  setEl('skip-emoji', arg.emoji);
+  setEl('skip-title', arg.title);
+  setEl('skip-consequence', arg.consequence);
+  setEl('skip-benefit', arg.benefit);
   const punch = MOTIVATION[Math.floor(Math.random()*MOTIVATION.length)];
   setEl('skip-modal-punch', punch);
   document.getElementById('skip-ov')?.classList.add('show');
-  track('skip_modal_open', {kind});
+  track('skip_modal_open', {kind, arg:idx});
 }
 function skipConfirm(){
   closeSheet('skip-ov');
