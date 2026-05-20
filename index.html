@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-19T21:23:29Z">
+<meta name="app-version" content="2026-05-20T01:20:22Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -511,6 +511,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .ob-back{padding:18px 20px;background:transparent;border:1px solid var(--bdr);border-radius:var(--rs);color:var(--mid);font-family:"Inter",sans-serif;font-weight:700;font-size:13px;cursor:pointer}
 .ob-skip{text-align:center;font-size:13px;color:var(--dim);cursor:pointer;padding:12px;margin-top:8px}
 .ob-skip:hover{color:var(--gold)}
+.eq-group-lbl{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin:14px 0 8px}
+.eq-chips{display:flex;flex-wrap:wrap;gap:8px}
+.eq-chip{padding:9px 13px;background:var(--s1);border:1.5px solid var(--bdr);border-radius:20px;cursor:pointer;font-size:13px;color:var(--mid);transition:all .15s;user-select:none}
+.eq-chip.sel{border-color:var(--gold);background:var(--gold-bg);color:var(--gold);font-weight:600}
 
 /* Profile page */
 .profile-avatar{width:80px;height:80px;border-radius:50%;background:var(--gold-bg);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex-shrink:0}
@@ -983,13 +987,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="ob-screen" id="ob-5" style="padding-top:64px">
     <div id="ob-prog-5" class="ob-progress"></div>
     <div class="ob-step">PASSO 5 DE 11</div>
-    <div class="ob-title">Qual seu objetivo principal?</div>
-    <div class="ob-sub">Isso define seu plano de treino, nutrição e os conselhos da IA.</div>
+    <div class="ob-title">Quais seus objetivos?</div>
+    <div class="ob-sub">Pode escolher mais de um. Isso define seu plano de treino, nutrição e os conselhos da IA.</div>
     <div class="ob-grid">
-      <div class="ob-option" onclick="obSel('goal','recomp',this)"><div class="ob-option-icon">⚡</div><div class="ob-option-title">Recomposição</div><div class="ob-option-sub">Perder gordura e ganhar músculo</div></div>
-      <div class="ob-option" onclick="obSel('goal','hyper',this)"><div class="ob-option-icon">💪</div><div class="ob-option-title">Hipertrofia</div><div class="ob-option-sub">Ganho de massa muscular</div></div>
-      <div class="ob-option" onclick="obSel('goal','fat',this)"><div class="ob-option-icon">🔥</div><div class="ob-option-title">Perda de gordura</div><div class="ob-option-sub">Emagrecer mantendo músculo</div></div>
-      <div class="ob-option" onclick="obSel('goal','health',this)"><div class="ob-option-icon">❤️</div><div class="ob-option-title">Saúde geral</div><div class="ob-option-sub">Qualidade de vida e energia</div></div>
+      <div class="ob-option" id="goal-recomp" onclick="obToggle('goal-recomp','goals','recomp')"><div class="ob-option-icon">⚡</div><div class="ob-option-title">Recomposição</div><div class="ob-option-sub">Perder gordura e ganhar músculo</div></div>
+      <div class="ob-option" id="goal-hyper" onclick="obToggle('goal-hyper','goals','hyper')"><div class="ob-option-icon">💪</div><div class="ob-option-title">Hipertrofia</div><div class="ob-option-sub">Ganho de massa muscular</div></div>
+      <div class="ob-option" id="goal-fat" onclick="obToggle('goal-fat','goals','fat')"><div class="ob-option-icon">🔥</div><div class="ob-option-title">Perda de gordura</div><div class="ob-option-sub">Emagrecer mantendo músculo</div></div>
+      <div class="ob-option" id="goal-strength" onclick="obToggle('goal-strength','goals','strength')"><div class="ob-option-icon">🏋️</div><div class="ob-option-title">Força</div><div class="ob-option-sub">Levantar mais peso</div></div>
+      <div class="ob-option" id="goal-endurance" onclick="obToggle('goal-endurance','goals','endurance')"><div class="ob-option-icon">🏃</div><div class="ob-option-title">Condicionamento</div><div class="ob-option-sub">Resistência e fôlego</div></div>
+      <div class="ob-option" id="goal-glutes" onclick="obToggle('goal-glutes','goals','glutes')"><div class="ob-option-icon">🍑</div><div class="ob-option-title">Glúteos & pernas</div><div class="ob-option-sub">Foco em membros inferiores</div></div>
+      <div class="ob-option" id="goal-mobility" onclick="obToggle('goal-mobility','goals','mobility')"><div class="ob-option-icon">🧘</div><div class="ob-option-title">Mobilidade</div><div class="ob-option-sub">Flexibilidade e postura</div></div>
+      <div class="ob-option" id="goal-health" onclick="obToggle('goal-health','goals','health')"><div class="ob-option-icon">❤️</div><div class="ob-option-title">Saúde geral</div><div class="ob-option-sub">Qualidade de vida e energia</div></div>
     </div>
     <div class="ob-btn-row">
       <button class="ob-back" onclick="obBack(5)">←</button>
@@ -1024,7 +1032,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="ob-option" id="lim-knee" onclick="obToggle('lim-knee','limitations','knee')"><div class="ob-option-icon">🦵</div><div class="ob-option-title">Joelhos</div><div class="ob-option-sub">Artrite, lesão ou dor</div></div>
       <div class="ob-option" id="lim-back" onclick="obToggle('lim-back','limitations','back')"><div class="ob-option-icon">🔙</div><div class="ob-option-title">Lombar</div><div class="ob-option-sub">Hérnia ou dor crônica</div></div>
       <div class="ob-option" id="lim-shoulder" onclick="obToggle('lim-shoulder','limitations','shoulder')"><div class="ob-option-icon">💫</div><div class="ob-option-title">Ombros</div><div class="ob-option-sub">Manguito ou instabilidade</div></div>
-      <div class="ob-option" id="lim-none" onclick="obSel('lim_none','none',this);obProfile.limitations=[]"><div class="ob-option-icon">✅</div><div class="ob-option-title">Nenhuma</div><div class="ob-option-sub">Sem restrições</div></div>
+      <div class="ob-option" id="lim-neck" onclick="obToggle('lim-neck','limitations','neck')"><div class="ob-option-icon">🦴</div><div class="ob-option-title">Pescoço</div><div class="ob-option-sub">Cervical ou tensão</div></div>
+      <div class="ob-option" id="lim-wrist" onclick="obToggle('lim-wrist','limitations','wrist')"><div class="ob-option-icon">✋</div><div class="ob-option-title">Punho / Cotovelo</div><div class="ob-option-sub">Tendinite ou dor</div></div>
+      <div class="ob-option" id="lim-hip" onclick="obToggle('lim-hip','limitations','hip')"><div class="ob-option-icon">🦿</div><div class="ob-option-title">Quadril</div><div class="ob-option-sub">Mobilidade ou dor</div></div>
+      <div class="ob-option" id="lim-ankle" onclick="obToggle('lim-ankle','limitations','ankle')"><div class="ob-option-icon">🦶</div><div class="ob-option-title">Tornozelo / Pé</div><div class="ob-option-sub">Lesão ou instabilidade</div></div>
+      <div class="ob-option" id="lim-heart" onclick="obToggle('lim-heart','limitations','heart')"><div class="ob-option-icon">❤️‍🩹</div><div class="ob-option-title">Cardíaco</div><div class="ob-option-sub">Pressão ou condição cardíaca</div></div>
+      <div class="ob-option" id="lim-pregnancy" onclick="obToggle('lim-pregnancy','limitations','pregnancy')"><div class="ob-option-icon">🤰</div><div class="ob-option-title">Gestante / Pós-parto</div><div class="ob-option-sub">Adaptação necessária</div></div>
+      <div class="ob-option" id="lim-none" onclick="obClearLimitations(this)"><div class="ob-option-icon">✅</div><div class="ob-option-title">Nenhuma</div><div class="ob-option-sub">Sem restrições</div></div>
+    </div>
+    <div class="ob-field" style="margin-top:16px">
+      <div class="ob-label">OUTRA LIMITAÇÃO? DESCREVA (OPCIONAL)</div>
+      <textarea class="ob-input" id="ob-lim-note" rows="2" placeholder="Ex: cirurgia recente no joelho direito, evitar impacto…" style="resize:none;font-size:15px;font-family:inherit"></textarea>
     </div>
     <div class="ob-btn-row">
       <button class="ob-back" onclick="obBack(7)">←</button>
@@ -1036,13 +1054,47 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="ob-screen" id="ob-8" style="padding-top:64px">
     <div id="ob-prog-8" class="ob-progress"></div>
     <div class="ob-step">PASSO 8 DE 11</div>
-    <div class="ob-title">Qual equipamento você tem acesso?</div>
-    <div class="ob-sub"></div>
-    <div class="ob-grid">
-      <div class="ob-option" onclick="obSel('equipment','full',this)"><div class="ob-option-icon">🏋️</div><div class="ob-option-title">Academia completa</div><div class="ob-option-sub">Máquinas, pesos e barras</div></div>
-      <div class="ob-option" onclick="obSel('equipment','home',this)"><div class="ob-option-icon">🏠</div><div class="ob-option-title">Em casa</div><div class="ob-option-sub">Halteres e barras</div></div>
-      <div class="ob-option" onclick="obSel('equipment','minimal',this)"><div class="ob-option-icon">🎽</div><div class="ob-option-title">Mínimo</div><div class="ob-option-sub">Elástico ou peso corporal</div></div>
-      <div class="ob-option" onclick="obSel('equipment','none',this)"><div class="ob-option-icon">🤸</div><div class="ob-option-title">Sem equipamento</div><div class="ob-option-sub">Só peso corporal</div></div>
+    <div class="ob-title">A que equipamentos você tem acesso?</div>
+    <div class="ob-sub">Marque tudo que sua academia (ou casa) tem. A IA monta o treino só com o que você marcar.</div>
+    <div class="eq-chips" style="margin-bottom:4px">
+      <div class="eq-chip" onclick="obEquipPreset('full')" style="border-color:var(--gold-d);color:var(--gold2)">🏋️ Academia completa</div>
+      <div class="eq-chip" onclick="obEquipPreset('home')" style="border-color:var(--gold-d);color:var(--gold2)">🏠 Kit de casa</div>
+      <div class="eq-chip" onclick="obEquipPreset('none')" style="border-color:var(--gold-d);color:var(--gold2)">🤸 Só peso corporal</div>
+    </div>
+    <div class="eq-group-lbl">Pesos livres</div>
+    <div class="eq-chips">
+      <div class="eq-chip" id="eq-dumbbell" onclick="obToggle('eq-dumbbell','equipment','dumbbell')">Halteres</div>
+      <div class="eq-chip" id="eq-barbell" onclick="obToggle('eq-barbell','equipment','barbell')">Barra & anilhas</div>
+      <div class="eq-chip" id="eq-kettlebell" onclick="obToggle('eq-kettlebell','equipment','kettlebell')">Kettlebell</div>
+      <div class="eq-chip" id="eq-bench" onclick="obToggle('eq-bench','equipment','bench')">Banco ajustável</div>
+      <div class="eq-chip" id="eq-rack" onclick="obToggle('eq-rack','equipment','rack')">Rack / gaiola</div>
+    </div>
+    <div class="eq-group-lbl">Máquinas</div>
+    <div class="eq-chips">
+      <div class="eq-chip" id="eq-cable" onclick="obToggle('eq-cable','equipment','cable')">Polia / cabos</div>
+      <div class="eq-chip" id="eq-legpress" onclick="obToggle('eq-legpress','equipment','legpress')">Leg press</div>
+      <div class="eq-chip" id="eq-smith" onclick="obToggle('eq-smith','equipment','smith')">Smith</div>
+      <div class="eq-chip" id="eq-machines" onclick="obToggle('eq-machines','equipment','machines')">Máquinas de musculação</div>
+      <div class="eq-chip" id="eq-hack" onclick="obToggle('eq-hack','equipment','hack')">Hack squat</div>
+    </div>
+    <div class="eq-group-lbl">Cardio</div>
+    <div class="eq-chips">
+      <div class="eq-chip" id="eq-treadmill" onclick="obToggle('eq-treadmill','equipment','treadmill')">Esteira</div>
+      <div class="eq-chip" id="eq-bike" onclick="obToggle('eq-bike','equipment','bike')">Bike</div>
+      <div class="eq-chip" id="eq-elliptical" onclick="obToggle('eq-elliptical','equipment','elliptical')">Elíptico</div>
+      <div class="eq-chip" id="eq-rower" onclick="obToggle('eq-rower','equipment','rower')">Remo</div>
+    </div>
+    <div class="eq-group-lbl">Funcional</div>
+    <div class="eq-chips">
+      <div class="eq-chip" id="eq-bands" onclick="obToggle('eq-bands','equipment','bands')">Elásticos / faixas</div>
+      <div class="eq-chip" id="eq-trx" onclick="obToggle('eq-trx','equipment','trx')">TRX / suspensão</div>
+      <div class="eq-chip" id="eq-bodyweight" onclick="obToggle('eq-bodyweight','equipment','bodyweight')">Peso corporal</div>
+      <div class="eq-chip" id="eq-jumprope" onclick="obToggle('eq-jumprope','equipment','jumprope')">Corda</div>
+      <div class="eq-chip" id="eq-box" onclick="obToggle('eq-box','equipment','box')">Caixa pliométrica</div>
+    </div>
+    <div class="ob-field" style="margin-top:16px">
+      <div class="ob-label">OUTRO EQUIPAMENTO? DESCREVA (OPCIONAL)</div>
+      <textarea class="ob-input" id="ob-equip-note" rows="2" placeholder="Ex: tenho acesso a uma piscina, sandbags…" style="resize:none;font-size:15px;font-family:inherit"></textarea>
     </div>
     <div class="ob-btn-row">
       <button class="ob-back" onclick="obBack(8)">←</button>
@@ -1057,9 +1109,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="ob-title">Quantos dias por semana você vai treinar?</div>
     <div class="ob-sub"></div>
     <div class="ob-grid cols3" style="margin-bottom:24px">
-      <div class="ob-option" onclick="obSel('days','3',this)"><div class="ob-option-icon">3×</div><div class="ob-option-title">3 dias</div><div class="ob-option-sub">Full Body</div></div>
-      <div class="ob-option" onclick="obSel('days','4',this)"><div class="ob-option-icon">4×</div><div class="ob-option-title">4 dias</div><div class="ob-option-sub">Upper/Lower</div></div>
-      <div class="ob-option" onclick="obSel('days','5',this)"><div class="ob-option-icon">5×</div><div class="ob-option-title">5 dias</div><div class="ob-option-sub">Push/Pull/Leg</div></div>
+      <div class="ob-option" id="days-2" onclick="obSel('days','2',this)"><div class="ob-option-icon">2×</div><div class="ob-option-title">2 dias</div><div class="ob-option-sub">Full Body</div></div>
+      <div class="ob-option" id="days-3" onclick="obSel('days','3',this)"><div class="ob-option-icon">3×</div><div class="ob-option-title">3 dias</div><div class="ob-option-sub">Full Body</div></div>
+      <div class="ob-option" id="days-4" onclick="obSel('days','4',this)"><div class="ob-option-icon">4×</div><div class="ob-option-title">4 dias</div><div class="ob-option-sub">Upper/Lower</div></div>
+      <div class="ob-option" id="days-5" onclick="obSel('days','5',this)"><div class="ob-option-icon">5×</div><div class="ob-option-title">5 dias</div><div class="ob-option-sub">Push/Pull/Leg</div></div>
+      <div class="ob-option" id="days-6" onclick="obSel('days','6',this)"><div class="ob-option-icon">6×</div><div class="ob-option-title">6 dias</div><div class="ob-option-sub">Push/Pull/Leg ×2</div></div>
+      <div class="ob-option" id="days-7" onclick="obSel('days','7',this)"><div class="ob-option-icon">7×</div><div class="ob-option-title">7 dias</div><div class="ob-option-sub">Com dia leve/mobilidade</div></div>
     </div>
     <div class="ob-field">
       <div class="ob-label">HORÁRIO PREFERIDO</div>
@@ -1107,9 +1162,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
     <!-- Avatar + name -->
     <div style="padding:20px 20px 0;display:flex;align-items:center;gap:16px">
-      <div class="profile-avatar" onclick="changeAvatar()" id="profile-avatar-wrap">
-        <img id="profile-avatar-img" src="" style="display:none">
-        <div class="profile-avatar-placeholder" id="profile-avatar-init">E</div>
+      <div style="position:relative;flex-shrink:0" onclick="changeAvatar()">
+        <div class="profile-avatar" id="profile-avatar-wrap">
+          <img id="profile-avatar-img" src="" style="display:none">
+          <div class="profile-avatar-placeholder" id="profile-avatar-init">E</div>
+        </div>
+        <div style="position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:50%;background:var(--gold);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:var(--bg);fill:none;stroke-width:2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
       </div>
       <div style="flex:1">
         <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--text);letter-spacing:.5px" id="profile-name-display">—</div>
@@ -1140,12 +1200,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div id="profile-limitations" style="font-size:15px;color:var(--mid)">—</div>
     </div>
 
-    <!-- API Key + backup in profile too -->
+    <!-- Backup dos dados (API key fica no menu de engrenagem, fora da vista do usuário) -->
     <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
-      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px">CONFIGURAÇÕES</div>
-      <button onclick="openSheet('api-ov')" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left">⚙ API KEY ANTHROPIC</button>
-      <button onclick="exportBackup()" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left">📤 EXPORTAR DADOS</button>
-      <label style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:block;text-align:left">📥 IMPORTAR DADOS<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px" id="profile-backup-title">MEUS DADOS</div>
+      <button onclick="exportBackup()" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left" id="profile-export-btn">📤 EXPORTAR DADOS</button>
+      <label style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:block;text-align:left" id="profile-import-btn">📥 IMPORTAR DADOS<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
     </div>
 
     <div style="height:100px"></div>
@@ -1245,9 +1304,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="margin:14px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
         <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:12px">SUGESTÃO DE DIAS</div>
         <div style="font-size:14px;color:var(--mid);line-height:1.9">
+          <strong style="color:var(--text)">2x/semana:</strong> Seg A · Qui B (alterna toda semana)<br>
           <strong style="color:var(--text)">3x/semana:</strong> Seg A · Qua B · Sex A (próx. semana começa com B)<br>
           <strong style="color:var(--text)">4x/semana:</strong> Seg A · Ter B · Qui A · Sex B<br>
-          <strong style="color:var(--text)">5x/semana:</strong> Seg A · Ter B · Qua A · Qui B · Sex A
+          <strong style="color:var(--text)">5x/semana:</strong> Seg A · Ter B · Qua A · Qui B · Sex A<br>
+          <strong style="color:var(--text)">6x/semana:</strong> Seg A · Ter B · Qua A · Qui B · Sex A · Sáb B<br>
+          <strong style="color:var(--text)">7x/semana:</strong> 6 dias A/B + 1 dia leve (mobilidade/caminhada)
         </div>
       </div>
     </div>
@@ -2402,7 +2464,8 @@ const SHOPPING = {
 let obProfile = {
   name:'', sex:'', dob:'', weight:0, weightUnit:'lbs',
   heightFt:0, heightIn:0, heightCm:0, heightUnit:'ft',
-  goal:'', level:'', limitations:[], equipment:'',
+  goals:[], level:'', limitations:[], limitationsNote:'',
+  equipment:[], equipmentNote:'',
   days:'3', trainTime:'05:00', targetWeight:0
 };
 let obWeightUnit = 'lbs';
@@ -2448,6 +2511,18 @@ function obNext(from) {
     }
     obProfile.heightUnit = obHeightUnit;
   }
+  if(from===5) {
+    if(!obProfile.goals || !obProfile.goals.length){toast('Escolha ao menos um objetivo');return;}
+  }
+  if(from===7) {
+    const note = document.getElementById('ob-lim-note');
+    if(note) obProfile.limitationsNote = note.value.trim();
+  }
+  if(from===8) {
+    if(!obProfile.equipment || !obProfile.equipment.length){toast('Escolha ao menos um equipamento');return;}
+    const note = document.getElementById('ob-equip-note');
+    if(note) obProfile.equipmentNote = note.value.trim();
+  }
   if(from===9) {
     obProfile.days = obProfile.days||'3';
     obProfile.trainTime = document.getElementById('ob-time').value||'05:00';
@@ -2478,17 +2553,37 @@ function obSel(field, val, el) {
 }
 
 function obToggle(elId, field, val) {
-  if(!obProfile[field]) obProfile[field]=[];
+  if(!Array.isArray(obProfile[field])) obProfile[field]=[];
   const el = document.getElementById(elId);
   const idx = obProfile[field].indexOf(val);
   if(idx>-1) { obProfile[field].splice(idx,1); el.classList.remove('sel'); }
   else { obProfile[field].push(val); el.classList.add('sel'); }
-  // Deselect "none" if selecting a limitation
-  if(val!=='none') {
-    const idx2 = obProfile[field].indexOf('none');
-    if(idx2>-1) obProfile[field].splice(idx2,1);
+  // Limitations: selecting any real limitation clears "Nenhuma"
+  if(field==='limitations') {
     document.getElementById('lim-none')?.classList.remove('sel');
   }
+}
+
+function obClearLimitations(el){
+  obProfile.limitations = [];
+  // visually deselect every limitation option
+  document.querySelectorAll('#ob-7 .ob-option').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+const EQUIP_PRESETS = {
+  full: ['dumbbell','barbell','kettlebell','bench','rack','cable','legpress','smith','machines','hack','treadmill','bike','elliptical','rower','bands','bodyweight'],
+  home: ['dumbbell','kettlebell','bench','bands','jumprope','bodyweight'],
+  none: ['bodyweight'],
+};
+function obEquipPreset(preset){
+  const list = EQUIP_PRESETS[preset] || [];
+  obProfile.equipment = [...list];
+  // sync every equipment chip's visual state
+  document.querySelectorAll('#ob-8 .eq-chip[id^="eq-"]').forEach(chip=>{
+    const val = chip.id.replace('eq-','');
+    chip.classList.toggle('sel', list.includes(val));
+  });
 }
 
 function obSetUnit(type, unit, el) {
@@ -2500,6 +2595,9 @@ function obSetUnit(type, unit, el) {
     document.getElementById('ob-wunit-kg').style.color = unit==='kg'?'var(--bg)':'var(--mid)';
     document.getElementById('ob-wunit-lbs').style.border = unit==='lbs'?'none':'1px solid var(--bdr)';
     document.getElementById('ob-wunit-kg').style.border = unit==='kg'?'none':'1px solid var(--bdr)';
+    // Meta de peso (tela 10) usa a mesma unidade escolhida aqui
+    const tu = document.getElementById('ob-target-unit');
+    if(tu) tu.textContent = unit==='kg'?'kg':'lbs';
   }
   if(type==='height') {
     obHeightUnit = unit;
@@ -2559,9 +2657,10 @@ function renderProfilePage() {
   setEl('profile-name-display', name);
   setEl('profile-avatar-init', initials);
 
-  const goalLabels = {recomp:'Recomposição corporal',hyper:'Hipertrofia',fat:'Perda de gordura',health:'Saúde geral'};
+  const goalLabels = {recomp:'Recomposição',hyper:'Hipertrofia',fat:'Perda de gordura',strength:'Força',endurance:'Condicionamento',glutes:'Glúteos & pernas',mobility:'Mobilidade',health:'Saúde geral'};
   const levelLabels = {beginner:'Iniciante',inter:'Intermediário',adv:'Avançado'};
-  setEl('profile-goal-display', goalLabels[p.goal] || D.userProfile?.goal || 'Objetivo não definido');
+  const goalsArr = Array.isArray(p.goals) ? p.goals : (p.goal ? [p.goal] : []);
+  setEl('profile-goal-display', goalsArr.length ? goalsArr.map(g=>goalLabels[g]||g).join(' · ') : 'Objetivo não definido');
   setEl('profile-level-display', levelLabels[p.level] || 'Nível não definido');
 
   // Stats
@@ -2586,9 +2685,18 @@ function renderProfilePage() {
   setEl('ps-target', D.targetLbs ? dispW(D.targetLbs)+(D.weightUnit==='kg'?' kg':' lbs') : '—');
 
   // Details list
+  const equipLabels = {dumbbell:'Halteres',barbell:'Barra',kettlebell:'Kettlebell',bench:'Banco',rack:'Rack',cable:'Polia',legpress:'Leg press',smith:'Smith',machines:'Máquinas',hack:'Hack squat',treadmill:'Esteira',bike:'Bike',elliptical:'Elíptico',rower:'Remo',bands:'Elásticos',trx:'TRX',bodyweight:'Peso corporal',jumprope:'Corda',box:'Caixa'};
+  let equipVal = null;
+  if(Array.isArray(p.equipment) && p.equipment.length){
+    equipVal = p.equipment.length > 4
+      ? p.equipment.length+' itens'
+      : p.equipment.map(e=>equipLabels[e]||e).join(', ');
+  } else if(typeof p.equipment==='string' && p.equipment){
+    equipVal = {full:'Academia completa',home:'Em casa',minimal:'Mínimo',none:'Sem equipamento'}[p.equipment];
+  }
   const details = [
     {label:'Sexo', val: p.sex==='m'?'Masculino':p.sex==='f'?'Feminino':'Outro'},
-    {label:'Equipamento', val: {full:'Academia completa',home:'Em casa',minimal:'Mínimo',none:'Sem equipamento'}[p.equipment]},
+    {label:'Equipamento', val: equipVal},
     {label:'Dias de treino', val: p.days ? p.days+'× por semana' : null},
     {label:'Horário', val: p.trainTime || null},
   ].filter(d=>d.val);
@@ -2600,8 +2708,9 @@ function renderProfilePage() {
       <div style="font-size:14px;color:var(--text);font-weight:600">${d.val}</div>
     </div>`).join('');
 
-  const limLabels = {knee:'Joelhos',back:'Lombar',shoulder:'Ombros',none:'Nenhuma'};
-  const lims = (p.limitations||[]).map(l=>limLabels[l]||l);
+  const limLabels = {knee:'Joelhos',back:'Lombar',shoulder:'Ombros',neck:'Pescoço',wrist:'Punho/Cotovelo',hip:'Quadril',ankle:'Tornozelo/Pé',heart:'Cardíaco',pregnancy:'Gestante/Pós-parto',none:'Nenhuma'};
+  const lims = (p.limitations||[]).filter(l=>l!=='none').map(l=>limLabels[l]||l);
+  if(p.limitationsNote) lims.push(p.limitationsNote);
   setEl('profile-limitations', lims.length ? lims.join(', ') : 'Nenhuma restrição informada');
 
   // Avatar
@@ -2632,12 +2741,30 @@ function openEditProfile() {
   // Re-open onboarding from step 1 pre-filled
   const p = D.userProfile||{};
   obProfile = {...p, name:D.name||p.name||''};
+  // migrar perfis antigos: goal string -> goals array; equipment string -> array
+  if(!Array.isArray(obProfile.goals)) obProfile.goals = obProfile.goal ? [obProfile.goal] : [];
+  if(!Array.isArray(obProfile.equipment)) obProfile.equipment = [];
+  if(!Array.isArray(obProfile.limitations)) obProfile.limitations = [];
   document.getElementById('ob-overlay').classList.add('show');
   obShowScreen(1);
   setTimeout(()=>{
     const ni = document.getElementById('ob-name');
     if(ni) ni.value = D.name||'';
+    obRestoreVisuals();
   },100);
+}
+
+// Restaura o estado visual (.sel) das telas multi-seleção ao editar o perfil
+function obRestoreVisuals(){
+  (obProfile.goals||[]).forEach(g=>document.getElementById('goal-'+g)?.classList.add('sel'));
+  (obProfile.limitations||[]).forEach(l=>{
+    const id = l==='none' ? 'lim-none' : 'lim-'+l;
+    document.getElementById(id)?.classList.add('sel');
+  });
+  (obProfile.equipment||[]).forEach(e=>document.getElementById('eq-'+e)?.classList.add('sel'));
+  if(obProfile.days) document.getElementById('days-'+obProfile.days)?.classList.add('sel');
+  const ln = document.getElementById('ob-lim-note'); if(ln) ln.value = obProfile.limitationsNote||'';
+  const en = document.getElementById('ob-equip-note'); if(en) en.value = obProfile.equipmentNote||'';
 }
 
 window.onload = async () => {
