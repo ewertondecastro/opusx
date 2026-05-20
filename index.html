@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T19:05:26Z">
+<meta name="app-version" content="2026-05-20T23:43:01Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -825,7 +825,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         </div>
         <div style="font-size:13px;color:var(--dim);margin-bottom:8px">Adicione seu peso de hoje</div>
         <div style="display:flex;gap:10px;margin-bottom:14px">
-          <input id="w-input" type="number" inputmode="decimal" step=".1" placeholder="ex: 228.5" style="flex:1;background:var(--s1);border:1px solid var(--bdr);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:28px;padding:12px 16px;border-radius:var(--rs);outline:none;transition:border-color .2s" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'">
+          <input id="w-input" type="number" inputmode="decimal" step=".1" placeholder="ex: 165" style="flex:1;background:var(--s1);border:1px solid var(--bdr);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:28px;padding:12px 16px;border-radius:var(--rs);outline:none;transition:border-color .2s" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'">
           <button onclick="logWeight()" style="background:var(--gold);color:var(--gold-ink);font-family:'Inter',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;padding:12px 18px;border:none;border-radius:var(--rs);cursor:pointer" id="w-log-btn">LOG</button>
         </div>
         <!-- BMI -->
@@ -833,7 +833,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
             <div>
               <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:4px" id="w-cur-lbl">PESO ATUAL</div>
-              <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:var(--text);line-height:1;letter-spacing:.5px"><span id="w-cur">228.5</span><span style="font-size:20px;color:var(--mid)" id="w-unit"> lbs</span></div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:var(--text);line-height:1;letter-spacing:.5px"><span id="w-cur">—</span><span style="font-size:20px;color:var(--mid)" id="w-unit"> lbs</span></div>
             </div>
             <div style="text-align:right">
               <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:4px">META</div>
@@ -948,7 +948,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="ob-sub">Seu nome aparece em toda a experiência do app.</div>
     <div class="ob-field">
       <div class="ob-label">NOME</div>
-      <input class="ob-input" id="ob-name" type="text" placeholder="Ewerton" autocomplete="name" onkeydown="if(event.key==='Enter')obNext(1)">
+      <input class="ob-input" id="ob-name" type="text" placeholder="Seu nome" autocomplete="name" onkeydown="if(event.key==='Enter')obNext(1)">
     </div>
     <div class="ob-btn-row">
       <button class="ob-back" onclick="obBack(1)">←</button>
@@ -988,7 +988,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <button onclick="obSetUnit('weight','lbs',this)" id="ob-wunit-lbs" style="flex:1;padding:12px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">LBS</button>
       <button onclick="obSetUnit('weight','kg',this)" id="ob-wunit-kg" style="flex:1;padding:12px;background:var(--s1);color:var(--mid);border:1px solid var(--bdr);border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">KG</button>
     </div>
-    <input class="ob-input ob-input-big" id="ob-weight" type="number" inputmode="decimal" step=".1" placeholder="228.5">
+    <input class="ob-input ob-input-big" id="ob-weight" type="number" inputmode="decimal" step=".1" placeholder="165">
     <div class="ob-btn-row">
       <button class="ob-back" onclick="obBack(3)">←</button>
       <button class="ob-next" onclick="obNext(3)">CONTINUAR →</button>
@@ -1593,7 +1593,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-title">PESO DE HOJE</div>
     <div class="sheet-desc">Registre seu peso atual</div>
     <div style="display:flex;gap:10px;margin-bottom:10px;align-items:center">
-      <input id="qw-input" type="number" inputmode="decimal" step=".1" placeholder="228.5" class="sheet-input" style="font-family:'Bebas Neue',sans-serif;font-size:32px;margin-bottom:0;flex:1">
+      <input id="qw-input" type="number" inputmode="decimal" step=".1" placeholder="165" class="sheet-input" style="font-family:'Bebas Neue',sans-serif;font-size:32px;margin-bottom:0;flex:1">
       <div style="display:flex;flex-direction:column;gap:6px">
         <button onclick="setQWUnit('lbs')" id="qw-lbs" style="padding:8px 14px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">LBS</button>
         <button onclick="setQWUnit('kg')" id="qw-kg" style="padding:8px 14px;background:var(--s2);color:var(--mid);border:1px solid var(--bdr);border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">KG</button>
@@ -1934,10 +1934,10 @@ function toggleLang(){lang=lang==='pt'?'en':'pt';localStorage.setItem('apex_lang
 // ══════════════════════════════════
 let D = {
   apiKey: '',
-  name: 'Ewerton',
-  weightLbs: 228.5, targetLbs: 185,
-  heightIn: 72, age: 44,
-  gender: 'm', bodyFat: 28.8, leanMass: 162.5,
+  name: '',
+  weightLbs: 0, targetLbs: 0,
+  heightIn: 0, age: 0,
+  gender: '', bodyFat: 0, leanMass: 0,
   goalKcal: 2200, goalProt: 180, goalCarb: 220, goalFat: 65,
   fastH: 16, fastStart: null,
   water: 0, streak: 0,
@@ -3829,7 +3829,7 @@ function setUnit(u) {
   document.getElementById('ut-lbs').classList.toggle('on',u==='lbs');
   document.getElementById('ut-kg').classList.toggle('on',u==='kg');
   document.getElementById('w-unit').textContent=' '+( u==='kg'?'kg':'lbs');
-  document.getElementById('w-input').placeholder=u==='kg'?'104.0':'228.5';
+  document.getElementById('w-input').placeholder=u==='kg'?'75':'165';
   renderWeightPage();
 }
 
@@ -3848,7 +3848,7 @@ function logWeight(){
   D.weightLbs=lbs; save();
   document.getElementById('w-input').value='';
   renderWeightPage();
-  setEl('h-weight',dispW(D.weightLbs||228.5)+' '+(D.weightUnit==='kg'?'kg':'lbs'));
+  setEl('h-weight',D.weightLbs?(dispW(D.weightLbs)+' '+(D.weightUnit==='kg'?'kg':'lbs')):'—');
   toast(tr('t_weight_ok'));
 }
 
@@ -3898,24 +3898,36 @@ function renderWeightHistList(){
 // ══════════════════════════════════
 // AI COACHES
 // ══════════════════════════════════
+// Monta o perfil do usuário a partir dos dados reais (D) — nunca dados fixos
+function userProfileText(){
+  const p = D.userProfile || {};
+  const parts = [];
+  if(D.name) parts.push('Nome: '+D.name);
+  if(D.age) parts.push('Idade: '+D.age+' anos');
+  if(D.weightLbs) parts.push('Peso: '+D.weightLbs.toFixed(1)+' lbs ('+(D.weightLbs*0.453592).toFixed(1)+' kg)');
+  if(D.heightIn) parts.push("Altura: "+Math.floor(D.heightIn/12)+"'"+(D.heightIn%12)+'"');
+  if(D.bodyFat) parts.push('Gordura: '+D.bodyFat+'%');
+  if(D.targetLbs) parts.push('Meta de peso: '+D.targetLbs.toFixed(1)+' lbs');
+  const goals = Array.isArray(p.goals)?p.goals:[];
+  if(goals.length) parts.push('Objetivos: '+goals.join(', '));
+  if(p.goalCustom) parts.push('Objetivo descrito pelo usuário: '+p.goalCustom);
+  if(p.level) parts.push('Nível: '+p.level);
+  if(Array.isArray(p.limitations) && p.limitations.length) parts.push('Limitações físicas: '+p.limitations.join(', '));
+  if(p.limitationsNote) parts.push('Obs. de limitações: '+p.limitationsNote);
+  if(Array.isArray(p.equipment) && p.equipment.length) parts.push('Equipamentos: '+p.equipment.join(', '));
+  if(p.equipmentNote) parts.push('Obs. de equipamento: '+p.equipmentNote);
+  if(p.days) parts.push('Treina '+p.days+'x/semana');
+  return parts.length ? parts.join(' | ') : 'Perfil ainda não preenchido — pergunte ao usuário o que precisar antes de orientar.';
+}
+
 const TRAINER_SYSTEM = (ispt) => `Você é um personal trainer de elite. Tom: direto, técnico, sem elogios vazios.
-PERFIL DO USUÁRIO (já diagnosticado — não fazer perguntas de diagnóstico):
-Dados: Peso: 228.5 lbs (103.6 kg) | Gordura: 28.8% | Massa magra: 162.5 lbs (73.7 kg) | Gordura visceral: 13 (alto) | Altura: 6'0" (183 cm) | Idade: 44 anos
-Objetivo: Recomposição corporal. Hipertrofia + perda de gordura. Braço, trapézio, reduzir abdômen e love handles.
-Experiência: Iniciante real. Histórico de abandono recorrente. Treinos: Full Body 3x (Seg/Qua/Sex) + Cardio 2x (Ter/Qui). 45-60 min às 5AM.
-Limitações: Artrite nos dois joelhos. Tratamento ativo (Euflexxa). Sem impacto, amplitude controlada.
-Performance: Flexões: 2. Barra fixa: 0. Força geral baixa.
-Academia: Pesos livres, algumas máquinas, cardio completo.
-Instruções: Direto, técnico. Sem motivação genérica. Respostas objetivas. Se o usuário relatar treino (Modo 3), registre, analise, ajuste carga se necessário. Responda em ${ispt?'português brasileiro':'English'}.`;
+PERFIL DO USUÁRIO: ${userProfileText()}
+Instruções: Direto, técnico. Sem motivação genérica. Respeite as limitações físicas informadas. Se o usuário relatar um treino, registre, analise e ajuste a carga se necessário. Se faltar informação no perfil, pergunte. Responda em ${ispt?'português brasileiro':'English'}.`;
 
 const NUT_SYSTEM = (ispt) => `Você é um nutricionista esportivo de elite. Tom: direto, técnico, sem elogios vazios.
-PERFIL DO USUÁRIO (já diagnosticado):
-Dados: Peso: 228.5 lbs (103.6 kg) | Gordura: 28.8% | Massa magra: 162.5 lbs | Gordura visceral: 13 | Altura: 6'0" | Idade: 44 anos
-Objetivo: Recomposição corporal. Perda de gordura + preservação de massa magra. Reduzir abdômen e love handles.
-Metodologia: Baseada em Coach — Dieta Opus 15. Jejum intermitente. 3 refeições. Rotação de alimentos. Sem ultraprocessados.
-Metas: ~2.190 kcal/dia | 180g proteína | 218g carbs | 62g gordura.
-Contexto: Mora em Cape Cod, MA. Supermercados: Stop & Shop, Market Basket, Walmart. Disponibilidade: alta. Sem restrições alimentares.
-Refeições liberadas: Café preto à vontade. Gelatina diet. Folhas verdes à vontade. Responda em ${ispt?'português brasileiro':'English'}.`;
+PERFIL DO USUÁRIO: ${userProfileText()}
+Metodologia: Dieta Opus 15 / Seca Barriga. Jejum intermitente. 3 refeições. Rotação de alimentos. Sem ultraprocessados.
+Refeições liberadas: café preto à vontade, gelatina diet, folhas verdes à vontade. Se faltar informação no perfil, pergunte. Responda em ${ispt?'português brasileiro':'English'}.`;
 
 function initTrainerChat() {
   const chats = D.coachChats||{};
@@ -4540,7 +4552,7 @@ const SECA_TREINO_B = [
   { name: 'Agachamento Smith', sets: '3', reps: '15–20', rest: '30–40s', yt: 'agachamento+smith+execução+correta', note: '⚠️ JOELHO: amplitude meia, pés à frente da barra. Parar se sentir dor. Consulte seu médico.', warn: true },
 ];
 
-// CARDIO DATA — protocolo Opus 15 (adaptado para joelhos de Ewerton)
+// CARDIO DATA — protocolo Opus 15 (baixo impacto, adaptável a limitações de joelho)
 const SECA_CARDIO_A = {
   label: 'CARDIO A — ESTEIRA INCLINADA',
   coach: 'Protocolo Opus 15: 10 sessões × 30s corrida intensa / 60s descanso. Adaptado: caminhada inclinada (joelhos).',
@@ -5237,7 +5249,7 @@ function buildReportPrompt(period, data) {
   const p = REPORT_PERIODS[period];
   return `Você é um coach de performance especializado em recomposição corporal. Tom: direto, sem elogios vazios, baseado em dados reais. 
 
-PERFIL: 44 anos | 228.5 lbs | 103.6kg | Gordura 28.8% | Meta: recomposição corporal + hipertrofia | Foco: braço, trapézio, reduzir abdômen | Artrite nos joelhos.
+PERFIL: ${userProfileText()}
 
 DADOS DO PERÍODO (${p.label} — últimos ${data.days} dias):
 - Treinos completados: ${data.workoutCount} (${data.workoutComplete} 100% concluídos)
@@ -5698,7 +5710,7 @@ function renderSecaDiet() {
       </div>
     </div>`).join('') +
     `<div style="margin:12px 14px 0;background:var(--gold-bg);border:1px solid rgba(201,169,110,.2);border-radius:var(--rs);padding:12px 16px;font-size:15px;color:var(--gold);font-weight:600;text-align:center">
-      Total: 1.305 kcal/dia · Para ${(103.6*40).toFixed(0)} ml de água (103.6 kg × 40ml)
+      Total: 1.305 kcal/dia${D.weightLbs?` · Meta de água: ${((D.weightLbs*0.453592)*40).toFixed(0)} ml (${(D.weightLbs*0.453592).toFixed(1)} kg × 40ml)`:''}
     </div>`;
 }
 
@@ -5712,7 +5724,7 @@ let qwUnit = 'lbs';
 function openQuickWeight() {
   qwUnit = D.weightUnit||'lbs';
   document.getElementById('qw-input').value = '';
-  document.getElementById('qw-input').placeholder = qwUnit==='kg'?'ex: 104.0':'ex: 228.5';
+  document.getElementById('qw-input').placeholder = qwUnit==='kg'?'ex: 75':'ex: 165';
   document.getElementById('qw-lbs').style.background = qwUnit==='lbs'?'var(--gold)':'var(--s2)';
   document.getElementById('qw-lbs').style.color = qwUnit==='lbs'?'var(--bg)':'var(--mid)';
   document.getElementById('qw-kg').style.background = qwUnit==='kg'?'var(--gold)':'var(--s2)';
@@ -5725,7 +5737,7 @@ function setQWUnit(u) {
   document.getElementById('qw-lbs').style.color = u==='lbs'?'var(--bg)':'var(--mid)';
   document.getElementById('qw-kg').style.background = u==='kg'?'var(--gold)':'var(--s2)';
   document.getElementById('qw-kg').style.color = u==='kg'?'var(--bg)':'var(--mid)';
-  document.getElementById('qw-input').placeholder = u==='kg'?'ex: 104.0':'ex: 228.5';
+  document.getElementById('qw-input').placeholder = u==='kg'?'ex: 75':'ex: 165';
 }
 function logWeightQuick() {
   const v = parseFloat(document.getElementById('qw-input').value);
