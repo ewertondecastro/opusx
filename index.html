@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T14:56:53Z">
+<meta name="app-version" content="2026-05-20T15:04:35Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -4294,18 +4294,21 @@ function openAlternatives(exName, type, i) {
   setEl('alt-desc', `Substituições para: <strong style="color:var(--gold)">${exName}</strong>`);
 
   const canSubstitute = (typeof type !== 'undefined' && typeof i !== 'undefined');
-  _altContext = canSubstitute ? {type, i, exName} : null;
+  _altContext = {type, i, exName, canSubstitute};
 
   // Alternativas: primeiro o pool do grupo muscular (~10), fallback no mapa antigo
   const muscle = muscleOf(exName);
-  let alts = null;
+  let allAlts = null;
   if(muscle && MUSCLE_ALTS[muscle]){
-    // remove a opção idêntica ao exercício atual
-    alts = MUSCLE_ALTS[muscle].filter(a => a.name.toLowerCase() !== exName.toLowerCase());
+    allAlts = MUSCLE_ALTS[muscle].filter(a => a.name.toLowerCase() !== exName.toLowerCase());
   } else {
     const key = Object.keys(ALTERNATIVES).find(k => exName.includes(k));
-    alts = key ? ALTERNATIVES[key] : null;
+    allAlts = key ? ALTERNATIVES[key] : null;
   }
+  // remove exercícios marcados como "não tenho acesso"
+  const unavailable = D.unavailable || [];
+  const alts = (allAlts||[]).filter(a => !unavailable.includes(a.name));
+  const hiddenCount = (allAlts||[]).length - alts.length;
 
   let html = '';
 
@@ -4318,23 +4321,45 @@ function openAlternatives(exName, type, i) {
   }
 
   if(!alts||!alts.length){
-    html += `<div style="font-size:14px;color:var(--mid);padding:10px 0">${lang==='pt'?'Nenhuma alternativa cadastrada. Pergunte ao seu personal trainer IA na aba do treino.':'No alternatives registered. Ask your AI trainer.'}</div>`;
+    html += `<div style="font-size:14px;color:var(--mid);padding:10px 0">${lang==='pt'?'Nenhuma alternativa disponível. Pergunte ao seu personal trainer IA na aba do treino.':'No alternatives available.'}</div>`;
   } else {
-    html += alts.map((a,ai)=>`
-      <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">${a.name}</div>
-            <div style="font-size:13px;color:var(--mid)">${a.detail}</div>
-          </div>
-          ${canSubstitute?`<button onclick="substituteExercise(${ai})" style="padding:9px 12px;background:var(--gold);border:none;border-radius:6px;color:var(--bg);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">SUBSTITUIR</button>`:''}
+    html += alts.map((a,ai)=>{
+      const ytUrl = 'https://www.youtube.com/results?search_query='+encodeURIComponent(a.name+' execução técnica');
+      return `<div style="background:var(--s2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px">
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">${a.name}</div>
+        <div style="font-size:13px;color:var(--mid);margin-bottom:10px">${a.detail}</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <a href="${ytUrl}" target="_blank" style="padding:8px 11px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:5px">▶ Vídeo</a>
+          <button onclick="markUnavailable('${a.name.replace(/'/g,'')}')" style="padding:8px 11px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer">🚫 Não tenho</button>
+          ${canSubstitute?`<button onclick="substituteExercise(${ai})" style="padding:8px 14px;background:var(--gold);border:none;border-radius:6px;color:var(--bg);font-size:12px;font-weight:700;cursor:pointer;margin-left:auto">SUBSTITUIR</button>`:''}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
-  // guarda os alts atuais pra o substituteExercise
+  if(hiddenCount>0){
+    html += `<div style="text-align:center;padding:6px"><span onclick="restoreUnavailable()" style="font-size:12px;color:var(--dim);cursor:pointer;text-decoration:underline">${hiddenCount} exercício(s) oculto(s) — restaurar todos</span></div>`;
+  }
+  // guarda os alts atuais (filtrados) pra o substituteExercise
   _altContext && (_altContext.alts = alts || []);
   list.innerHTML = html;
   openSheet('alt-ov');
+}
+
+function markUnavailable(name){
+  if(!D.unavailable) D.unavailable = [];
+  if(!D.unavailable.includes(name)) D.unavailable.push(name);
+  save();
+  track('exercise_marked_unavailable', {name});
+  toast('"'+name+'" não será mais recomendado');
+  // re-renderiza a lista de alternativas
+  if(_altContext) openAlternatives(_altContext.exName, _altContext.type, _altContext.i);
+}
+
+function restoreUnavailable(){
+  D.unavailable = [];
+  save();
+  toast('Exercícios restaurados ✓');
+  if(_altContext) openAlternatives(_altContext.exName, _altContext.type, _altContext.i);
 }
 
 function substituteExercise(altIdx){
@@ -4607,6 +4632,7 @@ function renderSecaHoje() {
       _substituted: true,
       _origName: origEx.name,
     } : origEx;
+    const isAbs = muscleOf(ex.name) === 'abdomen';
     const loadKey = `load_seca_${type}_${i}`;
     const loadHistory = (D.loadHistory||{})[loadKey] || [];
     // Get last session's per-series data for reference
@@ -4640,12 +4666,13 @@ function renderSecaHoje() {
             ${lastSeriesReps?`<span style="font-size:11px;color:var(--dim)">ant: ${lastSeriesReps}</span>`:''}
           </div>
         </div>
-        <!-- Load input -->
+        <!-- Load input (opcional em abdominais) -->
         <div style="flex:1;min-width:0">
-          <div style="font-size:10px;color:var(--dim);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">CARGA</div>
+          <div style="font-size:10px;color:var(--dim);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">CARGA${isAbs?' <span style="text-transform:none;letter-spacing:0;color:var(--dim)">(opc.)</span>':''}</div>
           <div style="display:flex;align-items:center;gap:6px">
-            <input type="text" inputmode="decimal" id="load-${sk}" placeholder="lb" value="${seriesData.load||''}"
-              style="width:64px;background:var(--s2);border:1px solid var(--bdr);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
+            ${(isAbs && !seriesData.load) ? `<button id="loadbtn-${sk}" onclick="revealLoad('${sk}')" style="padding:7px 10px;background:var(--s2);border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">+ peso</button>` : ''}
+            <input type="text" inputmode="decimal" id="load-${sk}" placeholder="${isAbs?'corporal':'lb'}" value="${seriesData.load||''}"
+              style="width:64px;background:var(--s2);border:1px solid var(--bdr);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center;display:${(isAbs && !seriesData.load)?'none':'block'}"
               onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'"
               onchange="saveSeriesData('${sk}','${loadKey}',${i},${s})">
             ${lastSeriesLoad?`<span style="font-size:11px;color:var(--dim)">ant: <strong style="color:var(--gold)">${lastSeriesLoad}</strong></span>`:''}
@@ -4833,6 +4860,13 @@ function renderSecaHoje() {
 
   container.innerHTML = html;
   renderSecaChatHistory();
+}
+
+function revealLoad(sk){
+  const inp = document.getElementById('load-'+sk);
+  const btn = document.getElementById('loadbtn-'+sk);
+  if(inp){ inp.style.display='block'; inp.focus(); }
+  if(btn) btn.style.display='none';
 }
 
 function markSecaStart(sk){
