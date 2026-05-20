@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T01:20:22Z">
+<meta name="app-version" content="2026-05-20T01:22:09Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1514,6 +1514,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <button class="btn btn-gold" onclick="saveKey()" style="flex:2;margin:0" id="sheet-save">Salvar</button>
     </div>
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bdr)">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px" id="theme-section-title">TEMA / PALETA</div>
+      <div id="theme-picker" style="display:flex;gap:10px"></div>
+    </div>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bdr)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700">SYNC EM NUVEM (GIST)</div>
         <div id="sync-status" style="font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:1px">desligado</div>
@@ -1660,6 +1664,44 @@ function track(event, props){
   try { if(window.posthog && POSTHOG_KEY) posthog.capture(event, props||{}); }
   catch(e){}
 }
+
+// ══════════════════════════════════════
+// THEMES — troca a cor de acento (variáveis CSS)
+// ══════════════════════════════════════
+const THEMES = {
+  gold:     { name:'Gold',      swatch:'#C9A96E', gold:'#C9A96E', gold2:'#E8CC99', goldD:'#8A6A2A', goldBg:'rgba(201,169,110,.10)' },
+  rose:     { name:'Rosé',      swatch:'#CE8FA4', gold:'#CE8FA4', gold2:'#E8BCCB', goldD:'#8E5C6C', goldBg:'rgba(206,143,164,.12)' },
+  lavender: { name:'Lavanda',   swatch:'#A48FCE', gold:'#A48FCE', gold2:'#C9BCE8', goldD:'#5F5C8E', goldBg:'rgba(164,143,206,.12)' },
+  emerald:  { name:'Esmeralda', swatch:'#6FB58C', gold:'#6FB58C', gold2:'#A5D9BC', goldD:'#3F7558', goldBg:'rgba(111,181,140,.12)' },
+};
+function applyTheme(themeKey){
+  const t = THEMES[themeKey] || THEMES.gold;
+  const r = document.documentElement.style;
+  r.setProperty('--gold', t.gold);
+  r.setProperty('--gold2', t.gold2);
+  r.setProperty('--gold-d', t.goldD);
+  r.setProperty('--gold-bg', t.goldBg);
+  localStorage.setItem('apex_theme', themeKey);
+}
+function setTheme(themeKey){
+  applyTheme(themeKey);
+  renderThemePicker();
+  toast((lang==='pt'?'Tema: ':'Theme: ')+(THEMES[themeKey]||THEMES.gold).name);
+}
+function renderThemePicker(){
+  const wrap = document.getElementById('theme-picker');
+  if(!wrap) return;
+  const current = localStorage.getItem('apex_theme') || 'gold';
+  wrap.innerHTML = Object.keys(THEMES).map(k=>{
+    const t = THEMES[k];
+    const on = k===current;
+    return `<div onclick="setTheme('${k}')" style="flex:1;min-width:60px;cursor:pointer;text-align:center">
+      <div style="width:100%;height:38px;border-radius:8px;background:${t.swatch};border:2.5px solid ${on?'#fff':'transparent'};box-shadow:0 0 0 1px var(--bdr)"></div>
+      <div style="font-size:11px;margin-top:5px;color:${on?'var(--text)':'var(--dim)'};font-weight:${on?'700':'400'}">${t.name}</div>
+    </div>`;
+  }).join('');
+}
+applyTheme(localStorage.getItem('apex_theme') || 'gold');
 
 // ══════════════════════════════════════
 // LANGUAGE
@@ -5006,7 +5048,7 @@ function openStreakDetail() {
 function openSheet(id){
   const apiF = document.getElementById('api-field'); if(apiF) apiF.value = D.apiKey || '';
   const gistF = document.getElementById('gist-field'); if(gistF) gistF.value = getGistToken();
-  if(id==='api-ov'){ setSyncStatus(getGistToken() && getGistId() ? 'synced' : 'idle'); }
+  if(id==='api-ov'){ setSyncStatus(getGistToken() && getGistId() ? 'synced' : 'idle'); renderThemePicker(); }
   document.getElementById(id).classList.add('show');
 }
 function closeSheet(id){document.getElementById(id).classList.remove('show');}
