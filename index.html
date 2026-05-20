@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T14:43:38Z">
+<meta name="app-version" content="2026-05-20T14:54:03Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -405,7 +405,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 ══════════════════════════════════ */
 .overlay{position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:center}
 .overlay.show{display:flex}
-.sheet{background:var(--s1);border:1px solid var(--bdr);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:28px 22px 44px;animation:sheetUp .3s ease;box-shadow:var(--sh)}
+.sheet{background:var(--s1);border:1px solid var(--bdr);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:28px 22px 44px;animation:sheetUp .3s ease;box-shadow:var(--sh);max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 @keyframes sheetUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
 .sheet-handle{width:36px;height:3px;background:var(--bdr2);border-radius:3px;margin:0 auto 22px}
 .sheet-title{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--text);letter-spacing:.5px;margin-bottom:6px}
@@ -634,14 +634,23 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
 
     <!-- ÁGUA -->
-    <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:20px;min-height:120px;display:flex;flex-direction:column;justify-content:space-between">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round"><path d="M12 2C6.5 11 2 15.5 2 17a10 10 0 0 0 20 0c0-1.5-4.5-6-10-15z"/></svg>
-        <div style="font-size:14px;color:var(--blue);font-weight:700" id="h-water-c">0/128oz</div>
+    <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:18px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round"><path d="M12 2C6.5 11 2 15.5 2 17a10 10 0 0 0 20 0c0-1.5-4.5-6-10-15z"/></svg>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--text);letter-spacing:.5px;flex:1">ÁGUA</div>
       </div>
-      <div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--text);letter-spacing:.5px;margin-bottom:8px">ÁGUA</div>
-        <div class="water-track" id="water-track" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px">
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:var(--blue);line-height:1" id="water-drank">0</span>
+        <span style="font-size:14px;color:var(--mid)">/ <span id="water-goal">100</span> oz</span>
+      </div>
+      <div style="height:8px;background:var(--s3);border-radius:5px;overflow:hidden;margin-bottom:6px">
+        <div id="water-bar" style="height:100%;width:0%;background:var(--blue);border-radius:5px;transition:width .3s"></div>
+      </div>
+      <div style="font-size:12px;color:var(--mid);margin-bottom:12px" id="water-remain">faltam 100 oz</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="addWater(-8)" style="padding:11px 0;flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;cursor:pointer">−8</button>
+        <button onclick="addWater(8)" style="padding:11px 0;flex:1.4;background:var(--blue);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">+8 oz</button>
+        <button onclick="addWater(16)" style="padding:11px 0;flex:1.4;background:var(--blue-bg);border:1px solid rgba(82,137,201,.3);border-radius:8px;color:var(--blue);font-size:13px;font-weight:700;cursor:pointer">+16 oz</button>
       </div>
     </div>
 
@@ -2953,9 +2962,9 @@ function initHome() {
 function updateRings() {
   const k = D.log.reduce((a,e)=>a+(e.kcal||0),0);
   const p = D.log.reduce((a,e)=>a+(e.protein||0),0);
-  const totalOz = D.water * WATER_OZ_EACH;
+  const totalOz = (D.water||0) * WATER_OZ_EACH;
   setEl('h-water-stat', totalOz);
-  setEl('h-water-c', totalOz+'/128oz');
+  setEl('h-water-c', totalOz+'/'+waterGoalOz()+'oz');
   // Update weight display
   if(D.weightLbs) setEl('h-weight', dispW(D.weightLbs));
 }
@@ -3006,23 +3015,35 @@ function toggleExCheckHome(key, el) {
 // ══════════════════════════════════
 // WATER
 // ══════════════════════════════════
-// Water: 16 cups × 8oz = 128oz (recomendado para 103kg: ~3.8L)
-const WATER_CUPS = 16;
+// Water — meta calculada pelo peso corporal, incrementos de 8oz
 const WATER_OZ_EACH = 8;
+function waterGoalOz(){
+  const lbs = D.weightLbs || 175;
+  // ~metade do peso (lb) em oz, arredondado p/ múltiplo de 8
+  let oz = Math.round(lbs * 0.5 / 8) * 8;
+  return Math.max(64, Math.min(176, oz));
+}
+function addWater(oz){
+  const before = (D.water||0)*WATER_OZ_EACH;
+  D.water = Math.max(0, (D.water||0) + oz/WATER_OZ_EACH);
+  save();
+  renderWater();
+  updateRings();
+  const goal = waterGoalOz();
+  const after = D.water*WATER_OZ_EACH;
+  if(oz>0 && after>=goal && before<goal){ toast('Meta de água atingida! 💧'); }
+}
 function initWater() { renderWater(); }
 function renderWater() {
-  const wrap = document.getElementById('water-track');
-  if(!wrap) return;
-  wrap.innerHTML = '';
-  for(let i=0;i<WATER_CUPS;i++){
-    const d = document.createElement('div');
-    d.className = 'w-cup' + (i<D.water?' on':'');
-    d.innerHTML = `<svg viewBox="0 0 24 24"><path d="M17 8h1a4 4 0 0 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/></svg><span class="w-cup-oz">${(i+1)*WATER_OZ_EACH}oz</span>`;
-    d.onclick = () => { D.water = (D.water===i+1)?i:i+1; save(); renderWater(); updateRings(); };
-    wrap.appendChild(d);
-  }
-  const totalOz = D.water * WATER_OZ_EACH;
-  setEl('h-water-c', totalOz+'/128 oz');
+  const drank = (D.water||0)*WATER_OZ_EACH;
+  const goal = waterGoalOz();
+  const pct = Math.min(100, Math.round(drank/goal*100));
+  setEl('water-drank', drank);
+  setEl('water-goal', goal);
+  const bar = document.getElementById('water-bar');
+  if(bar) bar.style.width = pct+'%';
+  const rem = goal - drank;
+  setEl('water-remain', rem>0 ? ('faltam '+rem+' oz para a meta') : '✓ meta atingida — siga hidratado');
 }
 
 // ══════════════════════════════════
@@ -3909,6 +3930,149 @@ function applyFastEdit() {
 // ══════════════════════════════════
 // EXERCISE ALTERNATIVES
 // ══════════════════════════════════
+// Pools de alternativas por grupo muscular — ~10 opções cada
+const MUSCLE_ALTS = {
+  peito: [
+    { name:'Supino Reto com Barra', detail:'Máquinas/barra · Base de peito, força' },
+    { name:'Supino Inclinado com Halteres', detail:'Halteres · Peito superior' },
+    { name:'Supino Reto com Halteres', detail:'Halteres · Mais amplitude que a barra' },
+    { name:'Crucifixo Inclinado', detail:'Halteres · Isolamento do peito superior' },
+    { name:'Crucifixo Reto com Halteres', detail:'Halteres · Alongamento e contração' },
+    { name:'Peck Deck (Voador)', detail:'Máquina · Isolamento seguro' },
+    { name:'Crossover na Polia', detail:'Polia · Tensão constante, ótima contração' },
+    { name:'Flexão de Braço', detail:'Peso corporal · Em qualquer lugar' },
+    { name:'Flexão Inclinada (pés elevados)', detail:'Peso corporal · Foco peito superior' },
+    { name:'Supino na Máquina', detail:'Máquina · Trajetória guiada e segura' },
+    { name:'Pullover com Halter', detail:'Halter · Peito e serrátil' },
+  ],
+  costas: [
+    { name:'Puxada Frente (Pulldown)', detail:'Polia alta · Largura das costas' },
+    { name:'Puxada Aberta', detail:'Polia · Foco no grande dorsal' },
+    { name:'Remada Curvada com Barra', detail:'Barra · Espessura das costas' },
+    { name:'Remada com Halter (1 braço)', detail:'Halter · Unilateral, apoiado no banco' },
+    { name:'Remada Baixa na Polia', detail:'Polia · Retração de escápula' },
+    { name:'Remada Cavalinho', detail:'Barra/máquina · Costas médias' },
+    { name:'Remada na Máquina', detail:'Máquina · Trajetória guiada' },
+    { name:'Barra Fixa (Pull-up)', detail:'Peso corporal · O rei das costas' },
+    { name:'Pull-over na Polia', detail:'Polia alta · Isolamento do dorsal' },
+    { name:'Remada com Elástico', detail:'Elástico · Em casa, sem peso' },
+    { name:'Levantamento Terra', detail:'Barra · Costas, posterior e core' },
+  ],
+  ombro: [
+    { name:'Desenvolvimento com Halteres', detail:'Halteres · Ombro completo' },
+    { name:'Desenvolvimento na Máquina', detail:'Máquina · Guiado e seguro' },
+    { name:'Arnold Press', detail:'Halteres · Ativa as 3 porções do deltóide' },
+    { name:'Elevação Lateral com Halteres', detail:'Halteres · Deltóide lateral' },
+    { name:'Elevação Lateral na Polia', detail:'Polia baixa · Tensão constante' },
+    { name:'Elevação Frontal', detail:'Halter/anilha · Deltóide anterior' },
+    { name:'Crucifixo Invertido', detail:'Halteres · Deltóide posterior' },
+    { name:'Facepull na Polia', detail:'Polia · Ombro posterior e postura' },
+    { name:'Remada Alta', detail:'Barra/halteres · Ombro e trapézio' },
+    { name:'Desenvolvimento com Barra', detail:'Barra · Força de ombro' },
+    { name:'Elevação Lateral com Elástico', detail:'Elástico · Em casa' },
+  ],
+  biceps: [
+    { name:'Rosca Direta com Barra', detail:'Barra · Base do bíceps' },
+    { name:'Rosca Direta com Barra W', detail:'Barra W · Menos stress no punho' },
+    { name:'Rosca Alternada com Halteres', detail:'Halteres · Unilateral, supinação' },
+    { name:'Rosca Martelo', detail:'Halteres · Bíceps e braquial' },
+    { name:'Rosca Concentrada', detail:'Halter · Pico de contração' },
+    { name:'Rosca Scott', detail:'Banco Scott · Isolamento total' },
+    { name:'Rosca na Polia Baixa', detail:'Polia · Tensão constante' },
+    { name:'Rosca Inversa', detail:'Barra · Pegada pronada, antebraço' },
+    { name:'Rosca 21', detail:'Barra · Técnica de intensidade' },
+    { name:'Rosca com Elástico', detail:'Elástico · Em casa, sem peso' },
+  ],
+  triceps: [
+    { name:'Tríceps na Polia com Corda', detail:'Polia · Abre as mãos no final' },
+    { name:'Tríceps na Polia com Barra', detail:'Polia · Cabeça longa' },
+    { name:'Tríceps Testa com Barra W', detail:'Barra W · Deitado, cotovelos fixos' },
+    { name:'Tríceps Francês com Halter', detail:'Halter · Acima da cabeça' },
+    { name:'Tríceps Coice (Kickback)', detail:'Halter · Isolamento, sem máquina' },
+    { name:'Mergulho entre Bancos (Dips)', detail:'Peso corporal · Joelhos dobrados' },
+    { name:'Mergulho nas Paralelas', detail:'Peso corporal · Tríceps e peito' },
+    { name:'Tríceps na Máquina', detail:'Máquina · Guiado e seguro' },
+    { name:'Flexão Fechada (Diamante)', detail:'Peso corporal · Mãos juntas' },
+    { name:'Extensão de Tríceps Unilateral', detail:'Polia/halter · Corrige assimetria' },
+  ],
+  quadriceps: [
+    { name:'Agachamento Livre', detail:'Barra · O rei das pernas' },
+    { name:'Agachamento no Smith', detail:'Smith · Trajetória guiada' },
+    { name:'Leg Press 45°', detail:'Máquina · Muita carga com segurança' },
+    { name:'Cadeira Extensora', detail:'Máquina · Isolamento do quadríceps' },
+    { name:'Hack Squat', detail:'Máquina · Quadríceps com apoio de costas' },
+    { name:'Afundo (Passada)', detail:'Halteres/peso corporal · Unilateral' },
+    { name:'Agachamento Búlgaro', detail:'Halteres · Pé traseiro elevado' },
+    { name:'Agachamento Goblet', detail:'Halter/kettlebell · Ótimo para iniciantes' },
+    { name:'Agachamento na Parede (Wall Sit)', detail:'Peso corporal · Isométrico' },
+    { name:'Step-up no Banco', detail:'Halteres · Subida funcional' },
+  ],
+  posterior: [
+    { name:'Mesa Flexora', detail:'Máquina · Isquiotibiais deitado' },
+    { name:'Cadeira Flexora (sentado)', detail:'Máquina · Posterior de coxa' },
+    { name:'Stiff com Barra', detail:'Barra · Posterior e glúteo' },
+    { name:'Stiff com Halteres', detail:'Halteres · Mais amplitude' },
+    { name:'Levantamento Terra Romeno', detail:'Barra · Alongamento do posterior' },
+    { name:'Flexora em Pé', detail:'Máquina/caneleira · Unilateral' },
+    { name:'Good Morning', detail:'Barra · Posterior e lombar' },
+    { name:'Elevação Pélvica (foco posterior)', detail:'Barra · Quadril' },
+    { name:'Nórdico (Nordic Curl)', detail:'Peso corporal · Avançado, excêntrico' },
+    { name:'Flexora com Bola', detail:'Bola suíça · Em casa' },
+  ],
+  gluteo: [
+    { name:'Elevação Pélvica (Hip Thrust)', detail:'Barra · O melhor para glúteo' },
+    { name:'Glúteo na Polia (Coice)', detail:'Polia · Extensão de quadril' },
+    { name:'Cadeira Abdutora', detail:'Máquina · Glúteo médio' },
+    { name:'Cadeira Adutora', detail:'Máquina · Parte interna da coxa' },
+    { name:'Agachamento Sumô', detail:'Halter/barra · Pernas abertas, glúteo' },
+    { name:'Afundo Reverso', detail:'Halteres · Passada para trás' },
+    { name:'Glúteo 4 Apoios', detail:'Caneleira/peso corporal · Isolamento' },
+    { name:'Ponte de Glúteo', detail:'Peso corporal · Em casa' },
+    { name:'Abdução com Elástico', detail:'Elástico · Glúteo médio, aquecimento' },
+    { name:'Búlgaro (foco glúteo)', detail:'Halteres · Tronco inclinado à frente' },
+  ],
+  panturrilha: [
+    { name:'Panturrilha em Pé na Máquina', detail:'Máquina · Gastrocnêmio' },
+    { name:'Panturrilha Sentado', detail:'Máquina · Sóleo' },
+    { name:'Panturrilha no Leg Press', detail:'Leg press · Só a ponta do pé' },
+    { name:'Panturrilha no Smith', detail:'Smith · Com step embaixo' },
+    { name:'Panturrilha com Halter (unilateral)', detail:'Halter · Corrige assimetria' },
+    { name:'Elevação de Panturrilha no Step', detail:'Step · Amplitude total' },
+    { name:'Panturrilha no Hack', detail:'Hack squat · Boa estabilidade' },
+    { name:'Panturrilha em Pé sem Peso', detail:'Peso corporal · Em casa, alto volume' },
+    { name:'Burro (Donkey Calf)', detail:'Máquina/parceiro · Alongamento extra' },
+    { name:'Pular Corda', detail:'Corda · Resistência de panturrilha' },
+  ],
+  abdomen: [
+    { name:'Abdominal Supra (Crunch)', detail:'Peso corporal · Reto abdominal superior' },
+    { name:'Abdominal Infra', detail:'Peso corporal · Elevação de quadril' },
+    { name:'Prancha Isométrica', detail:'Peso corporal · Core completo' },
+    { name:'Prancha Lateral', detail:'Peso corporal · Oblíquos' },
+    { name:'Abdominal Oblíquo', detail:'Peso corporal · Cintura' },
+    { name:'Elevação de Pernas', detail:'Barra fixa/banco · Abdômen inferior' },
+    { name:'Russian Twist', detail:'Peso corporal/anilha · Rotação' },
+    { name:'Abdominal na Máquina', detail:'Máquina · Com carga progressiva' },
+    { name:'Abdominal Bicicleta', detail:'Peso corporal · Reto + oblíquos' },
+    { name:'Dead Bug', detail:'Peso corporal · Core sem dor lombar' },
+    { name:'Mountain Climber', detail:'Peso corporal · Core + cardio' },
+  ],
+};
+
+function muscleOf(name){
+  const n = (name||'').toLowerCase();
+  if(/panturrilha/.test(n)) return 'panturrilha';
+  if(/abdominal|prancha|obl[ií]quo|\bcore\b/.test(n)) return 'abdomen';
+  if(/tr[ií]ceps|testa|mergulho|dips/.test(n)) return 'triceps';
+  if(/rosca|b[ií]ceps/.test(n)) return 'biceps';
+  if(/supino|crucifixo|peck|voador|peito|flex[aã]o de bra/.test(n)) return 'peito';
+  if(/puxad|remada|pulldown|barra fixa|pull-?up|dorsal/.test(n)) return 'costas';
+  if(/eleva[cç][aã]o lateral|eleva[cç][aã]o frontal|desenvolvimento|arnold|facepull|encolhimento|ombro|deltoide/.test(n)) return 'ombro';
+  if(/flexora|stiff|posterior|terra romeno|isquio|good morning/.test(n)) return 'posterior';
+  if(/abdutora|adutora|gl[uú]teo|p[eé]lvica|hip thrust|coice|sum[oô]/.test(n)) return 'gluteo';
+  if(/extensora|agachamento|leg press|hack|afundo|quadr[ií]ceps|b[uú]lgaro|step-?up/.test(n)) return 'quadriceps';
+  return null;
+}
+
 const ALTERNATIVES = {
   // Key: exercise name fragment → alternatives
   'Supino Inclinado': [
@@ -4089,9 +4253,16 @@ function openAlternatives(exName, type, i) {
   const canSubstitute = (typeof type !== 'undefined' && typeof i !== 'undefined');
   _altContext = canSubstitute ? {type, i, exName} : null;
 
-  // Find matching alternatives
-  const key = Object.keys(ALTERNATIVES).find(k => exName.includes(k));
-  const alts = key ? ALTERNATIVES[key] : null;
+  // Alternativas: primeiro o pool do grupo muscular (~10), fallback no mapa antigo
+  const muscle = muscleOf(exName);
+  let alts = null;
+  if(muscle && MUSCLE_ALTS[muscle]){
+    // remove a opção idêntica ao exercício atual
+    alts = MUSCLE_ALTS[muscle].filter(a => a.name.toLowerCase() !== exName.toLowerCase());
+  } else {
+    const key = Object.keys(ALTERNATIVES).find(k => exName.includes(k));
+    alts = key ? ALTERNATIVES[key] : null;
+  }
 
   let html = '';
 
