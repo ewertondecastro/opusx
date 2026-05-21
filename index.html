@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-21T01:06:29Z">
+<meta name="app-version" content="2026-05-21T04:30:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -3112,6 +3112,12 @@ function goPage(id) {
   if (id==='seca') { renderSecaHoje(); buildSecaTreino(); renderSecaDiet(); }
   if (id==='profile') { renderProfilePage(); }
   if (id==='fast') { renderFastCoach(); }
+  if (id==='workout') {
+    // Auto-gravar horário de início ao abrir o treino
+    if(!D.woSessionStart) D.woSessionStart = {};
+    const _wdKey = TODAY;
+    if(!D.woSessionStart[_wdKey]){ D.woSessionStart[_wdKey] = Date.now(); save(); }
+  }
 }
 
 function suggestFastProtocol(){
@@ -3807,6 +3813,10 @@ function buildSessionHTML(key, session, idx) {
       <textarea placeholder="${tr('session_fb_ph')}" id="sfb-${sfKey}">${sf}</textarea>
     </div>
     <button class="btn btn-gold btn-full session-log-btn" onclick="logSession('${key}')">${tr('log_session_btn')}</button>
+    ${(()=>{
+      const _wst = (D.woSessionStart||{})[TODAY];
+      return _wst ? `<div style="margin:8px 0 4px;text-align:center;font-size:12px;color:var(--mid)">🕐 Iniciado às <strong style="color:var(--text)">${fmt12(new Date(_wst))}</strong></div>` : '';
+    })()}
 
     <!-- Trainer AI Chat -->
     <div class="ai-chat-wrap" style="margin:0 14px 14px">
@@ -3878,11 +3888,14 @@ function logSession(dayKey) {
   const total = (session.exercises||[]).length;
   const done = (session.exercises||[]).filter((_,i)=>(D.exChecked||{})[dayKey+'_ex_'+i]).length;
   track('workout_logged', {day:dayKey, done, total, complete:done===total});
+  const _woStartTs = (D.woSessionStart||{})[TODAY] || null;
+  const _woEndTs = Date.now();
   if(!D.workoutHistory) D.workoutHistory=[];
   D.workoutHistory.unshift({
     date:TODAY, ts:Date.now(), day:dayKey,
     title:session.title, done, total, complete:done===total,
-    feedback:(D.sessionFeedback||{})[sfKey]||''
+    feedback:(D.sessionFeedback||{})[sfKey]||'',
+    startTs: _woStartTs, endTs: _woEndTs
   });
   D.workoutHistory = D.workoutHistory.slice(0,60);
   save(); toast(tr('t_wo_logged')); renderWorkoutHistory();
@@ -3995,9 +4008,15 @@ function renderWorkoutHistory() {
   if(!hist.length){list.innerHTML='<div class="empty">'+(lang==='pt'?'Nenhum treino registrado ainda.':'No workouts logged yet.')+'</div>';return;}
   list.innerHTML = hist.slice(0,20).map(h=>{
     const d=new Date(h.ts).toLocaleDateString(lang==='pt'?'pt-BR':'en-US',{month:'short',day:'numeric'});
+    let timeStr = '';
+    if(h.startTs && h.endTs){
+      const durMin = Math.round((h.endTs - h.startTs)/60000);
+      const dh = Math.floor(durMin/60), dm = durMin%60;
+      timeStr = ` · 🕐 ${fmt12(new Date(h.startTs))} – ${fmt12(new Date(h.endTs))} (${dh?dh+'h ':''}${dm}min)`;
+    }
     return `<div class="hist-row">
       <div class="hist-date">${d}</div>
-      <div class="hist-content"><div class="hist-title">${h.title}</div><div class="hist-sub">${h.done}/${h.total} ${lang==='pt'?'exercícios':'exercises'}${h.feedback?' · '+h.feedback.slice(0,40)+'…':''}</div></div>
+      <div class="hist-content"><div class="hist-title">${h.title}</div><div class="hist-sub">${h.done}/${h.total} ${lang==='pt'?'exercícios':'exercises'}${h.feedback?' · '+h.feedback.slice(0,40)+'…':''}${timeStr}</div></div>
       <div class="hist-badge" style="${h.complete?'background:var(--green-bg);color:var(--green)':'background:var(--gold-bg);color:var(--gold)'}">${h.complete?(lang==='pt'?'OK':'OK'):(lang==='pt'?'PARCIAL':'PARTIAL')}</div>
     </div>`;
   }).join('');
@@ -5002,6 +5021,12 @@ function renderSecaHoje() {
   const weekKey = getCurrentWeekKey();
   const loggedDay = (D.secaLog||{})[weekKey+'_'+planIdx];
   const isDone = loggedDay && loggedDay.done;
+  // Auto-gravar horário de início ao abrir a tela (se sessão ainda não concluída)
+  if(!isDone){
+    if(!D.secaSessionStart) D.secaSessionStart = {};
+    const _autoKey = weekKey+'_'+planIdx;
+    if(!D.secaSessionStart[_autoKey]){ D.secaSessionStart[_autoKey] = Date.now(); save(); }
+  }
   // Determine what type to show for this day
   const type = isDone ? loggedDay.type : getNextSecaType();
 
@@ -5067,23 +5092,23 @@ function renderSecaHoje() {
         <div style="flex:1;min-width:0">
           <div style="font-size:10px;color:var(--dim);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">REPS</div>
           <div style="display:flex;align-items:center;gap:6px">
-            <input type="number" inputmode="numeric" pattern="[0-9]*" id="reps-${sk}" placeholder="${ex.reps.split('–')[0]||'15'}" value="${seriesData.reps||''}"
+            <input type="number" inputmode="numeric" pattern="[0-9]*" id="reps-${sk}" placeholder="${ex.reps.split('–')[0]||'15'}" value="${seriesData.reps || lastSeriesReps || ''}"
               style="width:56px;background:var(--s2);border:1px solid var(--bdr);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
               onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'"
               onchange="saveSeriesData('${sk}','${loadKey}',${i},${s})">
-            ${lastSeriesReps?`<span style="font-size:11px;color:var(--dim)">ant: ${lastSeriesReps}</span>`:''}
+            ${(!seriesData.reps && lastSeriesReps)?`<span style="font-size:10px;color:var(--dim);letter-spacing:.5px">↑ últ.</span>`:''}
           </div>
         </div>
         <!-- Load input (opcional em abdominais) -->
         <div style="flex:1;min-width:0">
           <div style="font-size:10px;color:var(--dim);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">CARGA${isAbs?' <span style="text-transform:none;letter-spacing:0;color:var(--dim)">(opc.)</span>':''}</div>
           <div style="display:flex;align-items:center;gap:6px">
-            ${(isAbs && !seriesData.load) ? `<button id="loadbtn-${sk}" onclick="revealLoad('${sk}')" style="padding:7px 10px;background:var(--s2);border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">+ peso</button>` : ''}
-            <input type="text" inputmode="decimal" id="load-${sk}" placeholder="${isAbs?'corporal':'lb'}" value="${seriesData.load||''}"
-              style="width:64px;background:var(--s2);border:1px solid var(--bdr);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center;display:${(isAbs && !seriesData.load)?'none':'block'}"
+            ${(isAbs && !seriesData.load && !lastSeriesLoad) ? `<button id="loadbtn-${sk}" onclick="revealLoad('${sk}')" style="padding:7px 10px;background:var(--s2);border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">+ peso</button>` : ''}
+            <input type="text" inputmode="decimal" id="load-${sk}" placeholder="${isAbs?'corporal':'lb'}" value="${seriesData.load || lastSeriesLoad || ''}"
+              style="width:64px;background:var(--s2);border:1px solid var(--bdr);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center;display:${(isAbs && !seriesData.load && !lastSeriesLoad)?'none':'block'}"
               onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'"
               onchange="saveSeriesData('${sk}','${loadKey}',${i},${s})">
-            ${lastSeriesLoad?`<span style="font-size:11px;color:var(--dim)">ant: <strong style="color:var(--gold)">${lastSeriesLoad}</strong></span>`:''}
+            ${(!seriesData.load && lastSeriesLoad)?`<span style="font-size:10px;color:var(--dim);letter-spacing:.5px">↑ últ.</span>`:''}
           </div>
         </div>
         <!-- Timer button -->
