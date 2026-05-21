@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-20T23:43:01Z">
+<meta name="app-version" content="2026-05-21T00:31:28Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1035,6 +1035,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="ob-option" id="goal-mobility" onclick="obToggle('goal-mobility','goals','mobility')"><div class="ob-option-icon">🧘</div><div class="ob-option-title">Mobilidade</div><div class="ob-option-sub">Flexibilidade e postura</div></div>
       <div class="ob-option" id="goal-health" onclick="obToggle('goal-health','goals','health')"><div class="ob-option-icon">❤️</div><div class="ob-option-title">Saúde geral</div><div class="ob-option-sub">Qualidade de vida e energia</div></div>
     </div>
+    <div class="ob-field" style="margin-top:16px">
+      <div class="ob-label">NENHUMA OPÇÃO ENCAIXA? DESCREVA SEU OBJETIVO (OPCIONAL)</div>
+      <textarea class="ob-input" id="ob-goal-custom" rows="2" placeholder="Ex: voltar a correr 5km sem dor, preparar pra um casamento…" style="resize:none;font-size:15px;font-family:inherit"></textarea>
+    </div>
     <div class="ob-btn-row">
       <button class="ob-back" onclick="obBack(5)">←</button>
       <button class="ob-next" onclick="obNext(5)">CONTINUAR →</button>
@@ -1225,9 +1229,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="profile-stat"><div class="profile-stat-val" id="ps-target">—</div><div class="profile-stat-lbl">Meta</div></div>
     </div>
 
-    <!-- Details -->
+    <!-- Details (colapsável) -->
     <div style="margin:0 14px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden">
-      <div id="profile-details-list"></div>
+      <div onclick="toggleProfileDetails()" style="padding:13px 16px;display:flex;align-items:center;cursor:pointer">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;flex:1">DETALHES</div>
+        <div id="profile-details-chevron" style="color:var(--dim);font-size:14px;transition:transform .2s">▾</div>
+      </div>
+      <div id="profile-details-list" style="display:none;border-top:1px solid var(--bdr)"></div>
     </div>
 
     <!-- Limitations -->
@@ -1246,7 +1254,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px" id="profile-backup-title">MEUS DADOS</div>
       <button onclick="exportBackup()" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left" id="profile-export-btn">📤 EXPORTAR DADOS</button>
-      <label style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:block;text-align:left" id="profile-import-btn">📥 IMPORTAR DADOS<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
+      <label style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:block;text-align:left;margin-bottom:8px" id="profile-import-btn">📥 IMPORTAR DADOS<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
+      <button onclick="resetApp()" style="width:100%;padding:14px;background:var(--red-bg);border:1px solid rgba(224,82,82,.3);border-radius:8px;color:var(--red);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-align:left">🗑 RECOMEÇAR DO ZERO</button>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5">Apaga tudo deste aparelho e reinicia o app. Use se este não for o seu perfil.</div>
     </div>
 
     <div style="height:100px"></div>
@@ -2633,7 +2643,7 @@ const SHOPPING = {
 let obProfile = {
   name:'', sex:'', dob:'', weight:0, weightUnit:'lbs',
   heightFt:0, heightIn:0, heightCm:0, heightUnit:'ft',
-  goals:[], level:'', limitations:[], limitationsNote:'',
+  goals:[], goalCustom:'', level:'', limitations:[], limitationsNote:'',
   equipment:[], equipmentNote:'',
   days:'3', trainTime:'05:00', targetWeight:0
 };
@@ -2681,7 +2691,9 @@ function obNext(from) {
     obProfile.heightUnit = obHeightUnit;
   }
   if(from===5) {
-    if(!obProfile.goals || !obProfile.goals.length){toast('Escolha ao menos um objetivo');return;}
+    const gc = document.getElementById('ob-goal-custom');
+    if(gc) obProfile.goalCustom = gc.value.trim();
+    if((!obProfile.goals || !obProfile.goals.length) && !obProfile.goalCustom){toast('Escolha um objetivo ou descreva o seu');return;}
   }
   if(from===7) {
     const note = document.getElementById('ob-lim-note');
@@ -2830,7 +2842,9 @@ function renderProfilePage() {
   const goalLabels = {recomp:'Recomposição',hyper:'Hipertrofia',fat:'Perda de gordura',strength:'Força',endurance:'Condicionamento',glutes:'Glúteos & pernas',mobility:'Mobilidade',health:'Saúde geral'};
   const levelLabels = {beginner:'Iniciante',inter:'Intermediário',adv:'Avançado'};
   const goalsArr = Array.isArray(p.goals) ? p.goals : (p.goal ? [p.goal] : []);
-  setEl('profile-goal-display', goalsArr.length ? goalsArr.map(g=>goalLabels[g]||g).join(' · ') : 'Objetivo não definido');
+  const goalParts = goalsArr.map(g=>goalLabels[g]||g);
+  if(p.goalCustom) goalParts.push(p.goalCustom);
+  setEl('profile-goal-display', goalParts.length ? goalParts.join(' · ') : 'Objetivo não definido');
   setEl('profile-level-display', levelLabels[p.level] || 'Nível não definido');
 
   // Stats
@@ -2976,6 +2990,7 @@ function obRestoreVisuals(){
   if(obProfile.days) document.getElementById('days-'+obProfile.days)?.classList.add('sel');
   const ln = document.getElementById('ob-lim-note'); if(ln) ln.value = obProfile.limitationsNote||'';
   const en = document.getElementById('ob-equip-note'); if(en) en.value = obProfile.equipmentNote||'';
+  const gc = document.getElementById('ob-goal-custom'); if(gc) gc.value = obProfile.goalCustom||'';
 }
 
 window.onload = async () => {
@@ -5691,10 +5706,15 @@ function renderSecaDiet() {
   const meals = [day.almoco, day.lanche, day.jantar];
   const container = document.getElementById('seca-diet-content');
   if(!container) return;
-  container.innerHTML = meals.map((foods, mi) => `
+  container.innerHTML = meals.map((foods, mi) => {
+    const mealKey = secaDayIdx+'_'+mi;
+    const mealDone = (D.secaMealCheck||{})[mealKey];
+    return `
     <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden">
       <div style="padding:12px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">
-        <div style="width:4px;height:28px;border-radius:4px;background:${MEAL_COLORS[mi]};flex-shrink:0"></div>
+        <div onclick="toggleSecaMeal(${mi})" style="width:24px;height:24px;border-radius:6px;border:1.5px solid ${mealDone?'var(--green)':'var(--bdr2)'};background:${mealDone?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.5;stroke-linecap:round;display:${mealDone?'block':'none'}"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
         <div style="font-size:14px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${MEAL_COLORS[mi]}">${MEAL_NAMES[mi]}</div>
         <div style="margin-left:auto;font-size:13px;color:var(--dim)">${mi===0?'516 kcal':mi===1?'273 kcal':'516 kcal'}</div>
       </div>
@@ -5708,7 +5728,8 @@ function renderSecaDiet() {
       <div style="padding:10px 16px;font-size:13px;color:var(--dim)">
         ${mi===0||mi===2?'Temperar com sal, limão ou qualquer molho zero.':''}
       </div>
-    </div>`).join('') +
+    </div>`;
+  }).join('') +
     `<div style="margin:12px 14px 0;background:var(--gold-bg);border:1px solid rgba(201,169,110,.2);border-radius:var(--rs);padding:12px 16px;font-size:15px;color:var(--gold);font-weight:600;text-align:center">
       Total: 1.305 kcal/dia${D.weightLbs?` · Meta de água: ${((D.weightLbs*0.453592)*40).toFixed(0)} ml (${(D.weightLbs*0.453592).toFixed(1)} kg × 40ml)`:''}
     </div>`;
@@ -5717,6 +5738,33 @@ function renderSecaDiet() {
 function changeSecaDay(dir) {
   secaDayIdx = Math.max(0, Math.min(SECA_DIETAS.length-1, secaDayIdx+dir));
   renderSecaDiet();
+}
+
+function resetApp(){
+  if(!confirm('Apagar TODOS os dados do app neste aparelho e recomeçar do zero?\n\nIsto não pode ser desfeito. Se quiser guardar, exporte seus dados antes.')) return;
+  if(!confirm('Tem certeza? Tudo será apagado: perfil, treinos, jejuns, peso e configurações.')) return;
+  ['apex_v2','apex_v1','apex_api','apex_lang','apex_date2','apex_prev2','apex_gist_token','apex_gist_id','apex_theme','apex_mode'].forEach(k=>{
+    try { localStorage.removeItem(k); } catch(e){}
+  });
+  location.reload();
+}
+
+function toggleProfileDetails(){
+  const list = document.getElementById('profile-details-list');
+  const chev = document.getElementById('profile-details-chevron');
+  if(!list) return;
+  const open = list.style.display === 'none';
+  list.style.display = open ? 'block' : 'none';
+  if(chev) chev.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+
+function toggleSecaMeal(mi){
+  if(!D.secaMealCheck) D.secaMealCheck = {};
+  const key = secaDayIdx+'_'+mi;
+  D.secaMealCheck[key] = !D.secaMealCheck[key];
+  save();
+  renderSecaDiet();
+  if(D.secaMealCheck[key]) track('seca_meal_checked', {day:secaDayIdx, meal:mi});
 }
 
 // ── QUICK WEIGHT ──
