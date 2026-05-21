@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-21T04:30:00Z">
+<meta name="app-version" content="2026-05-21T18:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -551,8 +551,62 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .profile-stat-lbl{font-size:11px;color:var(--dim);margin-top:3px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
 
 </style>
+<!-- Firebase Auth SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 </head>
 <body>
+
+<!-- ═══════════ AUTH OVERLAY ═══════════ -->
+<div id="auth-overlay" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#FF9636 0%,#8B2252 50%,#3A1040 100%);padding:20px">
+  <!-- Logo -->
+  <div style="text-align:center;margin-bottom:28px">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:58px;color:#fff;letter-spacing:4px;line-height:1;text-shadow:0 4px 20px rgba(0,0,0,.3)">OPUS X</div>
+    <div style="font-size:11px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.65);margin-top:4px;font-weight:700">FITNESS</div>
+  </div>
+  <!-- Card -->
+  <div style="background:rgba(8,10,12,.90);border:1px solid rgba(255,255,255,.08);border-radius:16px;width:100%;max-width:380px;padding:24px;backdrop-filter:blur(20px)">
+    <!-- Tabs -->
+    <div style="display:flex;background:rgba(255,255,255,.06);border-radius:8px;padding:3px;margin-bottom:20px">
+      <button id="auth-tab-in" onclick="authSetMode('in')" style="flex:1;padding:10px;border:none;border-radius:6px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;background:#C9A96E;color:#080A0C;transition:all .2s">ENTRAR</button>
+      <button id="auth-tab-up" onclick="authSetMode('up')" style="flex:1;padding:10px;border:none;border-radius:6px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;background:transparent;color:rgba(255,255,255,.45);transition:all .2s">CRIAR CONTA</button>
+    </div>
+    <!-- Email -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);font-weight:700;margin-bottom:6px">E-MAIL</div>
+      <input id="auth-email" type="email" inputmode="email" autocomplete="email" placeholder="seu@email.com"
+        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:13px 14px;font-size:16px;color:#fff;outline:none;font-family:'Inter',sans-serif"
+        onfocus="this.style.borderColor='rgba(201,169,110,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'"
+        onkeydown="if(event.key==='Enter')authSubmit()">
+    </div>
+    <!-- Name (create only) -->
+    <div id="auth-name-wrap" style="display:none;margin-bottom:12px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);font-weight:700;margin-bottom:6px">SEU NOME</div>
+      <input id="auth-name" type="text" autocomplete="name" placeholder="Como quer ser chamado(a)"
+        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:13px 14px;font-size:16px;color:#fff;outline:none;font-family:'Inter',sans-serif"
+        onfocus="this.style.borderColor='rgba(201,169,110,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'"
+        onkeydown="if(event.key==='Enter')authSubmit()">
+    </div>
+    <!-- Password -->
+    <div style="margin-bottom:18px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);font-weight:700;margin-bottom:6px">SENHA</div>
+      <input id="auth-pass" type="password" autocomplete="current-password" placeholder="••••••••"
+        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:13px 14px;font-size:16px;color:#fff;outline:none;font-family:'Inter',sans-serif"
+        onfocus="this.style.borderColor='rgba(201,169,110,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'"
+        onkeydown="if(event.key==='Enter')authSubmit()">
+    </div>
+    <!-- Error -->
+    <div id="auth-error" style="display:none;background:rgba(224,82,82,.12);border:1px solid rgba(224,82,82,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#E05252;margin-bottom:14px;font-family:'Inter',sans-serif;line-height:1.4"></div>
+    <!-- Submit -->
+    <button id="auth-submit-btn" onclick="authSubmit()"
+      style="width:100%;padding:16px;background:#C9A96E;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:#080A0C;cursor:pointer;transition:opacity .2s">ENTRAR</button>
+    <!-- Forgot -->
+    <div id="auth-forgot-wrap" style="text-align:center;margin-top:14px">
+      <button onclick="authForgot()" style="background:none;border:none;color:rgba(255,255,255,.35);font-size:13px;cursor:pointer;font-family:'Inter',sans-serif">Esqueci a senha</button>
+    </div>
+  </div>
+  <div style="margin-top:20px;font-size:11px;color:rgba(255,255,255,.3);text-align:center;font-family:'Inter',sans-serif">Seus dados ficam seguros e sincronizados<br>em qualquer dispositivo.</div>
+</div>
 
 <!-- TOP CONTROLS -->
 <div class="cfg-btn" onclick="openSheet('api-ov')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
@@ -1272,6 +1326,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="theme-picker"></div>
     </div>
 
+    <!-- Conta Firebase -->
+    <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:12px">MINHA CONTA</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--gold);fill:none;stroke-width:2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;color:var(--dim);letter-spacing:.5px;margin-bottom:1px">Logado como</div>
+          <div id="auth-user-email" style="font-size:14px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+        </div>
+      </div>
+      <button onclick="authSignOut()" style="width:100%;padding:13px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-align:left">🚪 SAIR DA CONTA</button>
+    </div>
+
     <!-- Backup dos dados (API key fica no menu de engrenagem, fora da vista do usuário) -->
     <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px" id="profile-backup-title">MEUS DADOS</div>
@@ -1797,6 +1866,133 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 <script>
 'use strict';
+
+// ══════════════════════════════════════
+// FIREBASE AUTH
+// ══════════════════════════════════════
+const _fbConfig = {
+  apiKey: "AIzaSyBvgNleo9bSVsJAOH4djOIkMVVMpVHWoQE",
+  authDomain: "opus-x-fitness.firebaseapp.com",
+  projectId: "opus-x-fitness",
+  storageBucket: "opus-x-fitness.firebasestorage.app",
+  messagingSenderId: "557877390284",
+  appId: "1:557877390284:web:d6451b3c2be6358087cb69"
+};
+firebase.initializeApp(_fbConfig);
+const fbAuth = firebase.auth();
+
+let currentUser = null;
+let _appStarted = false;
+let _authInitResolve;
+const _authInitPromise = new Promise(r => { _authInitResolve = r; });
+
+fbAuth.onAuthStateChanged(user => {
+  currentUser = user;
+  if(_authInitResolve){
+    _authInitResolve(user);
+    _authInitResolve = null;
+    return; // first fire handled in window.onload
+  }
+  // Subsequent fires (sign in / sign out after app is running)
+  if(user){
+    hideAuthOverlay();
+    if(!_appStarted){ _appStarted = true; _runAppInit(); }
+  } else {
+    showAuthOverlay();
+  }
+});
+
+function showAuthOverlay(){
+  const ov = document.getElementById('auth-overlay');
+  if(ov) ov.style.display = 'flex';
+}
+function hideAuthOverlay(){
+  const ov = document.getElementById('auth-overlay');
+  if(ov) ov.style.display = 'none';
+  const emailEl = document.getElementById('auth-user-email');
+  if(emailEl && currentUser) emailEl.textContent = currentUser.email || '';
+}
+
+let _authMode = 'in';
+function authSetMode(m){
+  _authMode = m;
+  const tabIn = document.getElementById('auth-tab-in');
+  const tabUp = document.getElementById('auth-tab-up');
+  const btn = document.getElementById('auth-submit-btn');
+  const nameWrap = document.getElementById('auth-name-wrap');
+  const forgotWrap = document.getElementById('auth-forgot-wrap');
+  if(m === 'in'){
+    tabIn.style.background='#C9A96E'; tabIn.style.color='#080A0C';
+    tabUp.style.background='transparent'; tabUp.style.color='rgba(255,255,255,.45)';
+    if(btn) btn.textContent = 'ENTRAR';
+    if(nameWrap) nameWrap.style.display = 'none';
+    if(forgotWrap) forgotWrap.style.display = 'block';
+  } else {
+    tabUp.style.background='#C9A96E'; tabUp.style.color='#080A0C';
+    tabIn.style.background='transparent'; tabIn.style.color='rgba(255,255,255,.45)';
+    if(btn) btn.textContent = 'CRIAR CONTA';
+    if(nameWrap) nameWrap.style.display = 'block';
+    if(forgotWrap) forgotWrap.style.display = 'none';
+  }
+  const errEl = document.getElementById('auth-error');
+  if(errEl) errEl.style.display = 'none';
+}
+
+function authShowError(msg){
+  const el = document.getElementById('auth-error');
+  if(el){ el.textContent = msg; el.style.display = 'block'; }
+}
+
+function authSubmit(){
+  const email = (document.getElementById('auth-email').value||'').trim();
+  const pass = document.getElementById('auth-pass').value||'';
+  const btn = document.getElementById('auth-submit-btn');
+  if(!email){ authShowError('Digite seu e-mail.'); return; }
+  if(!pass || pass.length < 6){ authShowError('Senha precisa ter pelo menos 6 caracteres.'); return; }
+  if(btn){ btn.disabled = true; btn.style.opacity = '.5'; }
+  const errEl = document.getElementById('auth-error');
+  if(errEl) errEl.style.display = 'none';
+  if(_authMode === 'in'){
+    fbAuth.signInWithEmailAndPassword(email, pass)
+      .then(() => { if(btn){ btn.disabled=false; btn.style.opacity='1'; } })
+      .catch(e => { if(btn){ btn.disabled=false; btn.style.opacity='1'; } authShowError(_authErrMsg(e.code)); });
+  } else {
+    const name = (document.getElementById('auth-name')?.value||'').trim();
+    fbAuth.createUserWithEmailAndPassword(email, pass)
+      .then(cred => {
+        if(btn){ btn.disabled=false; btn.style.opacity='1'; }
+        if(name){ cred.user.updateProfile({displayName: name}); }
+        if(name && !D.name){ D.name = name; save(); }
+      })
+      .catch(e => { if(btn){ btn.disabled=false; btn.style.opacity='1'; } authShowError(_authErrMsg(e.code)); });
+  }
+}
+
+function authForgot(){
+  const email = (document.getElementById('auth-email').value||'').trim();
+  if(!email){ authShowError('Digite seu e-mail primeiro.'); return; }
+  fbAuth.sendPasswordResetEmail(email)
+    .then(() => { toast('E-mail de recuperação enviado! Verifique sua caixa.'); })
+    .catch(e => authShowError(_authErrMsg(e.code)));
+}
+
+function authSignOut(){
+  if(!confirm('Sair da sua conta?')) return;
+  fbAuth.signOut();
+}
+
+function _authErrMsg(code){
+  return ({
+    'auth/user-not-found':'E-mail não cadastrado.',
+    'auth/wrong-password':'Senha incorreta.',
+    'auth/invalid-email':'E-mail inválido.',
+    'auth/email-already-in-use':'Este e-mail já está em uso.',
+    'auth/weak-password':'Senha muito fraca (mínimo 6 caracteres).',
+    'auth/too-many-requests':'Muitas tentativas. Tente novamente mais tarde.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/network-request-failed':'Sem conexão com a internet.',
+  }[code]) || 'Erro ao autenticar. Tente novamente.';
+}
 
 // ══════════════════════════════════════
 // ANALYTICS (PostHog) — fill POSTHOG_KEY to enable
@@ -2903,6 +3099,9 @@ function obSkip() {
 function renderProfilePage() {
   renderThemePicker();
   renderTrainingToggle();
+  // Preenche email da conta
+  const emailEl = document.getElementById('auth-user-email');
+  if(emailEl && currentUser) emailEl.textContent = currentUser.email || '—';
   const p = D.userProfile || {};
   const name = D.name || '—';
   const initials = name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
@@ -3068,13 +3267,16 @@ function obRestoreVisuals(){
   if(tn) tn.classList.toggle('sel', !trainOn);
 }
 
-window.onload = async () => {
+async function _runAppInit() {
   load();
   // Try restoring data from Gist before first render (silent if no token)
   if(getGistToken() && getGistId()){
     try { await pullFromGist(); } catch(e){}
   }
-  track('app_opened', {has_sync: !!(getGistToken() && getGistId()), onboarded: !!D.onboarded});
+  track('app_opened', {uid: currentUser?.uid, onboarded: !!D.onboarded});
+  if(currentUser && window.posthog) {
+    try { posthog.identify(currentUser.uid, {email: currentUser.email}); } catch(e){}
+  }
   applyLang();
   applyTrainingMode();
   initHome();
@@ -3097,6 +3299,19 @@ window.onload = async () => {
   if(!D.onboarded) {
     document.getElementById('ob-overlay').classList.add('show');
   }
+}
+
+window.onload = async () => {
+  // Aguarda Firebase resolver o estado de autenticação
+  const user = await _authInitPromise;
+  if(!user){
+    // Não autenticado — overlay já está visível, aguarda login
+    return;
+  }
+  // Autenticado — esconde overlay e inicializa o app
+  _appStarted = true;
+  hideAuthOverlay();
+  await _runAppInit();
 };
 
 // ══════════════════════════════════
