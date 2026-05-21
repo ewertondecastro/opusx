@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-21T00:31:28Z">
+<meta name="app-version" content="2026-05-21T00:47:53Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -708,6 +708,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <button class="btn btn-outline" onclick="resetFast()" style="flex-shrink:0;padding:17px 16px;font-size:11px">RST</button>
   </div>
 
+  <div class="card" id="fast-coach-card" style="border-color:rgba(201,169,110,.3)">
+    <div class="card-hd"><div class="card-title" style="color:var(--gold)">🧭 COACH DE JEJUM</div></div>
+    <div id="fast-coach-body"></div>
+  </div>
+
   <div class="card">
     <div class="card-hd"><div class="card-title" id="proto-eye">PROTOCOLO</div></div>
     <div class="proto-grid" id="proto-grid">
@@ -1039,6 +1044,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="ob-label">NENHUMA OPÇÃO ENCAIXA? DESCREVA SEU OBJETIVO (OPCIONAL)</div>
       <textarea class="ob-input" id="ob-goal-custom" rows="2" placeholder="Ex: voltar a correr 5km sem dor, preparar pra um casamento…" style="resize:none;font-size:15px;font-family:inherit"></textarea>
     </div>
+    <div class="ob-field">
+      <div class="ob-label">COMO VOCÊ VAI USAR O OPUS X?</div>
+      <div style="display:flex;gap:8px">
+        <div id="train-yes" class="ob-option sel" onclick="obSetTraining(true)" style="flex:1;text-align:center"><div class="ob-option-icon" style="margin-bottom:4px">🏋️</div><div class="ob-option-title">Treino + Jejum + Dieta</div></div>
+        <div id="train-no" class="ob-option" onclick="obSetTraining(false)" style="flex:1;text-align:center"><div class="ob-option-icon" style="margin-bottom:4px">🍽️</div><div class="ob-option-title">Só Jejum + Dieta</div></div>
+      </div>
+    </div>
     <div class="ob-btn-row">
       <button class="ob-back" onclick="obBack(5)">←</button>
       <button class="ob-next" onclick="obNext(5)">CONTINUAR →</button>
@@ -1242,6 +1254,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px">LIMITAÇÕES FÍSICAS</div>
       <div id="profile-limitations" style="font-size:15px;color:var(--mid)">—</div>
+    </div>
+
+    <!-- Modo do app: treino opcional -->
+    <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:12px">MODO DO APP</div>
+      <div id="training-toggle" style="display:flex;gap:8px"></div>
     </div>
 
     <!-- Aparência / tema -->
@@ -1693,6 +1711,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-desc" id="alt-desc">Máquina ocupada ou exercício impossível? Escolha:</div>
     <div id="alt-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px"></div>
     <button class="btn btn-outline btn-full" onclick="closeSheet('alt-ov')">Fechar</button>
+  </div>
+</div>
+
+<!-- FAST PROTOCOL INFO SHEET -->
+<div class="overlay" id="fastinfo-ov" onclick="if(event.target===this)closeSheet('fastinfo-ov')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="fastinfo-title">JEJUM</div>
+    <div class="sheet-desc"><span id="fastinfo-sub"></span></div>
+    <div id="fastinfo-body" style="margin-bottom:18px"></div>
+    <button class="btn btn-gold btn-full" onclick="closeSheet('fastinfo-ov')">Entendi</button>
   </div>
 </div>
 
@@ -2643,7 +2672,7 @@ const SHOPPING = {
 let obProfile = {
   name:'', sex:'', dob:'', weight:0, weightUnit:'lbs',
   heightFt:0, heightIn:0, heightCm:0, heightUnit:'ft',
-  goals:[], goalCustom:'', level:'', limitations:[], limitationsNote:'',
+  goals:[], goalCustom:'', training:true, level:'', limitations:[], limitationsNote:'',
   equipment:[], equipmentNote:'',
   days:'3', trainTime:'05:00', targetWeight:0
 };
@@ -2757,6 +2786,41 @@ const EQUIP_PRESETS = {
   home: ['dumbbell','kettlebell','bench','bands','jumprope','bodyweight'],
   none: ['bodyweight'],
 };
+function obSetTraining(val){
+  obProfile.training = val;
+  const y=document.getElementById('train-yes'), n=document.getElementById('train-no');
+  if(y) y.classList.toggle('sel', val);
+  if(n) n.classList.toggle('sel', !val);
+}
+
+function applyTrainingMode(){
+  const off = !!D.noTraining;
+  const navWo = document.getElementById('nav-workout');
+  if(navWo) navWo.style.display = off ? 'none' : '';
+  ['st-treino','st-cardio'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = off ? 'none' : '';
+  });
+}
+
+function setTrainingMode(train){
+  D.noTraining = !train;
+  save();
+  applyTrainingMode();
+  renderTrainingToggle();
+  toast(train ? 'Treino ativado' : 'Modo só Jejum + Dieta');
+}
+
+function renderTrainingToggle(){
+  const wrap = document.getElementById('training-toggle');
+  if(!wrap) return;
+  const train = !D.noTraining;
+  wrap.innerHTML = [[true,'🏋️ Treino + Jejum + Dieta'],[false,'🍽️ Só Jejum + Dieta']].map(([v,lbl])=>{
+    const on = v===train;
+    return `<div onclick="setTrainingMode(${v})" style="flex:1;text-align:center;cursor:pointer;padding:12px 8px;border-radius:8px;border:1.5px solid ${on?'var(--gold)':'var(--bdr)'};background:${on?'var(--gold-bg)':'var(--s2)'};font-size:12px;font-weight:700;color:${on?'var(--gold)':'var(--mid)'}">${lbl}</div>`;
+  }).join('');
+}
+
 function obEquipPreset(preset){
   const list = EQUIP_PRESETS[preset] || [];
   obProfile.equipment = [...list];
@@ -2807,6 +2871,7 @@ function obFinish() {
     D.heightIn = Math.round(obProfile.heightCm/2.54);
   }
   D.userProfile = {...obProfile};
+  D.noTraining = obProfile.training === false;
   D.onboarded = true;
   if(!D.weightLog) D.weightLog=[];
   if(wLbs) {
@@ -2815,6 +2880,7 @@ function obFinish() {
   }
   save();
   document.getElementById('ob-overlay').classList.remove('show');
+  applyTrainingMode();
   initHome();
   renderWeightPage();
   renderProfilePage();
@@ -2832,6 +2898,7 @@ function obSkip() {
 // ══════════════════════════════════
 function renderProfilePage() {
   renderThemePicker();
+  renderTrainingToggle();
   const p = D.userProfile || {};
   const name = D.name || '—';
   const initials = name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
@@ -2991,6 +3058,10 @@ function obRestoreVisuals(){
   const ln = document.getElementById('ob-lim-note'); if(ln) ln.value = obProfile.limitationsNote||'';
   const en = document.getElementById('ob-equip-note'); if(en) en.value = obProfile.equipmentNote||'';
   const gc = document.getElementById('ob-goal-custom'); if(gc) gc.value = obProfile.goalCustom||'';
+  const trainOn = obProfile.training !== false;
+  const ty=document.getElementById('train-yes'), tn=document.getElementById('train-no');
+  if(ty) ty.classList.toggle('sel', trainOn);
+  if(tn) tn.classList.toggle('sel', !trainOn);
 }
 
 window.onload = async () => {
@@ -3001,6 +3072,7 @@ window.onload = async () => {
   }
   track('app_opened', {has_sync: !!(getGistToken() && getGistId()), onboarded: !!D.onboarded});
   applyLang();
+  applyTrainingMode();
   initHome();
   initWater();
   initFastTimer();
@@ -3010,6 +3082,7 @@ window.onload = async () => {
   initTrainerChat();
   initNutChat();
   renderFastHistory();
+  renderFastCoach();
   renderWeightPage();
   renderWeek();
   renderWorkoutHistory();
@@ -3034,6 +3107,62 @@ function goPage(id) {
   if (id==='history') { renderWeightPage(); renderWorkoutHistory(); renderFastHistory2(); renderNutHistory(); }
   if (id==='seca') { renderSecaHoje(); buildSecaTreino(); renderSecaDiet(); }
   if (id==='profile') { renderProfilePage(); }
+  if (id==='fast') { renderFastCoach(); }
+}
+
+function suggestFastProtocol(){
+  const p = D.userProfile || {};
+  const goals = Array.isArray(p.goals) ? p.goals : [];
+  const exp = (D.fastHistory||[]).length;
+  let h, why;
+  if(exp < 3){
+    h = 14;
+    why = 'Você está no começo do jejum. O 14:10 adapta seu corpo sem sofrimento — domine ele por 1-2 semanas antes de subir.';
+  } else if(goals.includes('hyper')){
+    h = 14;
+    why = 'Seu foco é ganho de massa. Uma janela de alimentação maior (14:10) facilita comer proteína e calorias suficientes pra crescer.';
+  } else if(goals.includes('fat')){
+    h = exp > 15 ? 18 : 16;
+    why = exp > 15
+      ? 'Pra perda de gordura, o 18:6 estende a queima — e você já tem rodagem suficiente pra encarar.'
+      : 'Pra perda de gordura, o 16:8 é o ponto ideal entre resultado e algo que dá pra manter todo dia.';
+  } else if(goals.includes('recomp')){
+    h = 16;
+    why = 'Recomposição pede equilíbrio: o 16:8 favorece a queima de gordura sem comprometer a recuperação muscular.';
+  } else {
+    h = 16;
+    why = 'O 16:8 é o protocolo mais estudado e equilibrado — ótima escolha pra saúde, energia e constância.';
+  }
+  return { h, why };
+}
+
+function renderFastCoach(){
+  const body = document.getElementById('fast-coach-body');
+  if(!body) return;
+  const s = suggestFastProtocol();
+  const info = FAST_INFO[s.h];
+  const isCurrent = D.fastH === s.h;
+  body.innerHTML = `
+    <div style="font-size:13px;color:var(--mid);line-height:1.6;margin-bottom:12px">${s.why}</div>
+    <div style="display:flex;align-items:center;gap:12px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.25);border-radius:var(--rs);padding:14px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--gold);letter-spacing:.5px;flex-shrink:0">${info.nome}</div>
+      <div style="flex:1;font-size:12px;color:var(--mid)">Recomendado pra você${isCurrent?' · já selecionado ✓':''}</div>
+      ${isCurrent
+        ? `<button onclick="openFastInfo(${s.h})" style="padding:9px 12px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Ver detalhes</button>`
+        : `<button onclick="applyCoachProto(${s.h})" style="padding:9px 12px;background:var(--gold);border:none;border-radius:6px;color:var(--gold-ink);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Usar este</button>`}
+    </div>`;
+}
+
+function applyCoachProto(h){
+  D.fastH = h;
+  document.querySelectorAll('.proto-card').forEach(c=>{
+    c.classList.toggle('on', c.querySelector('.proto-ratio') && c.getAttribute('onclick')==='setProto('+h+',this)');
+  });
+  const cp = document.getElementById('cproto'); if(cp) cp.classList.remove('on');
+  setEl('fm-goal', h+'H');
+  buildZones(); save();
+  renderFastCoach();
+  openFastInfo(h);
 }
 
 // ══════════════════════════════════
@@ -3198,6 +3327,48 @@ function updateCoachRec() {
   // Display in coach section if available - not separate card in this version
 }
 
+// Benefícios e cuidados de cada protocolo de jejum
+const FAST_INFO = {
+  14: { nome:'14:10', tag:'Iniciante',
+    benef:['Porta de entrada ideal pra quem nunca jejuou — o corpo se adapta sem sofrimento.','Ajuda a cortar o hábito de beliscar à noite.','Melhora leve da sensibilidade à insulina e da digestão.','Janela de 10h confortável pra encaixar as refeições.'],
+    cuid:['Resultados são graduais — consistência importa mais que pressa.','Hidrate-se bem mesmo nas horas de jejum.','Não compense comendo em excesso na janela.'] },
+  16: { nome:'16:8', tag:'Popular',
+    benef:['O protocolo mais estudado — melhor equilíbrio entre resultado e sustentabilidade.','Queima de gordura ganha força nas últimas horas do jejum.','Boa melhora da sensibilidade à insulina.','Fácil de manter no longo prazo.'],
+    cuid:['Garanta proteína suficiente na janela de 8h.','Café preto, chá e água são liberados e ajudam.','Evite exagerar nos carboidratos ao quebrar o jejum.'] },
+  18: { nome:'18:6', tag:'Avançado',
+    benef:['Mais tempo em queima de gordura e cetose leve.','Bom pra furar estagnação de peso (platô).','Maior clareza mental relatada nas horas finais.'],
+    cuid:['Adapte-se ao 16:8 antes de subir pra cá.','Atenção a tontura ou fraqueza — se aparecer, recue.','Janela de 6h exige planejar bem as refeições.'] },
+  20: { nome:'20:4', tag:'Guerreiro',
+    benef:['Janela curta — queima de gordura intensa.','A autofagia (limpeza celular) começa a aparecer.','Déficit calórico acontece quase naturalmente.'],
+    cuid:['Difícil encaixar toda a proteína e os nutrientes em 4h.','Não faça todos os dias sem orientação.','Risco de compulsão na janela — coma com calma e qualidade.'] },
+  24: { nome:'OMAD', tag:'1 refeição',
+    benef:['Máxima simplicidade — uma refeição só por dia.','Autofagia ativa e déficit calórico forte.','Liberdade no resto do dia.'],
+    cuid:['Muito difícil bater proteína e micronutrientes numa refeição.','Pode disparar compulsão — evite se tem histórico de transtorno alimentar.','Não recomendado diariamente pra iniciantes.'] },
+  36: { nome:'36H', tag:'Estendido',
+    benef:['Autofagia profunda — reparo e limpeza celular máximos.','Reset metabólico relatado.'],
+    cuid:['NÃO é pra iniciantes — só ocasional e com preparo.','Risco de hipoglicemia, tontura e fraqueza.','Contraindicado pra diabéticos, gestantes e quem usa medicação contínua.','Quebre o jejum devagar, com algo leve.','Idealmente com acompanhamento profissional.'] },
+};
+const FAST_CONTRA = 'Jejum não é indicado para gestantes, lactantes, diabéticos tipo 1, pessoas abaixo do peso, menores de idade ou quem tem histórico de transtorno alimentar. Na dúvida, consulte um médico.';
+
+function openFastInfo(h){
+  const info = FAST_INFO[h];
+  if(!info) return;
+  setEl('fastinfo-title', 'JEJUM '+info.nome);
+  setEl('fastinfo-sub', info.tag);
+  document.getElementById('fastinfo-body').innerHTML = `
+    <div style="background:var(--green-bg);border:1px solid rgba(82,168,120,.25);border-radius:var(--rs);padding:14px;margin-bottom:10px">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:8px">✓ Benefícios</div>
+      ${info.benef.map(b=>`<div style="font-size:14px;color:var(--text);line-height:1.55;margin-bottom:6px">• ${b}</div>`).join('')}
+    </div>
+    <div style="background:var(--red-bg);border:1px solid rgba(224,82,82,.25);border-radius:var(--rs);padding:14px;margin-bottom:10px">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--red);font-weight:700;margin-bottom:8px">⚠ Cuidados</div>
+      ${info.cuid.map(c=>`<div style="font-size:14px;color:var(--text);line-height:1.55;margin-bottom:6px">• ${c}</div>`).join('')}
+    </div>
+    <div style="font-size:12px;color:var(--dim);line-height:1.55;padding:0 4px">${FAST_CONTRA}</div>`;
+  track('fast_info_open', {h});
+  openSheet('fastinfo-ov');
+}
+
 function setProto(h, el) {
   D.fastH = h;
   document.querySelectorAll('.proto-card').forEach(c=>c.classList.remove('on'));
@@ -3205,6 +3376,7 @@ function setProto(h, el) {
   el.classList.add('on');
   setEl('fm-goal', h+'H');
   buildZones(); save();
+  openFastInfo(h);
 }
 function setCustom(v) {
   const h = parseInt(v); if(!h||h<1||h>47) return;
@@ -3369,6 +3541,25 @@ function saveManualFast(){
   renderFastHistory(); renderFastHistory2(); setEl('h-fasts',(D.fastHistory||[]).length);
 }
 
+const FAST_START_MSGS = [
+  'Jejum iniciado. Cada hora agora trabalha a seu favor. 🔥',
+  'Começou. Disciplina é o que separa quem quer de quem faz.',
+  'Relógio rodando. Seu corpo já vai trocar o combustível pra gordura.',
+  'Iniciado. Lembre: a fome vem em ondas — e passa. O orgulho fica.',
+  'Vai com tudo. O mais difícil é começar — e você já começou.',
+  'Jejum ON. Bebe água, respira fundo e confia no processo.',
+  'Tá valendo. Cada hora sem comer é uma hora de reparo do corpo.',
+  'Foco. Você não está com fome — está com hábito. Deixa ele passar.',
+];
+const FAST_END_MSGS = [
+  'Jejum concluído. Você cumpriu o combinado consigo mesmo. 💪',
+  'Feito. Agora quebre o jejum com calma e comida de verdade.',
+  'Concluído. Foi você maior que a vontade — mais uma vez.',
+  'Mais um no histórico. É a soma dos dias que transforma.',
+  'Encerrado com disciplina. Coma com consciência, sem atropelar.',
+  'Missão cumprida. Comece a janela com proteína e vegetais.',
+];
+
 function beginFast() {
   D.fastStart = Date.now(); save();
   document.getElementById('fast-btn').textContent = tr('fast_end_btn');
@@ -3379,7 +3570,7 @@ function beginFast() {
   document.getElementById('fast-pulse').style.display = '';
   setEl('t-state', tr('fast_going'));
   clearInterval(fastTick); fastTick = setInterval(tickFast,1000); tickFast();
-  toast(tr('t_fast_start'));
+  toast(FAST_START_MSGS[Math.floor(Math.random()*FAST_START_MSGS.length)]);
 }
 
 function endFast() {
@@ -3403,9 +3594,10 @@ function endFast() {
   const now=new Date(), eatH=24-D.fastH, end=new Date(now.getTime()+eatH*3600000);
   document.getElementById('win-card').classList.add('show');
   setEl('win-eye',tr('win_eye'));
-  setEl('win-info', `${tr('win_ended')} <strong>${fmt12(now)}</strong><br>${lang==='pt'?'Janela:':'Window:'} <strong>${eatH}h</strong><br>${tr('win_eat_by')} <strong style="color:var(--gold)">${fmt12(end)}</strong><br><br>${tr('win_tip')}`);
+  const endMsg = FAST_END_MSGS[Math.floor(Math.random()*FAST_END_MSGS.length)];
+  setEl('win-info', `${tr('win_ended')} <strong>${fmt12(now)}</strong><br>${lang==='pt'?'Janela:':'Window:'} <strong>${eatH}h</strong><br>${tr('win_eat_by')} <strong style="color:var(--gold)">${fmt12(end)}</strong><br><br><span style="color:var(--gold);font-weight:600">${endMsg}</span><br><br>${tr('win_tip')}`);
   updateHomeFast(); renderFastHistory(); setEl('h-fasts',(D.fastHistory||[]).length);
-  toast(tr('t_fast_end'));
+  toast(endMsg);
 }
 
 function resetFast() {
