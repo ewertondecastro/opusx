@@ -1,100 +1,67 @@
 #!/usr/bin/env python3
-"""Gera o ícone do Opus X em vários tamanhos."""
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
-import os, base64, io, math
+"""Gera o ícone do Opus X — ASCEND sunrise — em todos os tamanhos."""
+from PIL import Image, ImageDraw, ImageFilter
+import os, base64, io
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'icons')
 os.makedirs(OUT, exist_ok=True)
 
-BG_TOP = (16, 18, 22)
-BG_BOT = (4, 5, 7)
-GOLD = (201, 169, 110)
-GOLD_HI = (232, 207, 153)
-GOLD_LO = (134, 110, 60)
-
+BG_TOP = (255, 150, 54)   # laranja quente
+BG_BOT = (90, 30, 70)     # roxo profundo
 SIZES = [180, 192, 256, 384, 512, 1024]
 
 
-def make_bg(S):
-    """Vertical gradient background — slightly lighter at top."""
+def draw_icon(size):
+    S = size * 3  # supersample
+    # fundo: gradiente vertical
     img = Image.new('RGB', (S, S), BG_BOT)
     px = img.load()
     for y in range(S):
-        t = y / S
-        r = int(BG_TOP[0] * (1 - t) + BG_BOT[0] * t)
-        g = int(BG_TOP[1] * (1 - t) + BG_BOT[1] * t)
-        b = int(BG_TOP[2] * (1 - t) + BG_BOT[2] * t)
+        t = (y / S) ** 1.05
+        row = tuple(int(BG_TOP[i]*(1-t) + BG_BOT[i]*t) for i in range(3))
         for x in range(S):
-            px[x, y] = (r, g, b)
-    return img
+            px[x, y] = row
 
-
-def draw_x_bar(draw, p1, p2, width, color):
-    """Draw a tapered diagonal bar between two points with sharp pointed ends."""
-    dx, dy = p2[0] - p1[0], p2[1] - p1[1]
-    length = math.hypot(dx, dy)
-    nx, ny = -dy / length, dx / length
-    hw = width / 2
-    # slight inset so ends form a chevron point
-    pts = [
-        (p1[0] + nx * hw, p1[1] + ny * hw),
-        (p2[0] + nx * hw, p2[1] + ny * hw),
-        (p2[0] - nx * hw, p2[1] - ny * hw),
-        (p1[0] - nx * hw, p1[1] - ny * hw),
-    ]
-    draw.polygon(pts, fill=color)
-
-
-def draw_icon(size):
-    S = size * 3  # supersample for crisp anti-alias
-    img = make_bg(S)
-
-    # subtle vignette
-    vig = Image.new('L', (S, S), 0)
-    vd = ImageDraw.Draw(vig)
-    margin = int(S * 0.02)
-    vd.ellipse([margin, margin, S - margin, S - margin], fill=255)
-    vig = vig.filter(ImageFilter.GaussianBlur(radius=S // 8))
-    dark = Image.new('RGB', (S, S), (0, 0, 0))
-    img = Image.composite(img, dark, vig)
+    # brilho suave no topo
+    glow = Image.new('L', (S, S), 0)
+    gd = ImageDraw.Draw(glow)
+    gd.ellipse([-S*0.3, -S*0.55, S*1.3, S*0.55], fill=255)
+    glow = glow.filter(ImageFilter.GaussianBlur(S//7))
+    white = Image.new('RGB', (S, S), (255, 255, 255))
+    img = Image.composite(white, img, glow.point(lambda v: int(v*0.20)))
 
     d = ImageDraw.Draw(img, 'RGBA')
-
-    inset = int(S * 0.24)
-    bar_w = int(S * 0.10)
-
-    # subtle drop shadow behind X
+    cx = S // 2
+    th = int(S * 0.090)
+    # sombra suave sob os chevrons (profundidade)
     shadow = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     sd = ImageDraw.Draw(shadow)
+    # 3 chevrons subindo — cores OPACAS (sem sobreposição translúcida = sem artefato)
+    # desenha de baixo p/ cima; o de cima cobre o de baixo de forma limpa
+    specs = [
+        (0.660, 0.340, (223, 216, 212)),
+        (0.520, 0.285, (242, 238, 236)),
+        (0.380, 0.230, (255, 255, 255)),
+    ]
     off = int(S * 0.012)
-    for w_mul, alpha in [(1.0, 80)]:
-        bw = int(bar_w * w_mul)
-        draw_x_bar(sd, (inset + off, inset + off), (S - inset + off, S - inset + off), bw, (0, 0, 0, alpha))
-        draw_x_bar(sd, (S - inset + off, inset + off), (inset + off, S - inset + off), bw, (0, 0, 0, alpha))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=S // 80))
+    for cy_f, halfw_f, _ in specs:
+        cy = int(S * cy_f); hw = int(S * halfw_f); drop = int(hw * 0.64)
+        vtx_y = cy - int(drop * 0.12)
+        sd.line([(cx-hw+off, cy+drop+off), (cx+off, vtx_y+off), (cx+hw+off, cy+drop+off)],
+                fill=(0, 0, 0, 90), width=th, joint='curve')
+    shadow = shadow.filter(ImageFilter.GaussianBlur(S//120))
     img.paste(shadow, (0, 0), shadow)
 
     d = ImageDraw.Draw(img, 'RGBA')
+    for cy_f, halfw_f, col in specs:
+        cy = int(S * cy_f); hw = int(S * halfw_f); drop = int(hw * 0.64)
+        vtx_y = cy - int(drop * 0.12)
+        d.line([(cx-hw, cy+drop), (cx, vtx_y), (cx+hw, cy+drop)],
+               fill=col, width=th, joint='curve')
+        for ex, ey in [(cx-hw, cy+drop), (cx+hw, cy+drop)]:
+            d.ellipse([ex-th//2, ey-th//2, ex+th//2, ey+th//2], fill=col)
 
-    # main X — solid gold with gradient feel via stacked bars
-    draw_x_bar(d, (inset, inset), (S - inset, S - inset), bar_w, GOLD)
-    draw_x_bar(d, (S - inset, inset), (inset, S - inset), bar_w, GOLD)
-
-    # thin highlight along inner edge (creates dimension)
-    hl_w = max(2, int(S * 0.012))
-    off2 = int(S * 0.022)
-    draw_x_bar(d,
-               (inset + off2, inset - off2),
-               (S - inset + off2, S - inset - off2),
-               hl_w, GOLD_HI)
-    draw_x_bar(d,
-               (S - inset - off2, inset - off2),
-               (inset - off2, S - inset - off2),
-               hl_w, GOLD_HI)
-
-    # downscale with high-quality filter
-    out = img.resize((size, size), Image.LANCZOS)
-    return out
+    return img.resize((size, size), Image.LANCZOS)
 
 
 def png_bytes(im):
@@ -109,7 +76,6 @@ for s in SIZES:
     im.save(p, 'PNG', optimize=True)
     print('wrote', p)
 
-# emit apple-touch base64 to embed inline (avoids extra HTTP request + caches with HTML)
 b180 = base64.b64encode(png_bytes(draw_icon(180))).decode()
 with open(os.path.join(OUT, 'apple-touch-180.b64'), 'w') as f:
     f.write(b180)
