@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-21T18:00:00Z">
+<meta name="app-version" content="2026-05-21T19:30:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1991,7 +1991,10 @@ function _authErrMsg(code){
     'auth/too-many-requests':'Muitas tentativas. Tente novamente mais tarde.',
     'auth/invalid-credential':'E-mail ou senha incorretos.',
     'auth/network-request-failed':'Sem conexão com a internet.',
-  }[code]) || 'Erro ao autenticar. Tente novamente.';
+    'auth/operation-not-allowed':'Método de login não habilitado no Firebase.',
+    'auth/unauthorized-domain':'Domínio não autorizado. Contate o suporte.',
+    'auth/configuration-not-found':'Configuração do Firebase não encontrada.',
+  }[code]) || `Erro (${code}). Tente novamente.`;
 }
 
 // ══════════════════════════════════════
