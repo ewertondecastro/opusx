@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-22T01:00:00Z">
+<meta name="app-version" content="2026-05-22T03:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -428,6 +428,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .sheet-desc{font-size:15px;color:var(--mid);line-height:1.6;margin-bottom:18px}
 .sheet-input{width:100%;background:var(--s2);border:1px solid var(--bdr);color:var(--text);font-family:'Inter',sans-serif;font-size:17px;padding:14px 16px;border-radius:var(--rs);outline:none;margin-bottom:10px;transition:border-color .2s}
 .sheet-input:focus{border-color:var(--gold)}
+.cs-input{background:var(--s2);border:1px solid var(--bdr);border-radius:6px;padding:8px 12px;color:var(--text);font-size:14px;width:100%;box-sizing:border-box;}
 .sheet-note{font-size:13px;color:var(--dim);line-height:1.6;margin-bottom:18px}
 .sheet-btns{display:flex;gap:10px}
 .diet-opt-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:12px 14px;background:var(--s2);border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;text-align:left;transition:border-color .2s}
@@ -817,7 +818,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:1px" id="wo-title">TREINOS</div>
     </div>
     <div class="day-tabs" id="day-tabs"></div>
+    <div id="plan-mode-toggle" style="display:flex;margin:0 14px 12px;background:var(--s1);border:1px solid var(--bdr);border-radius:8px;overflow:hidden">
+      <button id="toggle-opusx" onclick="switchPlanMode('opusx')" style="flex:1;padding:10px;background:var(--gold);color:var(--gold-ink);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer">PLANO OPUS X</button>
+      <button id="toggle-custom" onclick="switchPlanMode('custom')" style="flex:1;padding:10px;background:transparent;color:var(--mid);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer">MEU PLANO</button>
+    </div>
     <div id="workout-sessions"></div>
+    <div id="custom-plan-section" style="display:none"></div>
   </div>
 </div>
 
@@ -862,6 +868,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           <div style="font-size:12px;color:var(--dim);margin-top:2px">Comidas extras do dia</div>
         </div>
         <button onclick="openAddExtraFood()" style="background:rgba(220,80,80,.12);border:1px solid rgba(220,80,80,.3);border-radius:6px;color:var(--red);font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer">+ ADICIONAR</button>
+        <button onclick="openFoodCamera()" style="background:rgba(82,137,201,.12);border:1px solid rgba(82,137,201,.3);border-radius:6px;color:var(--blue);font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer">📷 FOTO</button>
       </div>
       <div id="extra-foods-list" style="padding:4px 0"></div>
     </div>
@@ -1906,6 +1913,24 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
 </div>
 
+<!-- CAMERA INPUT (hidden) -->
+<input type="file" id="food-cam-input" accept="image/*" capture="environment" style="display:none" onchange="handleFoodPhoto(this)">
+
+<!-- FOOD PHOTO RESULT SHEET -->
+<div class="overlay" id="food-photo-ov" onclick="if(event.target===this)closeSheet('food-photo-ov')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">📷 ANÁLISE IA</div>
+    <div class="sheet-desc">Identificando alimentos e estimando calorias…</div>
+    <div id="food-photo-preview" style="text-align:center;margin:0 0 12px"></div>
+    <div id="food-photo-result"></div>
+    <div class="sheet-btns" id="food-photo-btns" style="display:none">
+      <button class="btn btn-outline" onclick="closeSheet('food-photo-ov')" style="flex:1">Cancelar</button>
+      <button class="btn btn-gold" onclick="saveFoodPhotoResult()" style="flex:2;margin:0">✓ Salvar tudo</button>
+    </div>
+  </div>
+</div>
+
 <!-- EXTRA FOOD SHEET -->
 <div class="overlay" id="extra-food-ov" onclick="if(event.target===this)closeSheet('extra-food-ov')">
   <div class="sheet">
@@ -1919,6 +1944,25 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-btns">
       <button class="btn btn-outline" onclick="closeSheet('extra-food-ov')" style="flex:1">Cancelar</button>
       <button class="btn btn-gold" onclick="saveExtraFood()" style="flex:2;margin:0">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM SESSION EDITOR -->
+<div class="overlay" id="custom-session-ov" onclick="if(event.target===this)closeSheet('custom-session-ov')">
+  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="cs-title">NOVA SESSÃO</div>
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">NOME DA SESSÃO</div>
+    <input class="sheet-input" id="cs-name" type="text" placeholder="Ex: Treino A — Peito e Ombros">
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">FOCO MUSCULAR</div>
+    <input class="sheet-input" id="cs-focus" type="text" placeholder="Ex: Peito, Ombros, Tríceps" style="margin-bottom:14px">
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:8px">EXERCÍCIOS</div>
+    <div id="cs-exercises-list" style="margin-bottom:10px"></div>
+    <button onclick="csAddExercise()" style="width:100%;padding:10px;background:var(--gold-bg);border:1px dashed rgba(201,169,110,.4);border-radius:8px;color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:14px">+ ADICIONAR EXERCÍCIO</button>
+    <div class="sheet-btns">
+      <button class="btn btn-outline" onclick="closeSheet('custom-session-ov')" style="flex:1">Cancelar</button>
+      <button class="btn btn-gold" onclick="saveCustomSession()" style="flex:2;margin:0">Salvar Sessão</button>
     </div>
   </div>
 </div>
@@ -2274,6 +2318,7 @@ let D = {
   workoutHistory: [], nutritionHistory: [],
   exFeedback: {}, sessionFeedback: {},
   shopChecked: {}, mealChecked: {}, exChecked: {}, extraFoods: {},
+  customPlan: { active: false, sessions: [] },
   appMode: 'full', dietType: 'balanced', useNutrition: true, useFasting: true,
   weightUnit: 'lbs',
   nutDay: 0,
@@ -2324,6 +2369,8 @@ function load() {
   if (!D.workoutHistory) D.workoutHistory = [];
   if (!D.nutritionHistory) D.nutritionHistory = [];
   if (!D.extraFoods) D.extraFoods = {};
+  if(!D.customPlan) D.customPlan = { active: false, sessions: [] };
+  if(!Array.isArray(D.customPlan.sessions)) D.customPlan.sessions = [];
   if(!D.appMode) D.appMode = 'full';
   if(!D.dietType) D.dietType = 'balanced';
   if(D.useNutrition === undefined) D.useNutrition = true;
@@ -5191,6 +5238,11 @@ function buildWorkoutUI() {
 
   // Show today's session
   switchWorkoutDay(todayKey);
+
+  // Restore custom plan toggle state
+  if(D.customPlan && D.customPlan.active){
+    switchPlanMode('custom');
+  }
 }
 
 function switchWorkoutDay(key) {
@@ -5450,6 +5502,108 @@ function renderExtraFoods(){
     +(totalKcal?`<div style="padding:8px 14px;font-size:12px;color:var(--red);font-weight:700;text-align:right">Total extra: ${totalKcal} kcal</div>`:'');
 }
 
+let _foodPhotoResults = [];
+
+function openFoodCamera(){
+  document.getElementById('food-cam-input').click();
+}
+
+async function handleFoodPhoto(input){
+  const file = input.files[0];
+  if(!file) return;
+  input.value = '';
+
+  if(!D.apiKey){
+    // Open a simplified capture sheet anyway, but explain
+    toast('Configure sua API Key para análise por IA');
+    openSheet('api-ov');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const dataUrl = ev.target.result;
+    const base64 = dataUrl.split(',')[1];
+    const mediaType = (file.type && file.type.startsWith('image/')) ? file.type : 'image/jpeg';
+
+    openSheet('food-photo-ov');
+    document.getElementById('food-photo-preview').innerHTML =
+      `<img src="${dataUrl}" style="max-width:100%;max-height:180px;border-radius:10px;object-fit:cover">`;
+    document.getElementById('food-photo-result').innerHTML =
+      '<div style="text-align:center;padding:24px 0;color:var(--dim);font-size:14px">🔍 Analisando com IA…</div>';
+    document.getElementById('food-photo-btns').style.display = 'none';
+    _foodPhotoResults = [];
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key':D.apiKey,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({
+          model:'claude-opus-4-5',
+          max_tokens:500,
+          messages:[{
+            role:'user',
+            content:[
+              {type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
+              {type:'text',text:'Analyze this food image. Return ONLY a valid JSON object (no markdown, no code block) with this exact structure: {"foods":[{"name":"food name in Portuguese","qty":"estimated portion","kcal":number,"prot":number,"carb":number,"fat":number}],"total_kcal":number,"tip":"one brief health tip about this meal in Portuguese (max 15 words)"}. Estimate accurately based on visible portions.'}
+            ]
+          }]
+        })
+      });
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const j = await res.json();
+      const raw = j.content[0].text.trim();
+      // strip possible markdown fences
+      const jsonStr = raw.replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'');
+      const parsed = JSON.parse(jsonStr);
+      _foodPhotoResults = parsed.foods || [];
+      const total = parsed.total_kcal || _foodPhotoResults.reduce((s,f)=>s+(f.kcal||0),0);
+      document.getElementById('food-photo-result').innerHTML = `
+        <div style="margin-bottom:4px">
+          ${_foodPhotoResults.map((f,i)=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bdr)">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;color:var(--text);font-weight:600">${f.name}</div>
+                <div style="font-size:12px;color:var(--dim);margin-top:1px">${f.qty} · P:${f.prot}g C:${f.carb}g G:${f.fat}g</div>
+              </div>
+              <div style="font-size:15px;color:var(--gold);font-weight:700;margin-left:10px">${f.kcal} kcal</div>
+            </div>`).join('')}
+          <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700;font-size:15px">
+            <span style="color:var(--text)">TOTAL</span>
+            <span style="color:var(--red)">${total} kcal</span>
+          </div>
+          ${parsed.tip?`<div style="font-size:12px;color:var(--mid);font-style:italic;padding:6px 0">💡 ${parsed.tip}</div>`:''}
+        </div>`;
+      document.getElementById('food-photo-btns').style.display = '';
+    } catch(e){
+      console.warn('[food-photo]',e);
+      document.getElementById('food-photo-result').innerHTML =
+        `<div style="color:var(--red);text-align:center;padding:16px">Não consegui identificar. Tente uma foto mais iluminada e próxima.</div>`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveFoodPhotoResult(){
+  if(!_foodPhotoResults.length) return;
+  if(!D.extraFoods) D.extraFoods={};
+  if(!D.extraFoods[TODAY]) D.extraFoods[TODAY]=[];
+  const now = new Date();
+  const time = now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  _foodPhotoResults.forEach(f=>{
+    D.extraFoods[TODAY].push({name:f.name,kcal:f.kcal,prot:f.prot,ts:Date.now(),time,fromPhoto:true});
+  });
+  save();
+  closeSheet('food-photo-ov');
+  toast('Alimentos registrados ✓');
+  renderExtraFoods();
+}
+
 function changeNutDay(dir) {
   const plan = getNutPlan();
   D.nutDay = Math.max(0, Math.min(plan.length-1, D.nutDay+dir));
@@ -5545,6 +5699,165 @@ function renderFastHistory2() {
       <div class="hist-badge" style="${h.complete?'background:var(--green-bg);color:var(--green)':'background:var(--gold-bg);color:var(--gold)'}">${h.complete?'OK':'PARCIAL'}</div>
     </div>`;
   }).join('');
+}
+
+// ══════════════════════════════════
+// CUSTOM PLAN BUILDER
+// ══════════════════════════════════
+let _editingSessionIdx = -1; // -1 = new session
+
+function switchPlanMode(mode){
+  const isCustom = mode === 'custom';
+  D.customPlan.active = isCustom;
+  save();
+  document.getElementById('toggle-opusx').style.cssText = isCustom
+    ? 'flex:1;padding:10px;background:transparent;color:var(--mid);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer'
+    : 'flex:1;padding:10px;background:var(--gold);color:var(--gold-ink);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer';
+  document.getElementById('toggle-custom').style.cssText = isCustom
+    ? 'flex:1;padding:10px;background:var(--gold);color:var(--gold-ink);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer'
+    : 'flex:1;padding:10px;background:transparent;color:var(--mid);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer';
+  document.getElementById('workout-sessions').style.display = isCustom ? 'none' : '';
+  document.getElementById('custom-plan-section').style.display = isCustom ? '' : 'none';
+  if(isCustom) renderCustomPlan();
+}
+
+function renderCustomPlan(){
+  const sec = document.getElementById('custom-plan-section');
+  if(!sec) return;
+  const sessions = D.customPlan.sessions || [];
+  if(!sessions.length){
+    sec.innerHTML = `
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:48px;margin-bottom:12px">🏗️</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--text);letter-spacing:.5px;margin-bottom:8px">CRIE SEU TREINO</div>
+        <div style="font-size:14px;color:var(--dim);line-height:1.6;max-width:280px;margin:0 auto 24px">Monte suas sessões com os exercícios, séries e cargas que você escolher.</div>
+        <button onclick="openNewSession()" class="btn btn-gold" style="padding:14px 32px">+ CRIAR PRIMEIRA SESSÃO</button>
+      </div>`;
+    return;
+  }
+  sec.innerHTML = sessions.map((s,si)=>`
+    <div style="margin:0 14px 12px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--s2);border-bottom:1px solid var(--bdr)">
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--text);letter-spacing:.5px">${s.name||'Sessão '+(si+1)}</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:2px">${s.focus||'—'} · ${(s.exercises||[]).length} exercícios</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="openEditSession(${si})" style="background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:6px;color:var(--gold);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer">EDITAR</button>
+          <button onclick="deleteCustomSession(${si})" style="background:transparent;border:1px solid var(--bdr2);border-radius:6px;color:var(--dim);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer">✕</button>
+        </div>
+      </div>
+      ${(s.exercises||[]).map((ex,ei)=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bdr)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;color:var(--text);font-weight:600">${ex.name}</div>
+            <div style="font-size:12px;color:var(--mid);margin-top:2px">${ex.sets}×${ex.reps}${ex.rest?' · '+ex.rest:''}${ex.load?' · <span style="color:var(--gold)">'+ex.load+'</span>':''}</div>
+          </div>
+          <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name+' exercício')}" target="_blank" style="font-size:10px;padding:5px 7px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;color:var(--dim);font-weight:700;text-decoration:none">YT</a>
+        </div>`).join('')}
+    </div>`).join('')
+  + `<div style="padding:0 14px 20px">
+      <button onclick="openNewSession()" class="btn btn-outline btn-full" style="padding:13px">+ NOVA SESSÃO</button>
+    </div>`;
+}
+
+function openNewSession(){
+  _editingSessionIdx = -1;
+  document.getElementById('cs-title').textContent = 'NOVA SESSÃO';
+  document.getElementById('cs-name').value = '';
+  document.getElementById('cs-focus').value = '';
+  _renderCsExercises([]);
+  openSheet('custom-session-ov');
+}
+
+function openEditSession(idx){
+  _editingSessionIdx = idx;
+  const s = D.customPlan.sessions[idx];
+  document.getElementById('cs-title').textContent = 'EDITAR SESSÃO';
+  document.getElementById('cs-name').value = s.name || '';
+  document.getElementById('cs-focus').value = s.focus || '';
+  _renderCsExercises(s.exercises || []);
+  openSheet('custom-session-ov');
+}
+
+let _csExercises = [];
+
+function _renderCsExercises(exList){
+  _csExercises = exList.map(e=>({...e}));
+  const list = document.getElementById('cs-exercises-list');
+  if(!list) return;
+  if(!_csExercises.length){
+    list.innerHTML = '<div style="font-size:13px;color:var(--dim);text-align:center;padding:8px 0;margin-bottom:4px">Nenhum exercício ainda.</div>';
+    return;
+  }
+  list.innerHTML = _csExercises.map((ex,i)=>`
+    <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <input value="${ex.name||''}" onchange="_csExercises[${i}].name=this.value"
+          style="flex:1;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:7px 10px;color:var(--text);font-size:14px"
+          placeholder="Nome do exercício">
+        <button onclick="_csRemoveEx(${i})" style="background:transparent;border:none;color:var(--dim);font-size:18px;cursor:pointer;padding:0 4px">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
+        <div>
+          <div style="font-size:9px;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:3px">SÉRIES</div>
+          <input type="number" inputmode="numeric" value="${ex.sets||4}" onchange="_csExercises[${i}].sets=this.value"
+            style="width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:6px 8px;color:var(--text);font-size:14px;text-align:center">
+        </div>
+        <div>
+          <div style="font-size:9px;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:3px">REPS</div>
+          <input value="${ex.reps||'10-12'}" onchange="_csExercises[${i}].reps=this.value"
+            style="width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:6px 8px;color:var(--text);font-size:14px;text-align:center">
+        </div>
+        <div>
+          <div style="font-size:9px;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:3px">PAUSA</div>
+          <input value="${ex.rest||'60s'}" onchange="_csExercises[${i}].rest=this.value"
+            style="width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:6px 8px;color:var(--text);font-size:14px;text-align:center">
+        </div>
+        <div>
+          <div style="font-size:9px;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:3px">CARGA</div>
+          <input value="${ex.load||''}" placeholder="—" onchange="_csExercises[${i}].load=this.value"
+            style="width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:6px 8px;color:var(--text);font-size:14px;text-align:center">
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function csAddExercise(){
+  _csExercises.push({name:'',sets:4,reps:'10-12',rest:'60s',load:''});
+  _renderCsExercises(_csExercises);
+  // scroll to bottom of sheet
+  const sheet = document.querySelector('#custom-session-ov .sheet');
+  if(sheet) setTimeout(()=>{ sheet.scrollTop = sheet.scrollHeight; },50);
+}
+
+function _csRemoveEx(i){
+  _csExercises.splice(i,1);
+  _renderCsExercises(_csExercises);
+}
+
+function saveCustomSession(){
+  const name = (document.getElementById('cs-name').value||'').trim();
+  const focus = (document.getElementById('cs-focus').value||'').trim();
+  if(!name){ toast('Digite um nome para a sessão'); return; }
+  const exercises = _csExercises.filter(e=>e.name.trim());
+  const session = { name, focus, exercises, id: Date.now() };
+  if(_editingSessionIdx >= 0){
+    D.customPlan.sessions[_editingSessionIdx] = session;
+  } else {
+    D.customPlan.sessions.push(session);
+  }
+  save();
+  closeSheet('custom-session-ov');
+  toast(name+' salvo ✓');
+  renderCustomPlan();
+}
+
+function deleteCustomSession(idx){
+  if(!confirm('Apagar esta sessão?')) return;
+  D.customPlan.sessions.splice(idx,1);
+  save();
+  renderCustomPlan();
 }
 
 function renderNutHistory() {
