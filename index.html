@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-21T21:00:00Z">
+<meta name="app-version" content="2026-05-21T22:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1936,7 +1936,8 @@ fbAuth.onAuthStateChanged(user => {
     hideAuthOverlay();
     if(!_appStarted){ _appStarted = true; _runAppInit(); }
   } else {
-    showAuthOverlay();
+    // Sign-out: reload the page so the next user starts completely clean
+    window.location.reload();
   }
 });
 
@@ -2231,15 +2232,29 @@ let D = {
 };
 const TODAY = new Date().toDateString();
 
+// Retorna a chave de storage do usuário atual (isolamento por conta)
+function _storageKey() {
+  return currentUser ? 'apex_v2_' + currentUser.uid : 'apex_v2';
+}
+
 function load() {
-  const r = localStorage.getItem('apex_v2');
+  const key = _storageKey();
+  let r = localStorage.getItem(key);
+  // Migração: primeira vez que este UID loga — tenta pegar dados da chave compartilhada antiga
+  if (!r && currentUser) {
+    const shared = localStorage.getItem('apex_v2');
+    if (shared) {
+      localStorage.setItem(key, shared);   // migra para a chave do usuário
+      localStorage.removeItem('apex_v2'); // remove chave compartilhada
+      r = shared;
+    }
+  }
   if (r) Object.assign(D, JSON.parse(r));
   // Migrate from v1 if exists
   const old = localStorage.getItem('apex_v1');
   if (old && !r) {
     try {
       const parsed = JSON.parse(old);
-      // Carry over history but reset weight to correct default
       if (parsed.fastHistory) D.fastHistory = parsed.fastHistory;
       if (parsed.workoutHistory) D.workoutHistory = parsed.workoutHistory;
       if (parsed.weightLog) D.weightLog = parsed.weightLog;
@@ -2248,7 +2263,7 @@ function load() {
       if (parsed.streak) D.streak = parsed.streak;
     } catch(e) {}
   }
-  D.apiKey = localStorage.getItem('apex_api') || '';
+  D.apiKey = localStorage.getItem('apex_api_' + (currentUser?.uid||'')) || localStorage.getItem('apex_api') || '';
   if (!D.coachChats) D.coachChats = {trainer:[], nutritionist:[]};
   if (!D.exFeedback) D.exFeedback = {};
   if (!D.sessionFeedback) D.sessionFeedback = {};
@@ -2271,8 +2286,8 @@ function load() {
 }
 function save() {
   D.lastSavedAt = Date.now();
-  localStorage.setItem('apex_v2', JSON.stringify(D));
-  localStorage.setItem('apex_api', D.apiKey);
+  localStorage.setItem(_storageKey(), JSON.stringify(D));
+  localStorage.setItem('apex_api_' + (currentUser?.uid||''), D.apiKey);
   // Trigger debounced sync to GitHub Gist
   scheduleGistSync();
 }
@@ -2284,10 +2299,11 @@ const GIST_FILE = 'opusx-data.json';
 let _gistTimer = null;
 let _gistSyncing = false;
 
-function getGistToken(){ return localStorage.getItem('apex_gist_token') || ''; }
-function setGistToken(t){ localStorage.setItem('apex_gist_token', t); }
-function getGistId(){ return localStorage.getItem('apex_gist_id') || ''; }
-function setGistId(id){ localStorage.setItem('apex_gist_id', id); }
+function _gistKey(k){ return k + '_' + (currentUser?.uid||''); }
+function getGistToken(){ return localStorage.getItem(_gistKey('apex_gist_token')) || ''; }
+function setGistToken(t){ localStorage.setItem(_gistKey('apex_gist_token'), t); }
+function getGistId(){ return localStorage.getItem(_gistKey('apex_gist_id')) || ''; }
+function setGistId(id){ localStorage.setItem(_gistKey('apex_gist_id'), id); }
 
 function setSyncStatus(status, msg){
   const el = document.getElementById('sync-status');
@@ -6266,7 +6282,10 @@ function changeSecaDay(dir) {
 function resetApp(){
   if(!confirm('Apagar TODOS os dados do app neste aparelho e recomeçar do zero?\n\nIsto não pode ser desfeito. Se quiser guardar, exporte seus dados antes.')) return;
   if(!confirm('Tem certeza? Tudo será apagado: perfil, treinos, jejuns, peso e configurações.')) return;
-  ['apex_v2','apex_v1','apex_api','apex_lang','apex_date2','apex_prev2','apex_gist_token','apex_gist_id','apex_theme','apex_mode'].forEach(k=>{
+  const uid = currentUser?.uid || '';
+  ['apex_v2','apex_v2_'+uid,'apex_v1','apex_api','apex_api_'+uid,'apex_lang',
+   'apex_date2','apex_prev2','apex_gist_token','apex_gist_token_'+uid,
+   'apex_gist_id','apex_gist_id_'+uid,'apex_theme','apex_mode'].forEach(k=>{
     try { localStorage.removeItem(k); } catch(e){}
   });
   location.reload();
