@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-21T23:30:00Z">
+<meta name="app-version" content="2026-05-22T01:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -430,6 +430,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .sheet-input:focus{border-color:var(--gold)}
 .sheet-note{font-size:13px;color:var(--dim);line-height:1.6;margin-bottom:18px}
 .sheet-btns{display:flex;gap:10px}
+.diet-opt-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:12px 14px;background:var(--s2);border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;text-align:left;transition:border-color .2s}
+.diet-opt-btn:hover,.diet-opt-btn.active{border-color:var(--gold);background:rgba(201,169,110,.08)}
+.diet-opt-name{font-size:15px;font-weight:700;color:var(--text)}
+.diet-opt-desc{font-size:12px;color:var(--dim)}
 
 .empty{text-align:center;padding:32px 20px;color:var(--dim);font-size:14px;line-height:1.8}
 
@@ -829,6 +833,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <button class="day-nav-btn" onclick="changeNutDay(-1)">← ANTERIOR</button>
       <div class="day-nav-label" id="nut-day-label">DIA 1</div>
       <button class="day-nav-btn" onclick="changeNutDay(1)">PRÓXIMO →</button>
+    </div>
+
+    <!-- Diet switcher row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;margin:0 0 4px;background:var(--s1);border-radius:var(--r);border:1px solid var(--bdr)">
+      <div>
+        <div style="font-size:10px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;margin-bottom:2px">Plano Alimentar</div>
+        <div style="font-size:14px;font-weight:700;color:var(--gold)" id="nut-diet-badge">Balanceada</div>
+      </div>
+      <button onclick="openSheet('diet-switch-ov')" style="background:rgba(201,169,110,.12);border:1px solid rgba(201,169,110,.3);border-radius:6px;color:var(--gold);font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;letter-spacing:1px">TROCAR</button>
     </div>
 
     <!-- Macros summary -->
@@ -1841,6 +1854,24 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
 </div>
 
+<!-- DIET SWITCHER SHEET -->
+<div class="overlay" id="diet-switch-ov" onclick="if(event.target===this)closeSheet('diet-switch-ov')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">TROCAR PLANO</div>
+    <div class="sheet-desc">Escolha seu tipo de dieta. O plano de 7 dias será atualizado.</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px" id="diet-options-list">
+      <button onclick="switchDietType('balanced')" class="diet-opt-btn" data-diet="balanced"><span class="diet-opt-name">Balanceada</span><span class="diet-opt-desc">2000 kcal · equilibrada</span></button>
+      <button onclick="switchDietType('keto')" class="diet-opt-btn" data-diet="keto"><span class="diet-opt-name">Keto</span><span class="diet-opt-desc">1800 kcal · alto gordura, zero carb</span></button>
+      <button onclick="switchDietType('paleo')" class="diet-opt-btn" data-diet="paleo"><span class="diet-opt-name">Paleo</span><span class="diet-opt-desc">2000 kcal · sem grãos/laticínios</span></button>
+      <button onclick="switchDietType('lowcarb')" class="diet-opt-btn" data-diet="lowcarb"><span class="diet-opt-name">Low Carb</span><span class="diet-opt-desc">1900 kcal · carbs reduzidos</span></button>
+      <button onclick="switchDietType('6meals')" class="diet-opt-btn" data-diet="6meals"><span class="diet-opt-name">6 Refeições</span><span class="diet-opt-desc">2200 kcal · 6 refeições/dia</span></button>
+      <button onclick="switchDietType('veg')" class="diet-opt-btn" data-diet="veg"><span class="diet-opt-name">Vegetariana</span><span class="diet-opt-desc">1950 kcal · sem carnes</span></button>
+    </div>
+    <button class="btn btn-outline btn-full" onclick="closeSheet('diet-switch-ov')">Fechar</button>
+  </div>
+</div>
+
 <!-- MANUAL FAST SHEET -->
 <div class="overlay" id="manual-fast-ov" onclick="if(event.target===this)closeSheet('manual-fast-ov')">
   <div class="sheet">
@@ -2595,10 +2626,15 @@ const DAY_ORDER = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const JS_TO_PLAN = [6,0,1,2,3,4,5]; // JS: 0=Sun,1=Mon,2=Tue... → Plan: Mon=0,Tue=1... Sun=6
 
 // ══════════════════════════════════
-// NUTRITION PLAN
+// NUTRITION PLANS (multi-diet)
 // ══════════════════════════════════
-const NUT_PLAN = {
-  pt: [
+function getNutPlan() {
+  const type = D.dietType || 'balanced';
+  return NUT_PLANS[type] || NUT_PLANS['balanced'];
+}
+
+const NUT_PLANS = {
+  balanced: [
     {
       day: 'DIA 1', kcal: 2190, prot: 182, carb: 218, fat: 62,
       meals: [
@@ -2808,10 +2844,1099 @@ const NUT_PLAN = {
         },
       ]
     },
-  ]
-};
-// Use same plan for EN but with English labels
-NUT_PLAN.en = NUT_PLAN.pt.map((d,i) => ({...d, day: `DAY ${i+1}`}));
+  ],
+
+  // ── KETO ──────────────────────────────────────────────────────────
+  keto: [
+    {
+      day: 'DIA 1', kcal: 1820, prot: 132, carb: 22, fat: 134,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 420, foods: [
+          { name: 'Ovos mexidos na manteiga', qty: '3 ovos', kcal: 250, subs: [{name:'Omelete de queijo', qty:'3 ovos + 30g queijo', kcal:310}] },
+          { name: 'Bacon', qty: '3 fatias', kcal: 130, subs: [{name:'Linguiça calabresa', qty:'60g', kcal:140}] },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+          { name: 'Creme de leite no café', qty: '2 col. sopa', kcal: 52 },
+        ],
+        recipe: { title: 'Ovos mexidos keto', steps: ['Derreta 1 col. manteiga em fogo baixo.','Quebre os ovos e mexa lentamente até cremoso.','Sirva com bacon grelhado.'], time: '10 min' }
+        },
+        { name: 'ALMOÇO', kcal: 650, foods: [
+          { name: 'Picanha grelhada', qty: '200g', kcal: 440, subs: [{name:'Entrecôte grelhado', qty:'200g', kcal:420}] },
+          { name: 'Salada de folhas verdes', qty: 'À vontade', kcal: 20 },
+          { name: 'Azeite de oliva extra-virgem', qty: '2 col. sopa', kcal: 240 },
+          { name: 'Abacate', qty: '80g', kcal: 128 },
+        ],
+        recipe: { title: 'Picanha com salada keto', steps: ['Grelhe picanha em frigideira de ferro muito quente.','Monte salada com folhas, abacate fatiado.','Regue com azeite e limão.'], time: '15 min' }
+        },
+        { name: 'JANTAR', kcal: 600, foods: [
+          { name: 'Salmão grelhado', qty: '180g', kcal: 360, subs: [{name:'Atum grelhado', qty:'200g', kcal:240}] },
+          { name: 'Brócolis refogado na manteiga', qty: '200g', kcal: 110 },
+          { name: 'Queijo parmesão ralado', qty: '20g', kcal: 84 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+        ],
+        recipe: { title: 'Salmão com brócolis keto', steps: ['Grelhe salmão 4 min cada lado.','Refogue brócolis em manteiga com alho.','Finalize com queijo ralado.'], time: '15 min' }
+        },
+        { name: 'CEIA', kcal: 150, foods: [
+          { name: 'Queijo brie', qty: '40g', kcal: 136, subs: [{name:'Queijo gouda', qty:'40g', kcal:152}] },
+          { name: 'Nozes', qty: '15g', kcal: 98 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 2', kcal: 1800, prot: 128, carb: 20, fat: 136,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 430, foods: [
+          { name: 'Omelete de queijo e espinafre', qty: '3 ovos + 40g queijo', kcal: 320, subs: [{name:'Ovos mexidos com cream cheese', qty:'3 ovos + 30g', kcal:340}] },
+          { name: 'Manteiga ghee', qty: '1 col. chá', kcal: 42 },
+          { name: 'Café bulletproof', qty: '1 xícara + 1 col. manteiga', kcal: 102 },
+        ],
+        recipe: { title: 'Omelete keto', steps: ['Bata ovos com sal e pimenta.','Derreta manteiga em frigideira.','Adicione ovos, coloque queijo e espinafre.','Dobre e sirva.'], time: '8 min' }
+        },
+        { name: 'ALMOÇO', kcal: 620, foods: [
+          { name: 'Frango com pele assado', qty: '200g', kcal: 380, subs: [{name:'Coxinha de frango sem osso', qty:'220g', kcal:400}] },
+          { name: 'Couve-flor gratinada', qty: '200g', kcal: 180 },
+          { name: 'Cream cheese', qty: '30g', kcal: 99 },
+        ],
+        recipe: { title: 'Frango com couve-flor gratinada', steps: ['Tempere frango com ervas e asse 35 min a 200°C.','Cozinhe couve-flor no vapor.','Misture com cream cheese e gratine 10 min.'], time: '45 min' }
+        },
+        { name: 'JANTAR', kcal: 590, foods: [
+          { name: 'Costela bovina', qty: '200g', kcal: 460, subs: [{name:'Pernil suíno', qty:'200g', kcal:420}] },
+          { name: 'Abobrinha refogada no azeite', qty: '200g', kcal: 80 },
+          { name: 'Alho picado + ervas', qty: 'Tempero', kcal: 10 },
+        ],
+        recipe: { title: 'Costela com abobrinha', steps: ['Cozinhe costela em panela de pressão 40 min.','Refogue abobrinha em azeite com alho 8 min.','Sirva.'], time: '50 min' }
+        },
+        { name: 'CEIA', kcal: 160, foods: [
+          { name: 'Castanha-do-pará', qty: '4 unidades', kcal: 120, subs: [{name:'Macadâmia', qty:'20g', kcal:140}] },
+          { name: 'Queijo cheddar', qty: '20g', kcal: 82 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 3', kcal: 1810, prot: 130, carb: 24, fat: 132,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 410, foods: [
+          { name: 'Ovos cozidos', qty: '3 unidades', kcal: 210, subs: [{name:'Ovos pochê', qty:'3 unidades', kcal:210}] },
+          { name: 'Abacate amassado', qty: '100g', kcal: 160 },
+          { name: 'Sal, pimenta, limão', qty: 'Tempero', kcal: 5 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 650, foods: [
+          { name: 'Lombo de porco grelhado', qty: '200g', kcal: 360, subs: [{name:'File de frango na manteiga', qty:'200g', kcal:330}] },
+          { name: 'Espinafre refogado na manteiga', qty: '150g', kcal: 100 },
+          { name: 'Queijo parmesão', qty: '20g', kcal: 84 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+        ],
+        recipe: { title: 'Lombo keto com espinafre', steps: ['Grelhe lombo com sal e alho.','Refogue espinafre em manteiga.','Finalize com parmesão.'], time: '20 min' }
+        },
+        { name: 'JANTAR', kcal: 600, foods: [
+          { name: 'Hambúrguer bovino (sem pão)', qty: '200g', kcal: 420, subs: [{name:'Almôndegas bovinas', qty:'200g', kcal:380}] },
+          { name: 'Alface, tomate, cebola', qty: 'Salada', kcal: 30 },
+          { name: 'Maionese integral', qty: '2 col. sopa', kcal: 188 },
+        ],
+        recipe: { title: 'Burger keto sem pão', steps: ['Grelhe o hambúrguer 4 min cada lado.','Sirva sobre folhas com maionese.'], time: '10 min' }
+        },
+        { name: 'CEIA', kcal: 150, foods: [
+          { name: 'Iogurte grego integral (sem açúcar)', qty: '100g', kcal: 97, subs: [{name:'Cream cheese', qty:'40g', kcal:132}] },
+          { name: 'Sementes de chia', qty: '1 col. sopa', kcal: 58 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 4', kcal: 1790, prot: 126, carb: 21, fat: 135,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 420, foods: [
+          { name: 'Ovos fritos na manteiga', qty: '3 ovos', kcal: 260, subs: [{name:'Ovos mexidos', qty:'3 ovos', kcal:240}] },
+          { name: 'Queijo coalho grelhado', qty: '60g', kcal: 160 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 620, foods: [
+          { name: 'Atum em azeite', qty: '150g', kcal: 250, subs: [{name:'Sardinha em azeite', qty:'150g', kcal:220}] },
+          { name: 'Salada de folhas + pepino', qty: 'À vontade', kcal: 25 },
+          { name: 'Azeitonas', qty: '30g', kcal: 45 },
+          { name: 'Azeite extra-virgem', qty: '2 col. sopa', kcal: 240 },
+          { name: 'Abacate', qty: '80g', kcal: 128 },
+        ],
+        recipe: { title: 'Salada keto de atum', steps: ['Monte salada com folhas, pepino e azeitonas.','Adicione atum escorrido.','Coloque abacate fatiado.','Regue com azeite e limão.'], time: '5 min' }
+        },
+        { name: 'JANTAR', kcal: 590, foods: [
+          { name: 'Frango de leite (coxas)', qty: '220g', kcal: 420, subs: [{name:'Coxa de frango assada', qty:'220g', kcal:400}] },
+          { name: 'Couve refogada na manteiga', qty: '100g', kcal: 90 },
+          { name: 'Creme de leite', qty: '2 col. sopa', kcal: 100 },
+        ],
+        recipe: { title: 'Frango ao creme keto', steps: ['Doure frango em frigideira.','Adicione creme de leite e deixe reduzir.','Refogue couve separado.'], time: '25 min' }
+        },
+        { name: 'CEIA', kcal: 160, foods: [
+          { name: 'Macadâmia', qty: '25g', kcal: 174, subs: [{name:'Nozes pecã', qty:'25g', kcal:170}] },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 5', kcal: 1820, prot: 134, carb: 23, fat: 133,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 440, foods: [
+          { name: 'Panqueca de cream cheese', qty: '2 unidades (2 ovos + 60g cream cheese)', kcal: 340, subs: [{name:'Ovos mexidos com queijo', qty:'3 ovos + 30g', kcal:320}] },
+          { name: 'Café bulletproof', qty: '1 xícara + manteiga', kcal: 102 },
+        ],
+        recipe: { title: 'Panqueca keto', steps: ['Bata 2 ovos com 60g cream cheese no liquidificador.','Frite em frigideira antiaderente em porções.','Sirva com manteiga.'], time: '10 min' }
+        },
+        { name: 'ALMOÇO', kcal: 640, foods: [
+          { name: 'Bife ancho grelhado', qty: '200g', kcal: 440, subs: [{name:'Picanha', qty:'200g', kcal:440}] },
+          { name: 'Brócolis no vapor', qty: '200g', kcal: 70 },
+          { name: 'Manteiga ghee', qty: '1 col. sopa', kcal: 126 },
+        ],
+        recipe: { title: 'Ancho com brócolis keto', steps: ['Sele o ancho em frigideira quente 3 min cada lado.','Cozinhe brócolis no vapor.','Finalize com manteiga ghee.'], time: '15 min' }
+        },
+        { name: 'JANTAR', kcal: 590, foods: [
+          { name: 'Salmão assado com ervas', qty: '180g', kcal: 360, subs: [{name:'Pescada grelhada', qty:'220g', kcal:220}] },
+          { name: 'Aspargos grelhados', qty: '150g', kcal: 40 },
+          { name: 'Azeite', qty: '2 col. sopa', kcal: 240 },
+        ],
+        recipe: { title: 'Salmão keto com aspargos', steps: ['Tempere salmão com ervas, sal e limão.','Asse 15 min a 200°C.','Grelhe aspargos com azeite 5 min.'], time: '20 min' }
+        },
+        { name: 'CEIA', kcal: 150, foods: [
+          { name: 'Queijo camembert', qty: '40g', kcal: 130, subs: [{name:'Queijo brie', qty:'40g', kcal:136}] },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 6', kcal: 1800, prot: 129, carb: 22, fat: 136,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 420, foods: [
+          { name: 'Ovos mexidos com bacon e queijo', qty: '3 ovos + 2 fatias bacon + 20g queijo', kcal: 400, subs: [{name:'Frittata de espinafre', qty:'3 ovos', kcal:280}] },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 630, foods: [
+          { name: 'Camarão refogado no alho e azeite', qty: '200g', kcal: 210, subs: [{name:'Peixe grelhado', qty:'200g', kcal:200}] },
+          { name: 'Abobrinha espiral (espaguete de abobrinha)', qty: '200g', kcal: 66 },
+          { name: 'Creme de leite + queijo parmesão', qty: '80ml + 20g', kcal: 280 },
+          { name: 'Alho + azeite', qty: 'Tempero', kcal: 80 },
+        ],
+        recipe: { title: 'Camarão ao creme com espaguete de abobrinha', steps: ['Refogue alho em azeite.','Adicione camarão e cozinhe 3 min.','Adicione creme de leite e parmesão.','Sirva sobre abobrinha espiral crua.'], time: '15 min' }
+        },
+        { name: 'JANTAR', kcal: 600, foods: [
+          { name: 'Costelinha de porco', qty: '220g', kcal: 440, subs: [{name:'Paleta suína', qty:'200g', kcal:400}] },
+          { name: 'Couve-flor assada', qty: '200g', kcal: 80 },
+          { name: 'Azeite + alho em pó', qty: 'Tempero', kcal: 80 },
+        ],
+        recipe: { title: 'Costelinha com couve-flor assada', steps: ['Asse costelinha temperada 45 min a 180°C.','Asse couve-flor com azeite e alho.','Sirva.'], time: '50 min' }
+        },
+        { name: 'CEIA', kcal: 150, foods: [
+          { name: 'Nozes', qty: '20g', kcal: 130, subs: [{name:'Amêndoas', qty:'20g', kcal:116}] },
+          { name: 'Queijo gouda', qty: '20g', kcal: 76 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 7', kcal: 1810, prot: 131, carb: 25, fat: 131,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 430, foods: [
+          { name: 'Omelete de cogumelos e queijo', qty: '3 ovos + 50g cogumelos + 30g queijo', kcal: 310, subs: [{name:'Scrambled eggs com queijo', qty:'3 ovos + 30g', kcal:310}] },
+          { name: 'Abacate', qty: '80g', kcal: 128 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 640, foods: [
+          { name: 'Frango assado inteiro (coxa+sobrecoxa)', qty: '220g', kcal: 420, subs: [{name:'Peito de frango recheado com queijo', qty:'200g', kcal:380}] },
+          { name: 'Salada de rúcula e tomate-cereja', qty: 'À vontade', kcal: 30 },
+          { name: 'Azeite + vinagre balsâmico', qty: '2 col. sopa', kcal: 160 },
+          { name: 'Queijo parmesão', qty: '15g', kcal: 63 },
+        ],
+        recipe: { title: 'Frango assado keto', steps: ['Tempere frango com ervas, alho e azeite.','Asse 40 min a 200°C.','Monte salada e regue com azeite.'], time: '45 min' }
+        },
+        { name: 'JANTAR', kcal: 590, foods: [
+          { name: 'Tilápia grelhada na manteiga', qty: '200g', kcal: 270, subs: [{name:'Merluza grelhada', qty:'220g', kcal:220}] },
+          { name: 'Espinafre refogado no alho', qty: '150g', kcal: 50 },
+          { name: 'Manteiga ghee', qty: '1 col. sopa', kcal: 126 },
+          { name: 'Limão e ervas', qty: 'Tempero', kcal: 5 },
+        ],
+        recipe: { title: 'Tilápia keto com espinafre', steps: ['Grelhe tilápia em manteiga ghee 4 min cada lado.','Refogue espinafre com alho.','Sirva com limão.'], time: '15 min' }
+        },
+        { name: 'CEIA', kcal: 150, foods: [
+          { name: 'Queijo brie', qty: '40g', kcal: 136, subs: [{name:'Queijo camembert', qty:'40g', kcal:130}] },
+        ]},
+      ]
+    },
+  ],
+
+  // ── PALEO ─────────────────────────────────────────────────────────
+  paleo: [
+    {
+      day: 'DIA 1', kcal: 2010, prot: 162, carb: 148, fat: 82,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 480, foods: [
+          { name: 'Ovos mexidos no óleo de coco', qty: '3 ovos', kcal: 240, subs: [{name:'Omelete de legumes', qty:'3 ovos', kcal:230}] },
+          { name: 'Batata-doce cozida', qty: '120g', kcal: 103 },
+          { name: 'Frutas mistas (banana, morango)', qty: '150g', kcal: 100 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 680, foods: [
+          { name: 'Frango grelhado (coxa sem pele)', qty: '200g', kcal: 280, subs: [{name:'Peito de frango grelhado', qty:'200g', kcal:330}] },
+          { name: 'Batata-doce assada', qty: '200g', kcal: 172 },
+          { name: 'Brócolis e cenoura no vapor', qty: '200g', kcal: 70 },
+          { name: 'Óleo de coco', qty: '1 col. sopa', kcal: 120 },
+        ],
+        recipe: { title: 'Frango paleo com raízes', steps: ['Grelhe coxa de frango 8 min cada lado.','Asse batata-doce em cubos com óleo de coco 25 min a 200°C.','Cozinhe legumes no vapor.'], time: '35 min' }
+        },
+        { name: 'JANTAR', kcal: 640, foods: [
+          { name: 'Bife grelhado', qty: '200g', kcal: 380, subs: [{name:'Frango grelhado', qty:'200g', kcal:330}] },
+          { name: 'Abobrinha e cebola refogadas', qty: '200g', kcal: 80 },
+          { name: 'Abacate', qty: '80g', kcal: 128 },
+          { name: 'Limão + ervas', qty: 'Tempero', kcal: 10 },
+        ],
+        recipe: { title: 'Bife paleo com legumes', steps: ['Sele bife em frigideira seca 3 min cada lado.','Refogue abobrinha e cebola.','Sirva com abacate.'], time: '15 min' }
+        },
+        { name: 'CEIA', kcal: 210, foods: [
+          { name: 'Tâmaras', qty: '3 unidades', kcal: 60, subs: [{name:'Uvas passas', qty:'20g', kcal:60}] },
+          { name: 'Nozes', qty: '25g', kcal: 163 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 2', kcal: 1990, prot: 158, carb: 151, fat: 79,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 470, foods: [
+          { name: 'Ovos cozidos', qty: '3 unidades', kcal: 210, subs: [{name:'Ovos fritos no óleo de coco', qty:'3 ovos', kcal:250}] },
+          { name: 'Banana', qty: '1 grande', kcal: 121 },
+          { name: 'Nozes', qty: '20g', kcal: 130 },
+        ]},
+        { name: 'ALMOÇO', kcal: 680, foods: [
+          { name: 'Salmão grelhado', qty: '180g', kcal: 360, subs: [{name:'Atum fresco grelhado', qty:'180g', kcal:260}] },
+          { name: 'Inhame cozido', qty: '200g', kcal: 158 },
+          { name: 'Aspargos no vapor', qty: '150g', kcal: 40 },
+          { name: 'Limão + óleo de coco', qty: 'Tempero', kcal: 60 },
+        ],
+        recipe: { title: 'Salmão paleo com inhame', steps: ['Grelhe salmão com limão e ervas 4 min cada lado.','Cozinhe inhame em água com sal 25 min.','Sirva com aspargos.'], time: '30 min' }
+        },
+        { name: 'JANTAR', kcal: 620, foods: [
+          { name: 'Frango assado com ervas', qty: '200g', kcal: 320, subs: [{name:'Peru assado', qty:'200g', kcal:240}] },
+          { name: 'Couve-flor assada', qty: '200g', kcal: 80 },
+          { name: 'Abacate', qty: '80g', kcal: 128 },
+          { name: 'Óleo de coco', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'CEIA', kcal: 220, foods: [
+          { name: 'Maçã', qty: '1 média', kcal: 95, subs: [{name:'Pêra', qty:'1 média', kcal:101}] },
+          { name: 'Pasta de amêndoa natural', qty: '1 col. sopa', kcal: 98 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 3', kcal: 2000, prot: 160, carb: 150, fat: 80,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 490, foods: [
+          { name: 'Smoothie paleo', qty: '1 copo grande', kcal: 280, subs: [{name:'Ovos mexidos com frutas', qty:'3 ovos + frutas', kcal:300}] },
+          { name: 'Amêndoas cruas', qty: '30g', kcal: 173 },
+        ],
+        recipe: { title: 'Smoothie paleo', steps: ['Bata no liquidificador: 1 banana, 150g morango, 200ml leite de coco, 1 col. sopa de pasta de amêndoa.'], time: '3 min' }
+        },
+        { name: 'ALMOÇO', kcal: 650, foods: [
+          { name: 'Carne bovina assada', qty: '200g', kcal: 380, subs: [{name:'Cordeiro grelhado', qty:'180g', kcal:360}] },
+          { name: 'Batata-doce assada', qty: '150g', kcal: 129 },
+          { name: 'Rúcula + tomate-cereja', qty: 'Salada', kcal: 30 },
+          { name: 'Azeite + limão', qty: 'Tempero', kcal: 120 },
+        ]},
+        { name: 'JANTAR', kcal: 640, foods: [
+          { name: 'Tilápia grelhada', qty: '220g', kcal: 242, subs: [{name:'Merluza', qty:'220g', kcal:220}] },
+          { name: 'Brócolis e couve-flor no vapor', qty: '250g', kcal: 80 },
+          { name: 'Óleo de coco', qty: '2 col. chá', kcal: 80 },
+          { name: 'Mandioca cozida', qty: '100g', kcal: 125 },
+        ]},
+        { name: 'CEIA', kcal: 220, foods: [
+          { name: 'Abacate', qty: '80g', kcal: 128, subs: [{name:'Pasta de castanha', qty:'2 col. sopa', kcal:180}] },
+          { name: 'Frutas vermelhas', qty: '80g', kcal: 40 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 4', kcal: 2010, prot: 163, carb: 149, fat: 81,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 480, foods: [
+          { name: 'Ovos mexidos com cogumelos', qty: '3 ovos + 80g cogumelos', kcal: 250, subs: [{name:'Ovos pochê com abacate', qty:'3 ovos + 60g', kcal:300}] },
+          { name: 'Uva', qty: '150g', kcal: 104 },
+          { name: 'Castanha-do-pará', qty: '3 unidades', kcal: 90 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 670, foods: [
+          { name: 'Peito de peru assado', qty: '200g', kcal: 240, subs: [{name:'Frango assado', qty:'200g', kcal:320}] },
+          { name: 'Mandioquinha cozida', qty: '200g', kcal: 154 },
+          { name: 'Aspargos + cenoura', qty: '200g mix', kcal: 70 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+        ]},
+        { name: 'JANTAR', kcal: 640, foods: [
+          { name: 'Bifes de frango grelhados', qty: '200g', kcal: 330, subs: [{name:'Bife bovino magro', qty:'180g', kcal:300}] },
+          { name: 'Batata-doce', qty: '120g', kcal: 103 },
+          { name: 'Espinafre cozido', qty: '150g', kcal: 50 },
+          { name: 'Nozes', qty: '20g', kcal: 130 },
+        ]},
+        { name: 'CEIA', kcal: 220, foods: [
+          { name: 'Banana', qty: '1 média', kcal: 105, subs: [{name:'Maçã', qty:'1 média', kcal:95}] },
+          { name: 'Pasta de amêndoa', qty: '1 col. sopa', kcal: 98 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 5', kcal: 2000, prot: 161, carb: 148, fat: 80,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 470, foods: [
+          { name: 'Ovos scrambled com abacate', qty: '3 ovos + 80g abacate', kcal: 370, subs: [{name:'Ovos fritos com banana', qty:'3 ovos + 1 banana', kcal:330}] },
+          { name: 'Morangos', qty: '150g', kcal: 48 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 660, foods: [
+          { name: 'Carne moída bovina (magra)', qty: '200g', kcal: 350, subs: [{name:'Bife de alcatra', qty:'180g', kcal:340}] },
+          { name: 'Abóbora assada', qty: '200g', kcal: 82 },
+          { name: 'Rúcula + tomate', qty: 'Salada', kcal: 30 },
+          { name: 'Azeite + limão', qty: 'Tempero', kcal: 120 },
+        ]},
+        { name: 'JANTAR', kcal: 640, foods: [
+          { name: 'Salmão selvagem assado', qty: '180g', kcal: 360, subs: [{name:'Tilápia grelhada', qty:'220g', kcal:242}] },
+          { name: 'Batata-doce', qty: '150g', kcal: 129 },
+          { name: 'Brócolis', qty: '200g', kcal: 70 },
+          { name: 'Óleo de coco', qty: '1 col. sopa', kcal: 120 },
+        ]},
+        { name: 'CEIA', kcal: 230, foods: [
+          { name: 'Mix de nozes e amêndoas', qty: '30g', kcal: 185, subs: [{name:'Pasta de castanha', qty:'2 col. sopa', kcal:180}] },
+          { name: 'Tâmaras', qty: '2 unidades', kcal: 40 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 6', kcal: 2010, prot: 160, carb: 152, fat: 81,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 490, foods: [
+          { name: 'Panqueca de banana e ovo', qty: '2 bananas + 3 ovos', kcal: 380, subs: [{name:'Ovos mexidos com frutas', qty:'3 ovos + frutas', kcal:310}] },
+          { name: 'Mel puro', qty: '1 col. chá', kcal: 21 },
+          { name: 'Nozes', qty: '15g', kcal: 98 },
+        ],
+        recipe: { title: 'Panqueca paleo de banana', steps: ['Amasse 2 bananas maduras com garfo.','Misture 3 ovos até homogêneo.','Frite em frigideira antiaderente porções pequenas.'], time: '12 min' }
+        },
+        { name: 'ALMOÇO', kcal: 660, foods: [
+          { name: 'Cordeiro grelhado', qty: '180g', kcal: 360, subs: [{name:'Costela bovina magra', qty:'200g', kcal:380}] },
+          { name: 'Inhame assado', qty: '200g', kcal: 158 },
+          { name: 'Couve refogada em azeite', qty: '100g', kcal: 70 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+        ]},
+        { name: 'JANTAR', kcal: 640, foods: [
+          { name: 'Frango grelhado', qty: '200g', kcal: 330, subs: [{name:'Peito de peru', qty:'200g', kcal:240}] },
+          { name: 'Chuchu cozido', qty: '200g', kcal: 38 },
+          { name: 'Batata-doce', qty: '150g', kcal: 129 },
+          { name: 'Azeite + ervas', qty: 'Tempero', kcal: 120 },
+        ]},
+        { name: 'CEIA', kcal: 220, foods: [
+          { name: 'Abacate', qty: '80g', kcal: 128, subs: [{name:'Coco fresco', qty:'80g', kcal:120}] },
+          { name: 'Laranja', qty: '1 média', kcal: 62 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 7', kcal: 1990, prot: 158, carb: 147, fat: 80,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 470, foods: [
+          { name: 'Ovos mexidos com vegetais', qty: '3 ovos + mix legumes', kcal: 270, subs: [{name:'Frittata paleo', qty:'3 ovos', kcal:250}] },
+          { name: 'Mandioca cozida', qty: '100g', kcal: 125 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 660, foods: [
+          { name: 'Bife de alcatra grelhado', qty: '200g', kcal: 360, subs: [{name:'Lombo suíno grelhado', qty:'200g', kcal:340}] },
+          { name: 'Batata-doce + abóbora assada', qty: '200g mix', kcal: 140 },
+          { name: 'Espinafre refogado em azeite', qty: '100g', kcal: 60 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+        ]},
+        { name: 'JANTAR', kcal: 630, foods: [
+          { name: 'Camarão grelhado', qty: '200g', kcal: 200, subs: [{name:'Lula grelhada', qty:'200g', kcal:180}] },
+          { name: 'Abobrinha e pimentão salteados', qty: '200g', kcal: 70 },
+          { name: 'Abacate', qty: '100g', kcal: 160 },
+          { name: 'Óleo de coco', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'CEIA', kcal: 230, foods: [
+          { name: 'Mix de frutas secas sem açúcar', qty: '30g', kcal: 90, subs: [{name:'Frutas frescas', qty:'150g', kcal:80}] },
+          { name: 'Amêndoas cruas', qty: '20g', kcal: 116 },
+        ]},
+      ]
+    },
+  ],
+
+  // ── LOW CARB ──────────────────────────────────────────────────────
+  lowcarb: [
+    {
+      day: 'DIA 1', kcal: 1910, prot: 155, carb: 78, fat: 102,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 420, foods: [
+          { name: 'Ovos mexidos', qty: '3 ovos', kcal: 210, subs: [{name:'Omelete de queijo', qty:'3 ovos + 30g queijo', kcal:310}] },
+          { name: 'Queijo minas frescal', qty: '60g', kcal: 90 },
+          { name: 'Iogurte grego 0%', qty: '100g', kcal: 60 },
+          { name: 'Café preto ou com leite desnatado', qty: '200ml', kcal: 20 },
+        ]},
+        { name: 'ALMOÇO', kcal: 640, foods: [
+          { name: 'Peito de frango grelhado', qty: '200g', kcal: 330, subs: [{name:'Carne bovina magra', qty:'180g', kcal:300}] },
+          { name: 'Batata-doce cozida', qty: '120g', kcal: 103 },
+          { name: 'Salada de folhas + pepino', qty: 'À vontade', kcal: 25 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+          { name: 'Brócolis no vapor', qty: '100g', kcal: 35 },
+        ],
+        recipe: { title: 'Frango low carb clássico', steps: ['Grelhe frango temperado.','Cozinhe batata-doce no vapor 20 min.','Monte salada.','Sirva com azeite.'], time: '25 min' }
+        },
+        { name: 'JANTAR', kcal: 610, foods: [
+          { name: 'Salmão grelhado', qty: '180g', kcal: 360, subs: [{name:'Atum fresco grelhado', qty:'180g', kcal:260}] },
+          { name: 'Abobrinha e espinafre refogados', qty: '200g', kcal: 80 },
+          { name: 'Queijo parmesão', qty: '15g', kcal: 63 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'CEIA', kcal: 240, foods: [
+          { name: 'Iogurte grego integral', qty: '150g', kcal: 145, subs: [{name:'Cottage cheese', qty:'150g', kcal:120}] },
+          { name: 'Amêndoas', qty: '15g', kcal: 87 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 2', kcal: 1900, prot: 153, carb: 80, fat: 100,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 410, foods: [
+          { name: 'Omelete de 3 ovos com espinafre e queijo', qty: '3 ovos + 30g queijo', kcal: 300, subs: [{name:'Ovos mexidos com queijo', qty:'3 ovos + 30g', kcal:310}] },
+          { name: 'Café com leite desnatado', qty: '200ml', kcal: 20 },
+          { name: 'Nozes', qty: '15g', kcal: 98 },
+        ]},
+        { name: 'ALMOÇO', kcal: 630, foods: [
+          { name: 'Carne moída 90%', qty: '180g', kcal: 315, subs: [{name:'Bife bovino magro', qty:'180g', kcal:300}] },
+          { name: 'Couve-flor refogada', qty: '200g', kcal: 80 },
+          { name: 'Ovo cozido', qty: '1 unidade', kcal: 70 },
+          { name: 'Azeite + alho', qty: 'Tempero', kcal: 120 },
+        ]},
+        { name: 'JANTAR', kcal: 610, foods: [
+          { name: 'Frango assado', qty: '200g', kcal: 320, subs: [{name:'Peru assado', qty:'200g', kcal:240}] },
+          { name: 'Batata-doce', qty: '100g', kcal: 86 },
+          { name: 'Brócolis e cenoura no vapor', qty: '200g', kcal: 70 },
+          { name: 'Cream cheese light', qty: '20g', kcal: 52 },
+        ]},
+        { name: 'CEIA', kcal: 250, foods: [
+          { name: 'Cottage cheese', qty: '150g', kcal: 120, subs: [{name:'Iogurte grego', qty:'150g', kcal:145}] },
+          { name: 'Castanha-do-pará', qty: '3 unidades', kcal: 90 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 3', kcal: 1910, prot: 155, carb: 79, fat: 103,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 430, foods: [
+          { name: 'Whey protein', qty: '1 scoop', kcal: 120, subs: [{name:'Ovos mexidos', qty:'3 ovos', kcal:210}] },
+          { name: 'Iogurte grego 0%', qty: '150g', kcal: 90 },
+          { name: 'Framboesa', qty: '80g', kcal: 42 },
+          { name: 'Amêndoas', qty: '20g', kcal: 116 },
+        ]},
+        { name: 'ALMOÇO', kcal: 640, foods: [
+          { name: 'Tilápia grelhada', qty: '200g', kcal: 220, subs: [{name:'Merluza grelhada', qty:'220g', kcal:220}] },
+          { name: 'Arroz integral', qty: '80g cozido', kcal: 88 },
+          { name: 'Legumes variados refogados', qty: '200g', kcal: 80 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+          { name: 'Abacate', qty: '50g', kcal: 80 },
+        ]},
+        { name: 'JANTAR', kcal: 600, foods: [
+          { name: 'Bife bovino magro grelhado', qty: '180g', kcal: 300, subs: [{name:'Lombo suíno', qty:'180g', kcal:300}] },
+          { name: 'Espinafre + cogumelos salteados', qty: '200g', kcal: 80 },
+          { name: 'Queijo minas', qty: '50g', kcal: 75 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'CEIA', kcal: 240, foods: [
+          { name: 'Iogurte grego integral', qty: '150g', kcal: 145, subs: [{name:'Queijo cottage', qty:'150g', kcal:120}] },
+          { name: 'Nozes', qty: '15g', kcal: 98 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 4', kcal: 1900, prot: 152, carb: 80, fat: 100,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 420, foods: [
+          { name: 'Ovos mexidos com queijo', qty: '3 ovos + 30g queijo', kcal: 310, subs: [{name:'Ovos cozidos', qty:'3 ovos', kcal:210}] },
+          { name: 'Presunto magro', qty: '60g', kcal: 60 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 630, foods: [
+          { name: 'Frango grelhado', qty: '200g', kcal: 330, subs: [{name:'Peito de peru', qty:'200g', kcal:240}] },
+          { name: 'Abóbora assada', qty: '150g', kcal: 61 },
+          { name: 'Salada de folhas + ovo cozido', qty: 'Com 1 ovo', kcal: 95 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+        ]},
+        { name: 'JANTAR', kcal: 600, foods: [
+          { name: 'Salmão assado', qty: '180g', kcal: 360, subs: [{name:'Sardinha grelhada', qty:'180g', kcal:280}] },
+          { name: 'Brócolis + couve-flor no vapor', qty: '200g', kcal: 70 },
+          { name: 'Iogurte grego como molho', qty: '50g', kcal: 48 },
+          { name: 'Ervas e limão', qty: 'Tempero', kcal: 5 },
+        ]},
+        { name: 'CEIA', kcal: 250, foods: [
+          { name: 'Queijo minas + presunto', qty: '60g + 40g', kcal: 160, subs: [{name:'Iogurte grego', qty:'150g', kcal:145}] },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 5', kcal: 1920, prot: 156, carb: 80, fat: 104,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 430, foods: [
+          { name: 'Shake de whey com iogurte', qty: '1 scoop + 150g iogurte', kcal: 210, subs: [{name:'Ovos mexidos', qty:'3 ovos', kcal:210}] },
+          { name: 'Framboesa e mirtilo', qty: '100g mix', kcal: 57 },
+          { name: 'Castanha-do-pará', qty: '3 unidades', kcal: 90 },
+        ]},
+        { name: 'ALMOÇO', kcal: 640, foods: [
+          { name: 'Carne moída com legumes', qty: '180g carne', kcal: 315, subs: [{name:'Frango com legumes', qty:'200g', kcal:330}] },
+          { name: 'Arroz integral', qty: '80g cozido', kcal: 88 },
+          { name: 'Abobrinha e pimentão refogados', qty: '200g', kcal: 70 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'JANTAR', kcal: 600, foods: [
+          { name: 'Frango assado com ervas', qty: '200g', kcal: 320, subs: [{name:'Bife de frango', qty:'200g', kcal:330}] },
+          { name: 'Espinafre e cogumelos', qty: '200g', kcal: 80 },
+          { name: 'Queijo parmesão', qty: '15g', kcal: 63 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'CEIA', kcal: 250, foods: [
+          { name: 'Cottage cheese', qty: '150g', kcal: 120, subs: [{name:'Iogurte grego 0%', qty:'150g', kcal:90}] },
+          { name: 'Amêndoas', qty: '20g', kcal: 116 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 6', kcal: 1900, prot: 153, carb: 78, fat: 101,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 410, foods: [
+          { name: 'Omelete com peito de peru e queijo', qty: '3 ovos + 40g peito peru + 20g queijo', kcal: 310, subs: [{name:'Ovos mexidos com queijo', qty:'3 ovos + 30g', kcal:310}] },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 640, foods: [
+          { name: 'Bife de alcatra grelhado', qty: '180g', kcal: 340, subs: [{name:'Frango grelhado', qty:'200g', kcal:330}] },
+          { name: 'Batata-doce', qty: '100g', kcal: 86 },
+          { name: 'Couve refogada', qty: '100g', kcal: 70 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+        ]},
+        { name: 'JANTAR', kcal: 600, foods: [
+          { name: 'Tilápia grelhada', qty: '200g', kcal: 220, subs: [{name:'Salmão grelhado', qty:'160g', kcal:320}] },
+          { name: 'Brócolis + cenoura no vapor', qty: '200g', kcal: 70 },
+          { name: 'Queijo minas frescal', qty: '50g', kcal: 75 },
+          { name: 'Azeite + limão', qty: 'Tempero', kcal: 120 },
+        ]},
+        { name: 'CEIA', kcal: 250, foods: [
+          { name: 'Iogurte grego integral', qty: '150g', kcal: 145, subs: [{name:'Cottage', qty:'150g', kcal:120}] },
+          { name: 'Nozes', qty: '15g', kcal: 98 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 7', kcal: 1910, prot: 155, carb: 80, fat: 101,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 430, foods: [
+          { name: 'Ovos cozidos', qty: '3 unidades', kcal: 210, subs: [{name:'Omelete de claras', qty:'5 claras', kcal:130}] },
+          { name: 'Abacate', qty: '60g', kcal: 96 },
+          { name: 'Queijo minas frescal', qty: '50g', kcal: 75 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'ALMOÇO', kcal: 640, foods: [
+          { name: 'Frango grelhado', qty: '200g', kcal: 330, subs: [{name:'Peixe grelhado', qty:'220g', kcal:240}] },
+          { name: 'Arroz integral', qty: '80g cozido', kcal: 88 },
+          { name: 'Salada verde + tomate', qty: 'À vontade', kcal: 30 },
+          { name: 'Azeite', qty: '1 col. sopa', kcal: 120 },
+        ]},
+        { name: 'JANTAR', kcal: 600, foods: [
+          { name: 'Carne moída magra', qty: '180g', kcal: 315, subs: [{name:'Bife bovino', qty:'180g', kcal:300}] },
+          { name: 'Abobrinha e espinafre', qty: '200g', kcal: 80 },
+          { name: 'Queijo parmesão', qty: '20g', kcal: 84 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'CEIA', kcal: 240, foods: [
+          { name: 'Cottage cheese', qty: '150g', kcal: 120, subs: [{name:'Iogurte grego', qty:'150g', kcal:145}] },
+          { name: 'Amêndoas', qty: '20g', kcal: 116 },
+        ]},
+      ]
+    },
+  ],
+
+  // ── 6 REFEIÇÕES ───────────────────────────────────────────────────
+  '6meals': [
+    {
+      day: 'DIA 1', kcal: 2200, prot: 182, carb: 222, fat: 65,
+      meals: [
+        { name: 'REFEIÇÃO 1 — CAFÉ DA MANHÃ (7h)', kcal: 380, foods: [
+          { name: 'Ovos mexidos', qty: '3 ovos', kcal: 210, subs: [{name:'Claras mexidas', qty:'5 claras', kcal:130}] },
+          { name: 'Aveia', qty: '40g', kcal: 147 },
+          { name: 'Leite desnatado', qty: '200ml', kcal: 70 },
+        ],
+        recipe: { title: 'Refeição 1 express', steps: ['Mexa ovos enquanto ferve aveia com leite.','Sirva juntos.'], time: '8 min' }
+        },
+        { name: 'REFEIÇÃO 2 — LANCHE MANHÃ (9h30)', kcal: 320, foods: [
+          { name: 'Whey protein', qty: '1 scoop', kcal: 120, subs: [{name:'Iogurte grego + frutas', qty:'200g', kcal:180}] },
+          { name: 'Banana', qty: '1 média', kcal: 105 },
+          { name: 'Pasta de amendoim', qty: '1 col. sopa', kcal: 90 },
+        ]},
+        { name: 'REFEIÇÃO 3 — ALMOÇO (12h)', kcal: 400, foods: [
+          { name: 'Frango grelhado', qty: '150g', kcal: 247, subs: [{name:'Carne bovina magra', qty:'130g', kcal:240}] },
+          { name: 'Arroz integral', qty: '100g cozido', kcal: 110 },
+          { name: 'Brócolis no vapor', qty: '100g', kcal: 35 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'REFEIÇÃO 4 — PRÉ-TREINO (15h)', kcal: 320, foods: [
+          { name: 'Batata-doce cozida', qty: '150g', kcal: 129, subs: [{name:'Banana + aveia', qty:'1 banana + 20g', kcal:178}] },
+          { name: 'Peito de frango', qty: '100g', kcal: 165 },
+        ]},
+        { name: 'REFEIÇÃO 5 — PÓS-TREINO (17h30)', kcal: 360, foods: [
+          { name: 'Whey protein', qty: '1.5 scoop', kcal: 180, subs: [{name:'Ovos mexidos + fruta', qty:'3 ovos + fruta', kcal:250}] },
+          { name: 'Leite desnatado', qty: '300ml', kcal: 105 },
+          { name: 'Aveia instantânea', qty: '20g', kcal: 73 },
+        ]},
+        { name: 'REFEIÇÃO 6 — JANTAR (20h)', kcal: 420, foods: [
+          { name: 'Salmão grelhado', qty: '150g', kcal: 300, subs: [{name:'Tilápia grelhada', qty:'180g', kcal:198}] },
+          { name: 'Batata-doce', qty: '100g', kcal: 86 },
+          { name: 'Espinafre refogado', qty: '100g', kcal: 40 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 2', kcal: 2190, prot: 180, carb: 220, fat: 64,
+      meals: [
+        { name: 'REFEIÇÃO 1 — CAFÉ DA MANHÃ (7h)', kcal: 370, foods: [
+          { name: 'Greek yogurt 0%', qty: '200g', kcal: 120, subs: [{name:'Ovos mexidos', qty:'3 ovos', kcal:210}] },
+          { name: 'Granola sem açúcar', qty: '30g', kcal: 130 },
+          { name: 'Morango', qty: '100g', kcal: 32 },
+          { name: 'Whey protein', qty: '0.5 scoop', kcal: 60 },
+        ]},
+        { name: 'REFEIÇÃO 2 — LANCHE MANHÃ (9h30)', kcal: 320, foods: [
+          { name: 'Ovo cozido', qty: '2 unidades', kcal: 140, subs: [{name:'Atum em água', qty:'100g', kcal:100}] },
+          { name: 'Pão integral', qty: '2 fatias', kcal: 160 },
+        ]},
+        { name: 'REFEIÇÃO 3 — ALMOÇO (12h)', kcal: 410, foods: [
+          { name: 'Carne moída 90%', qty: '150g', kcal: 262, subs: [{name:'Frango desfiado', qty:'150g', kcal:247}] },
+          { name: 'Arroz integral', qty: '100g cozido', kcal: 110 },
+          { name: 'Feijão carioca', qty: '80g cozido', kcal: 90 },
+        ]},
+        { name: 'REFEIÇÃO 4 — PRÉ-TREINO (15h)', kcal: 310, foods: [
+          { name: 'Banana', qty: '1 grande', kcal: 121, subs: [{name:'Batata-doce', qty:'120g', kcal:103}] },
+          { name: 'Whey protein', qty: '1 scoop', kcal: 120 },
+        ]},
+        { name: 'REFEIÇÃO 5 — PÓS-TREINO (17h30)', kcal: 350, foods: [
+          { name: 'Whey protein', qty: '1.5 scoop', kcal: 180, subs: [{name:'Ovos + fruta', qty:'3 ovos + fruta', kcal:260}] },
+          { name: 'Aveia', qty: '30g', kcal: 110 },
+          { name: 'Leite desnatado', qty: '200ml', kcal: 70 },
+        ]},
+        { name: 'REFEIÇÃO 6 — JANTAR (20h)', kcal: 430, foods: [
+          { name: 'Peito de frango assado', qty: '180g', kcal: 297, subs: [{name:'Bife bovino magro', qty:'150g', kcal:250}] },
+          { name: 'Batata-doce', qty: '120g', kcal: 103 },
+          { name: 'Brócolis e cenoura', qty: '150g', kcal: 55 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 3', kcal: 2210, prot: 183, carb: 223, fat: 65,
+      meals: [
+        { name: 'REFEIÇÃO 1 — CAFÉ DA MANHÃ (7h)', kcal: 380, foods: [
+          { name: 'Ovos mexidos', qty: '2 ovos', kcal: 140, subs: [{name:'Whey protein', qty:'1 scoop', kcal:120}] },
+          { name: 'Tapioca com queijo', qty: '60g tapioca + 30g queijo minas', kcal: 195 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'REFEIÇÃO 2 — LANCHE MANHÃ (9h30)', kcal: 320, foods: [
+          { name: 'Shake de whey + leite', qty: '1 scoop + 250ml', kcal: 207, subs: [{name:'Iogurte + whey', qty:'150g + 0.5 scoop', kcal:180}] },
+          { name: 'Amendoim', qty: '20g', kcal: 117 },
+        ]},
+        { name: 'REFEIÇÃO 3 — ALMOÇO (12h)', kcal: 420, foods: [
+          { name: 'Salmão grelhado', qty: '130g', kcal: 260, subs: [{name:'Atum + arroz', qty:'100g + 80g', kcal:210}] },
+          { name: 'Quinoa cozida', qty: '100g', kcal: 120 },
+          { name: 'Mix de legumes', qty: '150g', kcal: 60 },
+        ]},
+        { name: 'REFEIÇÃO 4 — PRÉ-TREINO (15h)', kcal: 310, foods: [
+          { name: 'Batata-doce', qty: '130g', kcal: 112, subs: [{name:'Arroz integral', qty:'100g cozido', kcal:110}] },
+          { name: 'Frango grelhado', qty: '100g', kcal: 165 },
+        ]},
+        { name: 'REFEIÇÃO 5 — PÓS-TREINO (17h30)', kcal: 360, foods: [
+          { name: 'Whey protein', qty: '2 scoops', kcal: 240, subs: [{name:'Ovos mexidos', qty:'4 ovos', kcal:280}] },
+          { name: 'Leite desnatado', qty: '200ml', kcal: 70 },
+        ]},
+        { name: 'REFEIÇÃO 6 — JANTAR (20h)', kcal: 420, foods: [
+          { name: 'Carne bovina magra', qty: '160g', kcal: 290, subs: [{name:'Frango grelhado', qty:'180g', kcal:297}] },
+          { name: 'Arroz integral', qty: '80g cozido', kcal: 88 },
+          { name: 'Espinafre e abobrinha', qty: '150g', kcal: 50 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 4', kcal: 2190, prot: 180, carb: 221, fat: 64,
+      meals: [
+        { name: 'REFEIÇÃO 1 — CAFÉ DA MANHÃ (7h)', kcal: 380, foods: [
+          { name: 'Panqueca de aveia e banana', qty: '40g aveia + 1 banana + 2 ovos', kcal: 340, subs: [{name:'Ovos mexidos + aveia', qty:'3 ovos + 30g', kcal:320}] },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'REFEIÇÃO 2 — LANCHE MANHÃ (9h30)', kcal: 310, foods: [
+          { name: 'Cottage cheese', qty: '150g', kcal: 120, subs: [{name:'Iogurte grego 0%', qty:'150g', kcal:90}] },
+          { name: 'Mirtilo', qty: '100g', kcal: 57 },
+          { name: 'Amêndoas', qty: '20g', kcal: 116 },
+        ]},
+        { name: 'REFEIÇÃO 3 — ALMOÇO (12h)', kcal: 410, foods: [
+          { name: 'Peru grelhado', qty: '150g', kcal: 180, subs: [{name:'Frango grelhado', qty:'150g', kcal:247}] },
+          { name: 'Arroz integral', qty: '100g cozido', kcal: 110 },
+          { name: 'Feijão preto', qty: '80g', kcal: 96 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'REFEIÇÃO 4 — PRÉ-TREINO (15h)', kcal: 310, foods: [
+          { name: 'Batata-doce + whey', qty: '120g + 1 scoop', kcal: 223, subs: [{name:'Banana + whey', qty:'1 banana + 1 scoop', kcal:225}] },
+        ]},
+        { name: 'REFEIÇÃO 5 — PÓS-TREINO (17h30)', kcal: 360, foods: [
+          { name: 'Whey protein', qty: '1.5 scoop', kcal: 180, subs: [{name:'Ovos + leite', qty:'3 ovos + 200ml', kcal:280}] },
+          { name: 'Aveia', qty: '30g', kcal: 110 },
+          { name: 'Leite desnatado', qty: '200ml', kcal: 70 },
+        ]},
+        { name: 'REFEIÇÃO 6 — JANTAR (20h)', kcal: 420, foods: [
+          { name: 'Frango grelhado', qty: '180g', kcal: 297, subs: [{name:'Tilápia grelhada', qty:'200g', kcal:220}] },
+          { name: 'Batata-doce', qty: '120g', kcal: 103 },
+          { name: 'Couve refogada', qty: '100g', kcal: 70 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 5', kcal: 2210, prot: 183, carb: 224, fat: 65,
+      meals: [
+        { name: 'REFEIÇÃO 1 — CAFÉ DA MANHÃ (7h)', kcal: 380, foods: [
+          { name: 'Ovos mexidos', qty: '3 ovos', kcal: 210, subs: [{name:'Omelete de claras', qty:'5 claras', kcal:130}] },
+          { name: 'Pão integral', qty: '2 fatias', kcal: 160 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'REFEIÇÃO 2 — LANCHE MANHÃ (9h30)', kcal: 320, foods: [
+          { name: 'Whey protein + leite de amêndoa', qty: '1 scoop + 200ml', kcal: 165, subs: [{name:'Cottage + frutas', qty:'150g + 100g', kcal:175}] },
+          { name: 'Banana', qty: '1 média', kcal: 105 },
+        ]},
+        { name: 'REFEIÇÃO 3 — ALMOÇO (12h)', kcal: 420, foods: [
+          { name: 'Bife bovino magro', qty: '150g', kcal: 250, subs: [{name:'Frango grelhado', qty:'150g', kcal:247}] },
+          { name: 'Arroz integral', qty: '100g cozido', kcal: 110 },
+          { name: 'Brócolis e cenoura', qty: '150g', kcal: 55 },
+        ]},
+        { name: 'REFEIÇÃO 4 — PRÉ-TREINO (15h)', kcal: 310, foods: [
+          { name: 'Batata-doce', qty: '150g', kcal: 129, subs: [{name:'Cuscuz', qty:'80g seco', kcal:260}] },
+          { name: 'Frango cozido', qty: '100g', kcal: 165 },
+        ]},
+        { name: 'REFEIÇÃO 5 — PÓS-TREINO (17h30)', kcal: 370, foods: [
+          { name: 'Whey protein', qty: '2 scoops', kcal: 240, subs: [{name:'Ovos mexidos', qty:'4 ovos', kcal:280}] },
+          { name: 'Leite desnatado', qty: '200ml', kcal: 70 },
+          { name: 'Aveia', qty: '15g', kcal: 55 },
+        ]},
+        { name: 'REFEIÇÃO 6 — JANTAR (20h)', kcal: 410, foods: [
+          { name: 'Salmão grelhado', qty: '150g', kcal: 300, subs: [{name:'Frango assado', qty:'180g', kcal:297}] },
+          { name: 'Quinoa', qty: '80g cozida', kcal: 93 },
+          { name: 'Espinafre refogado', qty: '100g', kcal: 40 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 6', kcal: 2190, prot: 181, carb: 220, fat: 64,
+      meals: [
+        { name: 'REFEIÇÃO 1 — CAFÉ DA MANHÃ (7h)', kcal: 380, foods: [
+          { name: 'Greek yogurt + whey', qty: '150g + 0.5 scoop', kcal: 150, subs: [{name:'Ovos mexidos + frutas', qty:'3 ovos', kcal:210}] },
+          { name: 'Granola', qty: '30g', kcal: 130 },
+          { name: 'Morango', qty: '100g', kcal: 32 },
+        ]},
+        { name: 'REFEIÇÃO 2 — LANCHE MANHÃ (9h30)', kcal: 320, foods: [
+          { name: 'Ovo cozido', qty: '2 unidades', kcal: 140, subs: [{name:'Queijo minas + presunto', qty:'60g + 40g', kcal:160}] },
+          { name: 'Banana', qty: '1 média', kcal: 105 },
+          { name: 'Amendoim', qty: '10g', kcal: 58 },
+        ]},
+        { name: 'REFEIÇÃO 3 — ALMOÇO (12h)', kcal: 410, foods: [
+          { name: 'Frango grelhado', qty: '150g', kcal: 247, subs: [{name:'Carne moída', qty:'150g', kcal:262}] },
+          { name: 'Arroz integral', qty: '100g cozido', kcal: 110 },
+          { name: 'Legumes variados', qty: '150g', kcal: 60 },
+        ]},
+        { name: 'REFEIÇÃO 4 — PRÉ-TREINO (15h)', kcal: 310, foods: [
+          { name: 'Tapioca com frango', qty: '60g tapioca + 80g frango', kcal: 264, subs: [{name:'Batata-doce + frango', qty:'120g + 80g', kcal:268}] },
+        ]},
+        { name: 'REFEIÇÃO 5 — PÓS-TREINO (17h30)', kcal: 350, foods: [
+          { name: 'Whey protein + leite', qty: '1.5 scoop + 200ml', kcal: 250, subs: [{name:'Ovos + leite', qty:'3 ovos + 200ml', kcal:280}] },
+          { name: 'Aveia', qty: '20g', kcal: 73 },
+        ]},
+        { name: 'REFEIÇÃO 6 — JANTAR (20h)', kcal: 420, foods: [
+          { name: 'Tilápia grelhada', qty: '200g', kcal: 220, subs: [{name:'Peito de frango', qty:'180g', kcal:297}] },
+          { name: 'Batata-doce', qty: '120g', kcal: 103 },
+          { name: 'Brócolis no vapor', qty: '150g', kcal: 53 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 7', kcal: 2200, prot: 182, carb: 221, fat: 65,
+      meals: [
+        { name: 'REFEIÇÃO 1 — CAFÉ DA MANHÃ (7h)', kcal: 390, foods: [
+          { name: 'Panqueca proteica de whey', qty: '1 scoop whey + 1 ovo + 20g aveia', kcal: 253, subs: [{name:'Ovos mexidos + aveia', qty:'3 ovos + 30g', kcal:320}] },
+          { name: 'Banana', qty: '1 média', kcal: 105 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ],
+        recipe: { title: 'Panqueca proteica', steps: ['Misture whey, ovo e aveia até formar massa.','Frite em frigideira antiaderente.','Sirva com banana fatiada.'], time: '10 min' }
+        },
+        { name: 'REFEIÇÃO 2 — LANCHE MANHÃ (9h30)', kcal: 310, foods: [
+          { name: 'Cottage cheese', qty: '150g', kcal: 120, subs: [{name:'Greek yogurt', qty:'150g', kcal:145}] },
+          { name: 'Mirtilo', qty: '100g', kcal: 57 },
+          { name: 'Amêndoas', qty: '15g', kcal: 87 },
+        ]},
+        { name: 'REFEIÇÃO 3 — ALMOÇO (12h)', kcal: 410, foods: [
+          { name: 'Carne bovina magra', qty: '150g', kcal: 250, subs: [{name:'Frango grelhado', qty:'150g', kcal:247}] },
+          { name: 'Arroz integral', qty: '100g cozido', kcal: 110 },
+          { name: 'Feijão preto', qty: '60g', kcal: 72 },
+        ]},
+        { name: 'REFEIÇÃO 4 — PRÉ-TREINO (15h)', kcal: 320, foods: [
+          { name: 'Batata-doce', qty: '150g', kcal: 129, subs: [{name:'Banana', qty:'1 grande', kcal:121}] },
+          { name: 'Frango cozido', qty: '110g', kcal: 181 },
+        ]},
+        { name: 'REFEIÇÃO 5 — PÓS-TREINO (17h30)', kcal: 360, foods: [
+          { name: 'Whey protein', qty: '2 scoops', kcal: 240, subs: [{name:'Ovos mexidos', qty:'4 ovos', kcal:280}] },
+          { name: 'Leite desnatado', qty: '200ml', kcal: 70 },
+        ]},
+        { name: 'REFEIÇÃO 6 — JANTAR (20h)', kcal: 410, foods: [
+          { name: 'Frango grelhado', qty: '180g', kcal: 297, subs: [{name:'Salmão', qty:'150g', kcal:300}] },
+          { name: 'Batata-doce', qty: '100g', kcal: 86 },
+          { name: 'Mix de legumes no vapor', qty: '150g', kcal: 55 },
+        ]},
+      ]
+    },
+  ],
+
+  // ── VEGETARIANA ───────────────────────────────────────────────────
+  veg: [
+    {
+      day: 'DIA 1', kcal: 1960, prot: 132, carb: 232, fat: 66,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 440, foods: [
+          { name: 'Ovos mexidos', qty: '3 ovos', kcal: 210, subs: [{name:'Tofu scramble', qty:'150g', kcal:120}] },
+          { name: 'Pão integral', qty: '2 fatias', kcal: 160 },
+          { name: 'Abacate', qty: '50g', kcal: 80 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'LANCHE MANHÃ', kcal: 230, foods: [
+          { name: 'Greek yogurt 0%', qty: '200g', kcal: 120, subs: [{name:'Iogurte de soja natural', qty:'200g', kcal:110}] },
+          { name: 'Banana', qty: '1 média', kcal: 105 },
+        ]},
+        { name: 'ALMOÇO', kcal: 620, foods: [
+          { name: 'Feijão preto cozido', qty: '150g', kcal: 180, subs: [{name:'Lentilha cozida', qty:'150g', kcal:174}] },
+          { name: 'Arroz integral', qty: '150g cozido', kcal: 165 },
+          { name: 'Ovo cozido', qty: '2 unidades', kcal: 140 },
+          { name: 'Couve refogada', qty: '100g', kcal: 70 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'LANCHE TARDE', kcal: 230, foods: [
+          { name: 'Edamame cozido', qty: '150g', kcal: 189, subs: [{name:'Grão-de-bico cozido', qty:'100g', kcal:164}] },
+          { name: 'Limão e sal', qty: 'Tempero', kcal: 5 },
+        ]},
+        { name: 'JANTAR', kcal: 560, foods: [
+          { name: 'Tofu firme grelhado', qty: '200g', kcal: 176, subs: [{name:'Tempeh', qty:'150g', kcal:193}] },
+          { name: 'Quinoa cozida', qty: '150g', kcal: 180 },
+          { name: 'Brócolis e cenoura no vapor', qty: '200g', kcal: 70 },
+          { name: 'Azeite + shoyu', qty: 'Tempero', kcal: 50 },
+        ],
+        recipe: { title: 'Tofu grelhado com quinoa', steps: ['Corte tofu em cubos e grelhe em frigideira até dourar.','Cozinhe quinoa 15 min.','Cozinhe legumes no vapor.','Tempere com azeite e shoyu.'], time: '20 min' }
+        },
+        { name: 'CEIA', kcal: 120, foods: [
+          { name: 'Iogurte grego + sementes de chia', qty: '100g + 1 col. sopa', kcal: 118, subs: [{name:'Leite com cacau', qty:'200ml + 1 col.', kcal:110}] },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 2', kcal: 1950, prot: 130, carb: 230, fat: 65,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 440, foods: [
+          { name: 'Omelete de legumes', qty: '3 ovos + pimentão + tomate', kcal: 260, subs: [{name:'Ovos mexidos', qty:'3 ovos', kcal:210}] },
+          { name: 'Pão integral', qty: '2 fatias', kcal: 160 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'LANCHE MANHÃ', kcal: 220, foods: [
+          { name: 'Iogurte grego 0%', qty: '150g', kcal: 90, subs: [{name:'Kefir natural', qty:'200ml', kcal:100}] },
+          { name: 'Mirtilo', qty: '100g', kcal: 57 },
+          { name: 'Amêndoas', qty: '10g', kcal: 58 },
+        ]},
+        { name: 'ALMOÇO', kcal: 620, foods: [
+          { name: 'Lentilha vermelha cozida', qty: '150g', kcal: 174, subs: [{name:'Grão-de-bico', qty:'120g', kcal:196}] },
+          { name: 'Arroz integral', qty: '150g cozido', kcal: 165 },
+          { name: 'Salada de folhas + tomate + pepino', qty: 'À vontade', kcal: 30 },
+          { name: 'Azeite + limão', qty: 'Tempero', kcal: 120 },
+          { name: 'Ovo cozido', qty: '1 unidade', kcal: 70 },
+        ]},
+        { name: 'LANCHE TARDE', kcal: 220, foods: [
+          { name: 'Pasta de amendoim natural', qty: '2 col. sopa', kcal: 180, subs: [{name:'Pasta de amêndoa', qty:'2 col. sopa', kcal:196}] },
+          { name: 'Maçã', qty: '1 média', kcal: 95 },
+        ]},
+        { name: 'JANTAR', kcal: 560, foods: [
+          { name: 'Grão-de-bico refogado com especiarias', qty: '150g', kcal: 196, subs: [{name:'Feijão branco', qty:'150g', kcal:182}] },
+          { name: 'Batata-doce assada', qty: '150g', kcal: 129 },
+          { name: 'Espinafre e abobrinha refogados', qty: '200g', kcal: 80 },
+          { name: 'Azeite + cúrcuma', qty: 'Tempero', kcal: 80 },
+        ],
+        recipe: { title: 'Grão-de-bico temperado', steps: ['Refogue cebola e alho em azeite.','Adicione grão-de-bico, cúrcuma, cominho e páprica.','Cozinhe 5 min.','Sirva com batata-doce e espinafre.'], time: '15 min' }
+        },
+        { name: 'CEIA', kcal: 130, foods: [
+          { name: 'Leite integral', qty: '200ml', kcal: 122, subs: [{name:'Leite de soja', qty:'200ml', kcal:80}] },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 3', kcal: 1960, prot: 132, carb: 231, fat: 65,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 450, foods: [
+          { name: 'Panqueca de aveia e banana', qty: '40g aveia + 1 banana + 2 ovos', kcal: 340, subs: [{name:'Ovos mexidos + tapioca', qty:'2 ovos + 60g tapioca', kcal:310}] },
+          { name: 'Greek yogurt 0%', qty: '100g', kcal: 60 },
+          { name: 'Mel', qty: '1 col. chá', kcal: 21 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'LANCHE MANHÃ', kcal: 220, foods: [
+          { name: 'Castanha-do-pará', qty: '4 unidades', kcal: 120, subs: [{name:'Amêndoas', qty:'20g', kcal:116}] },
+          { name: 'Banana', qty: '1 média', kcal: 105 },
+        ]},
+        { name: 'ALMOÇO', kcal: 620, foods: [
+          { name: 'Tofu grelhado', qty: '200g', kcal: 176, subs: [{name:'Seitan', qty:'150g', kcal:225}] },
+          { name: 'Arroz integral + quinoa', qty: '120g mix cozido', kcal: 148 },
+          { name: 'Feijão carioca', qty: '100g', kcal: 120 },
+          { name: 'Abobrinha refogada', qty: '150g', kcal: 50 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'LANCHE TARDE', kcal: 220, foods: [
+          { name: 'Hummus (pasta de grão-de-bico)', qty: '80g', kcal: 160, subs: [{name:'Pasta de amendoim', qty:'2 col. sopa', kcal:180}] },
+          { name: 'Cenoura e pepino crus', qty: '150g', kcal: 50 },
+        ]},
+        { name: 'JANTAR', kcal: 560, foods: [
+          { name: 'Omelete de queijo e espinafre', qty: '3 ovos + 30g queijo', kcal: 300, subs: [{name:'Ovos mexidos com tofu', qty:'2 ovos + 100g tofu', kcal:228}] },
+          { name: 'Batata-doce cozida', qty: '150g', kcal: 129 },
+          { name: 'Salada de folhas', qty: 'À vontade', kcal: 20 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'CEIA', kcal: 120, foods: [
+          { name: 'Iogurte grego com sementes de linhaça', qty: '100g + 1 col. sopa', kcal: 113, subs: [{name:'Leite de amêndoa', qty:'200ml', kcal:30}] },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 4', kcal: 1950, prot: 131, carb: 229, fat: 65,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 440, foods: [
+          { name: 'Ovos mexidos com queijo', qty: '3 ovos + 30g queijo', kcal: 310, subs: [{name:'Ovos cozidos + pão', qty:'2 ovos + 2 fatias', kcal:300}] },
+          { name: 'Pão integral', qty: '2 fatias', kcal: 160 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'LANCHE MANHÃ', kcal: 220, foods: [
+          { name: 'Iogurte natural integral', qty: '200g', kcal: 122, subs: [{name:'Kefir', qty:'200ml', kcal:100}] },
+          { name: 'Granola artesanal sem açúcar', qty: '30g', kcal: 130 },
+        ]},
+        { name: 'ALMOÇO', kcal: 620, foods: [
+          { name: 'Tempeh grelhado', qty: '150g', kcal: 193, subs: [{name:'Tofu firme grelhado', qty:'200g', kcal:176}] },
+          { name: 'Arroz integral', qty: '150g cozido', kcal: 165 },
+          { name: 'Lentilha cozida', qty: '80g', kcal: 93 },
+          { name: 'Brócolis no vapor', qty: '150g', kcal: 53 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'LANCHE TARDE', kcal: 230, foods: [
+          { name: 'Edamame', qty: '150g', kcal: 189, subs: [{name:'Amendoim tostado', qty:'30g', kcal:175}] },
+        ]},
+        { name: 'JANTAR', kcal: 560, foods: [
+          { name: 'Sopa de legumes com ovo', qty: '1 ovo + 300ml', kcal: 200, subs: [{name:'Sopa de lentilha', qty:'300ml', kcal:174}] },
+          { name: 'Queijo minas', qty: '60g', kcal: 90 },
+          { name: 'Batata-doce cozida', qty: '120g', kcal: 103 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ]},
+        { name: 'CEIA', kcal: 130, foods: [
+          { name: 'Leite desnatado', qty: '200ml', kcal: 70, subs: [{name:'Leite de soja enriquecido', qty:'200ml', kcal:80}] },
+          { name: 'Sementes de chia', qty: '1 col. sopa', kcal: 58 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 5', kcal: 1960, prot: 133, carb: 232, fat: 66,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 450, foods: [
+          { name: 'Vitamina de banana com leite', qty: '1 banana + 200ml leite', kcal: 191, subs: [{name:'Smoothie de frutas + proteína vegetal', qty:'300ml', kcal:200}] },
+          { name: 'Ovos cozidos', qty: '2 unidades', kcal: 140 },
+          { name: 'Pão integral', qty: '1 fatia', kcal: 80 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'LANCHE MANHÃ', kcal: 220, foods: [
+          { name: 'Amendoim', qty: '30g', kcal: 175, subs: [{name:'Pasta de amendoim', qty:'2 col. sopa', kcal:180}] },
+          { name: 'Maçã', qty: '1 média', kcal: 95 },
+        ]},
+        { name: 'ALMOÇO', kcal: 620, foods: [
+          { name: 'Grão-de-bico com legumes', qty: '150g', kcal: 196, subs: [{name:'Feijão branco', qty:'150g', kcal:182}] },
+          { name: 'Arroz integral', qty: '150g cozido', kcal: 165 },
+          { name: 'Ovo cozido', qty: '2 unidades', kcal: 140 },
+          { name: 'Salada de folhas', qty: 'À vontade', kcal: 20 },
+        ]},
+        { name: 'LANCHE TARDE', kcal: 220, foods: [
+          { name: 'Iogurte grego 0%', qty: '150g', kcal: 90, subs: [{name:'Cottage cheese', qty:'150g', kcal:120}] },
+          { name: 'Mirtilo', qty: '100g', kcal: 57 },
+          { name: 'Amêndoas', qty: '10g', kcal: 58 },
+        ]},
+        { name: 'JANTAR', kcal: 560, foods: [
+          { name: 'Seitan grelhado', qty: '150g', kcal: 225, subs: [{name:'Tofu firme', qty:'200g', kcal:176}] },
+          { name: 'Batata-doce', qty: '150g', kcal: 129 },
+          { name: 'Espinafre e cogumelos', qty: '200g', kcal: 70 },
+          { name: 'Azeite + alho', qty: 'Tempero', kcal: 80 },
+        ]},
+        { name: 'CEIA', kcal: 120, foods: [
+          { name: 'Leite de soja enriquecido', qty: '200ml', kcal: 80, subs: [{name:'Leite desnatado', qty:'200ml', kcal:70}] },
+          { name: 'Sementes de chia', qty: '1 col. sopa', kcal: 58 },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 6', kcal: 1960, prot: 131, carb: 233, fat: 65,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 450, foods: [
+          { name: 'Omelete de 3 ovos com queijo e tomate', qty: '3 ovos + 30g queijo + tomate', kcal: 310, subs: [{name:'Tofu scramble com legumes', qty:'200g', kcal:180}] },
+          { name: 'Tapioca', qty: '60g', kcal: 147 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'LANCHE MANHÃ', kcal: 220, foods: [
+          { name: 'Iogurte grego + sementes', qty: '150g + chia + linhaça', kcal: 148, subs: [{name:'Kefir + frutas', qty:'200ml + 100g', kcal:130}] },
+          { name: 'Morango', qty: '100g', kcal: 32 },
+        ]},
+        { name: 'ALMOÇO', kcal: 620, foods: [
+          { name: 'Feijão-fradinho cozido', qty: '150g', kcal: 174, subs: [{name:'Feijão carioca', qty:'150g', kcal:180}] },
+          { name: 'Arroz integral', qty: '150g cozido', kcal: 165 },
+          { name: 'Ovo cozido', qty: '2 unidades', kcal: 140 },
+          { name: 'Couve refogada em azeite', qty: '100g', kcal: 70 },
+        ]},
+        { name: 'LANCHE TARDE', kcal: 220, foods: [
+          { name: 'Hummus + palitos de cenoura e pepino', qty: '80g + 150g', kcal: 195, subs: [{name:'Pasta de amendoim + maçã', qty:'2 col. + 1 maçã', kcal:275}] },
+        ]},
+        { name: 'JANTAR', kcal: 560, foods: [
+          { name: 'Tofu xadrez (tofu com legumes e molho)', qty: '200g tofu + legumes', kcal: 250, subs: [{name:'Omelete de queijo e espinafre', qty:'3 ovos', kcal:280}] },
+          { name: 'Arroz integral', qty: '100g cozido', kcal: 110 },
+          { name: 'Brócolis no vapor', qty: '150g', kcal: 53 },
+        ],
+        recipe: { title: 'Tofu xadrez', steps: ['Corte tofu em cubos e frite até dourar.','Salteie brócolis, pimentão, cenoura em azeite.','Adicione shoyu e gengibre.','Misture tofu e sirva.'], time: '20 min' }
+        },
+        { name: 'CEIA', kcal: 120, foods: [
+          { name: 'Leite integral com cacau em pó', qty: '200ml + 1 col. sopa', kcal: 150, subs: [{name:'Leite de amêndoa com cacau', qty:'200ml', kcal:60}] },
+        ]},
+      ]
+    },
+    {
+      day: 'DIA 7', kcal: 1960, prot: 132, carb: 230, fat: 65,
+      meals: [
+        { name: 'CAFÉ DA MANHÃ', kcal: 450, foods: [
+          { name: 'Ovos mexidos com espinafre e queijo', qty: '3 ovos + espinafre + 30g queijo', kcal: 310, subs: [{name:'Omelete de legumes', qty:'3 ovos', kcal:240}] },
+          { name: 'Pão integral', qty: '2 fatias', kcal: 160 },
+          { name: 'Café preto', qty: '1 xícara', kcal: 5 },
+        ]},
+        { name: 'LANCHE MANHÃ', kcal: 220, foods: [
+          { name: 'Banana', qty: '1 média', kcal: 105, subs: [{name:'Maçã', qty:'1 média', kcal:95}] },
+          { name: 'Pasta de amendoim', qty: '1 col. sopa', kcal: 90 },
+          { name: 'Greek yogurt', qty: '50g', kcal: 30 },
+        ]},
+        { name: 'ALMOÇO', kcal: 620, foods: [
+          { name: 'Lentilha e cenoura ao curry', qty: '150g lentilha + cenoura', kcal: 220, subs: [{name:'Grão-de-bico curry', qty:'150g', kcal:220}] },
+          { name: 'Arroz integral', qty: '150g cozido', kcal: 165 },
+          { name: 'Ovo cozido', qty: '2 unidades', kcal: 140 },
+          { name: 'Azeite', qty: '1 col. chá', kcal: 40 },
+        ],
+        recipe: { title: 'Lentilha ao curry', steps: ['Refogue cebola e alho.','Adicione lentilha, cenoura, curry, cúrcuma e água.','Cozinhe 20 min.','Ajuste o sal e sirva.'], time: '25 min' }
+        },
+        { name: 'LANCHE TARDE', kcal: 220, foods: [
+          { name: 'Iogurte grego integral', qty: '150g', kcal: 145, subs: [{name:'Cottage cheese', qty:'150g', kcal:120}] },
+          { name: 'Mirtilo', qty: '80g', kcal: 46 },
+        ]},
+        { name: 'JANTAR', kcal: 560, foods: [
+          { name: 'Tofu firme grelhado', qty: '200g', kcal: 176, subs: [{name:'Tempeh grelhado', qty:'150g', kcal:193}] },
+          { name: 'Quinoa', qty: '120g cozida', kcal: 140 },
+          { name: 'Legumes assados (abobrinha, pimentão, cebola)', qty: '200g', kcal: 80 },
+          { name: 'Azeite + ervas', qty: 'Tempero', kcal: 80 },
+        ]},
+        { name: 'CEIA', kcal: 120, foods: [
+          { name: 'Leite de soja + cacau', qty: '200ml + 1 col.', kcal: 108, subs: [{name:'Leite desnatado', qty:'200ml', kcal:70}] },
+        ]},
+      ]
+    },
+  ],
+}; // end NUT_PLANS
 
 // ══════════════════════════════════
 // SHOPPING LIST
@@ -4234,20 +5359,23 @@ function logSession(dayKey) {
 // NUTRITION
 // ══════════════════════════════════
 function renderNutDay() {
-  const plan = NUT_PLAN[lang]||NUT_PLAN.pt;
+  const plan = getNutPlan();
   const day = plan[D.nutDay]||plan[0];
   setEl('nut-day-label', day.day);
   setEl('nut-kcal', day.kcal);
   setEl('nut-prot', day.prot+'g');
   setEl('nut-carb', day.carb+'g');
   setEl('nut-fat', day.fat+'g');
+  // Update diet type badge
+  const dietLabels = {balanced:'Balanceada',keto:'Keto',paleo:'Paleo',lowcarb:'Low Carb','6meals':'6 Refeições',veg:'Vegetariana'};
+  const badge = document.getElementById('nut-diet-badge');
+  if(badge) badge.textContent = dietLabels[D.dietType||'balanced'] || 'Balanceada';
 
   const container = document.getElementById('nut-meals-container');
   if(!container) return;
   container.innerHTML = (day.meals||[]).map((meal,mi)=>{
     const mKey = `day${D.nutDay}_meal${mi}`;
     const done = (D.mealChecked||{})[mKey];
-    const recipeOpen = '';
     return `<div class="meal-block">
       <div class="meal-block-hd">
         <div class="meal-check${done?' done':''}" onclick="toggleMealCheck('${mKey}',this)">
@@ -4258,13 +5386,13 @@ function renderNutDay() {
       </div>
       ${(meal.foods||[]).map(f=>`
         <div class="food-item">
-          <div><div class="food-name">${f.name}</div><div class="food-qty">${f.qty}</div></div>
+          <div style="flex:1"><div class="food-name">${f.name}${f.subs&&f.subs.length?`<button onclick="openFoodSub('${f.name.replace(/'/g,'&apos;').replace(/"/g,'&quot;')}',${JSON.stringify(f.subs||[]).replace(/'/g,'&apos;')})" style="background:transparent;border:none;color:var(--gold);font-size:11px;cursor:pointer;padding:0 4px;font-weight:700;vertical-align:middle">↔</button>`:''}</div><div class="food-qty">${f.qty}</div></div>
           <div class="food-kcal">${f.kcal}</div>
         </div>`).join('')}
       ${meal.recipe?`
         <div class="recipe-toggle" onclick="toggleRecipe('rec-${mKey}',this)">
           <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-          ${lang==='pt'?'Ver receita':'See recipe'} · ${meal.recipe.time||'—'}
+          Ver receita · ${meal.recipe.time||'—'}
         </div>
         <div class="recipe-panel" id="rec-${mKey}">
           <div class="recipe-title">${meal.recipe.title}</div>
@@ -4323,9 +5451,20 @@ function renderExtraFoods(){
 }
 
 function changeNutDay(dir) {
-  const plan = NUT_PLAN[lang]||NUT_PLAN.pt;
+  const plan = getNutPlan();
   D.nutDay = Math.max(0, Math.min(plan.length-1, D.nutDay+dir));
   save(); renderNutDay();
+}
+
+function switchDietType(type) {
+  D.dietType = type;
+  D.nutDay = 0; // reset to day 1 when switching plan
+  D.mealChecked = {}; // clear meal checks for new plan
+  save();
+  closeSheet('diet-switch-ov');
+  renderNutDay();
+  const dietLabels = {balanced:'Balanceada',keto:'Keto',paleo:'Paleo',lowcarb:'Low Carb','6meals':'6 Refeições',veg:'Vegetariana'};
+  toast('Plano ' + (dietLabels[type]||type) + ' ativado ✓');
 }
 
 function toggleMealCheck(key, el) {
@@ -5320,18 +6459,38 @@ function foodSubGroup(f){
   return null;
 }
 
-function openFoodSub(groupKey, foodLabel){
-  const g = SUB_GROUPS[groupKey];
+function openFoodSub(groupKeyOrName, foodLabelOrSubs){
+  // If second arg is an array, it's inline subs from NUT_PLANS
+  if(Array.isArray(foodLabelOrSubs)){
+    const foodName = groupKeyOrName;
+    const subs = foodLabelOrSubs;
+    setEl('foodsub-title', 'SUBSTITUIÇÕES');
+    setEl('foodsub-desc', `Alternativas para <strong style="color:var(--gold)">${foodName}</strong>`);
+    const list = document.getElementById('foodsub-list');
+    list.innerHTML = subs.map(it=>`
+      <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:var(--rs);padding:13px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px">${it.name}</div>
+          <div style="font-size:12px;color:var(--mid)">${it.qty}${it.kcal?' · '+it.kcal+' kcal':''}</div>
+        </div>
+        <div style="font-size:13px;color:var(--gold);font-weight:700">${it.kcal||'—'} kcal</div>
+      </div>`).join('');
+    track('food_sub_open', {food:foodName});
+    openSheet('foodsub-ov');
+    return;
+  }
+  // Legacy: groupKey + foodLabel from SUB_GROUPS
+  const g = SUB_GROUPS[groupKeyOrName];
   if(!g) return;
   setEl('foodsub-title', g.title);
-  setEl('foodsub-desc', `Substituições para <strong style="color:var(--gold)">${foodLabel}</strong> — ${g.desc}`);
+  setEl('foodsub-desc', `Substituições para <strong style="color:var(--gold)">${foodLabelOrSubs}</strong> — ${g.desc}`);
   const list = document.getElementById('foodsub-list');
   list.innerHTML = g.items.map(it=>`
     <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:var(--rs);padding:13px">
       <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px">${it.name}</div>
       <div style="font-size:12px;color:var(--mid)">${it.info}</div>
     </div>`).join('');
-  track('food_sub_open', {group:groupKey});
+  track('food_sub_open', {group:groupKeyOrName});
   openSheet('foodsub-ov');
 }
 
