@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-21T22:00:00Z">
+<meta name="app-version" content="2026-05-21T23:30:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1119,9 +1119,26 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
     <div class="ob-field">
       <div class="ob-label">COMO VOCÊ VAI USAR O OPUS X?</div>
-      <div style="display:flex;gap:8px">
-        <div id="train-yes" class="ob-option sel" onclick="obSetTraining(true)" style="flex:1;text-align:center"><div class="ob-option-icon" style="margin-bottom:4px">🏋️</div><div class="ob-option-title">Treino + Jejum + Dieta</div></div>
-        <div id="train-no" class="ob-option" onclick="obSetTraining(false)" style="flex:1;text-align:center"><div class="ob-option-icon" style="margin-bottom:4px">🍽️</div><div class="ob-option-title">Só Jejum + Dieta</div></div>
+      <div class="ob-grid">
+        <div class="ob-option sel" id="mode-full" onclick="obSetMode('full',this)"><div class="ob-option-icon">🏋️⏱️🥗</div><div class="ob-option-title">Tudo</div><div class="ob-option-sub">Treino + Jejum + Nutrição</div></div>
+        <div class="ob-option" id="mode-wo" onclick="obSetMode('wo',this)"><div class="ob-option-icon">🏋️</div><div class="ob-option-title">Só Treino</div><div class="ob-option-sub">Plano de treino</div></div>
+        <div class="ob-option" id="mode-nut" onclick="obSetMode('nut',this)"><div class="ob-option-icon">🥗</div><div class="ob-option-title">Só Nutrição</div><div class="ob-option-sub">Dieta e refeições</div></div>
+        <div class="ob-option" id="mode-fast" onclick="obSetMode('fast',this)"><div class="ob-option-icon">⏱️</div><div class="ob-option-title">Só Jejum</div><div class="ob-option-sub">Protocolo de jejum</div></div>
+        <div class="ob-option" id="mode-nutfast" onclick="obSetMode('nutfast',this)"><div class="ob-option-icon">🥗⏱️</div><div class="ob-option-title">Nutrição + Jejum</div><div class="ob-option-sub">Sem treino</div></div>
+        <div class="ob-option" id="mode-wonut" onclick="obSetMode('wonut',this)"><div class="ob-option-icon">🏋️🥗</div><div class="ob-option-title">Treino + Nutrição</div><div class="ob-option-sub">Sem jejum</div></div>
+        <div class="ob-option" id="mode-wofast" onclick="obSetMode('wofast',this)"><div class="ob-option-icon">🏋️⏱️</div><div class="ob-option-title">Treino + Jejum</div><div class="ob-option-sub">Sem plano de dieta</div></div>
+        <div class="ob-option" id="mode-later" onclick="obSetMode('later',this)"><div class="ob-option-icon">⚙️</div><div class="ob-option-title">Decidir depois</div><div class="ob-option-sub">Configurar no perfil</div></div>
+      </div>
+    </div>
+    <div class="ob-field" id="ob-diet-type-wrap">
+      <div class="ob-label">TIPO DE ALIMENTAÇÃO</div>
+      <div class="ob-grid cols3">
+        <div class="ob-option sel" id="diet-balanced" onclick="obSetDiet('balanced',this)"><div class="ob-option-icon">🍽️</div><div class="ob-option-title">Balanceada</div></div>
+        <div class="ob-option" id="diet-keto" onclick="obSetDiet('keto',this)"><div class="ob-option-icon">🥩</div><div class="ob-option-title">Keto</div></div>
+        <div class="ob-option" id="diet-paleo" onclick="obSetDiet('paleo',this)"><div class="ob-option-icon">🌿</div><div class="ob-option-title">Paleo</div></div>
+        <div class="ob-option" id="diet-lowcarb" onclick="obSetDiet('lowcarb',this)"><div class="ob-option-icon">🥦</div><div class="ob-option-title">Low-Carb</div></div>
+        <div class="ob-option" id="diet-6meals" onclick="obSetDiet('6meals',this)"><div class="ob-option-icon">🕐</div><div class="ob-option-title">6 Refeições</div></div>
+        <div class="ob-option" id="diet-veg" onclick="obSetDiet('veg',this)"><div class="ob-option-icon">🥬</div><div class="ob-option-title">Vegetariana</div></div>
       </div>
     </div>
     <div class="ob-btn-row">
@@ -2226,6 +2243,7 @@ let D = {
   workoutHistory: [], nutritionHistory: [],
   exFeedback: {}, sessionFeedback: {},
   shopChecked: {}, mealChecked: {}, exChecked: {}, extraFoods: {},
+  appMode: 'full', dietType: 'balanced', useNutrition: true, useFasting: true,
   weightUnit: 'lbs',
   nutDay: 0,
   coachChats: { trainer: [], nutritionist: [] },
@@ -2275,6 +2293,10 @@ function load() {
   if (!D.workoutHistory) D.workoutHistory = [];
   if (!D.nutritionHistory) D.nutritionHistory = [];
   if (!D.extraFoods) D.extraFoods = {};
+  if(!D.appMode) D.appMode = 'full';
+  if(!D.dietType) D.dietType = 'balanced';
+  if(D.useNutrition === undefined) D.useNutrition = true;
+  if(D.useFasting === undefined) D.useFasting = true;
   if (localStorage.getItem('apex_date2') !== TODAY) {
     D.log = []; D.water = 0;
     const prev = localStorage.getItem('apex_prev2');
@@ -2981,6 +3003,11 @@ function obNext(from) {
     const gc = document.getElementById('ob-goal-custom');
     if(gc) obProfile.goalCustom = gc.value.trim();
     if((!obProfile.goals || !obProfile.goals.length) && !obProfile.goalCustom){toast('Escolha um objetivo ou descreva o seu');return;}
+    if(!obProfile.appMode) obProfile.appMode='full';
+    if(!obProfile.dietType) obProfile.dietType='balanced';
+    obProfile.training = ['full','wo','wonut','wofast'].includes(obProfile.appMode);
+    // If no training, skip workout steps 6-9 → go straight to step 10
+    if(!obProfile.training){ obShowScreen(10); return; }
   }
   if(from===7) {
     const note = document.getElementById('ob-lim-note');
@@ -3008,6 +3035,8 @@ function obNext(from) {
 
 function obBack(from) {
   if(from<=1) return;
+  // If no training, skipping workout steps 6-9, so back from 10 goes to 5
+  if(from===10 && obProfile && !obProfile.training){ obShowScreen(5); return; }
   obShowScreen(from-1);
 }
 
@@ -3044,21 +3073,41 @@ const EQUIP_PRESETS = {
   home: ['dumbbell','kettlebell','bench','bands','jumprope','bodyweight'],
   none: ['bodyweight'],
 };
-function obSetTraining(val){
-  obProfile.training = val;
-  const y=document.getElementById('train-yes'), n=document.getElementById('train-no');
-  if(y) y.classList.toggle('sel', val);
-  if(n) n.classList.toggle('sel', !val);
+function obSetMode(mode, el){
+  obProfile.appMode = mode;
+  obProfile.training = ['full','wo','wonut','wofast'].includes(mode);
+  obProfile.useNutrition = ['full','nut','nutfast','wonut'].includes(mode);
+  obProfile.useFasting = ['full','fast','nutfast','wofast'].includes(mode);
+  // visual: deselect all mode options
+  document.querySelectorAll('#ob-5 [id^="mode-"]').forEach(o=>o.classList.remove('sel'));
+  if(el) el.classList.add('sel');
+  // Show/hide diet type based on mode
+  const dw = document.getElementById('ob-diet-type-wrap');
+  if(dw) dw.style.display = (mode==='fast'||mode==='wo'||mode==='wofast') ? 'none' : '';
+}
+function obSetDiet(diet, el){
+  obProfile.dietType = diet;
+  document.querySelectorAll('#ob-5 [id^="diet-"]').forEach(o=>o.classList.remove('sel'));
+  if(el) el.classList.add('sel');
 }
 
 function applyTrainingMode(){
-  const off = !!D.noTraining;
+  const noWo = !!D.noTraining;
+  const noFast = D.useFasting === false;
+  const noNut = D.useNutrition === false;
   const navWo = document.getElementById('nav-workout');
-  if(navWo) navWo.style.display = off ? 'none' : '';
+  if(navWo) navWo.style.display = noWo ? 'none' : '';
   ['st-treino','st-cardio'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.style.display = off ? 'none' : '';
+    const el = document.getElementById(id); if(el) el.style.display = noWo ? 'none' : '';
   });
+  const navFast = document.getElementById('nav-fast');
+  if(navFast) navFast.style.display = noFast ? 'none' : '';
+  const stFast = document.getElementById('st-jejum');
+  if(stFast) stFast.style.display = noFast ? 'none' : '';
+  const navNut = document.getElementById('nav-nutrition');
+  if(navNut) navNut.style.display = noNut ? 'none' : '';
+  const stNut = document.getElementById('st-nutri');
+  if(stNut) stNut.style.display = noNut ? 'none' : '';
 }
 
 function setTrainingMode(train){
@@ -3129,7 +3178,11 @@ function obFinish() {
     D.heightIn = Math.round(obProfile.heightCm/2.54);
   }
   D.userProfile = {...obProfile};
-  D.noTraining = obProfile.training === false;
+  D.appMode = obProfile.appMode || 'full';
+  D.dietType = obProfile.dietType || 'balanced';
+  D.noTraining = !obProfile.training;
+  D.useNutrition = obProfile.useNutrition !== false;
+  D.useFasting = obProfile.useFasting !== false;
   D.onboarded = true;
   if(!D.weightLog) D.weightLog=[];
   if(wLbs) {
@@ -3804,7 +3857,7 @@ function saveManualFast(){
   // fallback: se a data fim não foi preenchida e end ficou antes do início, assume dia seguinte
   if(end <= start && endDateVal === dateVal) end = new Date(end.getTime() + 86400000);
   const elapsedMin = Math.floor((end - start)/60000);
-  if(elapsedMin <= 0 || elapsedMin > 7*24*60){ toast('Duração inválida'); return; }
+  if(elapsedMin <= 0 || elapsedMin > 365*24*60){ toast('Duração inválida'); return; }
   const goal = D.fastH || 16;
   D.fastHistory = D.fastHistory || [];
   D.fastHistory.push({
@@ -4522,10 +4575,50 @@ function showTypingInFeed(feedId, typingId) {
   feed.appendChild(d); setTimeout(()=>feed.scrollTop=feed.scrollHeight,50);
 }
 
+const COACH_TIPS_NUT = [
+  {k:['proteína','protein','carne','frango'],r:'Mire em 1.6–2.2g de proteína por kg de peso. Para 80kg, isso é 130–180g/dia. Distribua em 3–4 refeições. Frango, ovos, peixe e whey são fontes densas.'},
+  {k:['caloria','kcal','déficit','superávit'],r:'Para perda de gordura: déficit de 300–500 kcal/dia. Para ganho muscular: superávit de 200–300 kcal. Calcule sua TMB × fator de atividade primeiro.'},
+  {k:['jejum','janela','comer'],r:'Na janela alimentar do jejum, priorize proteína e vegetais primeiro. Evite compensar as horas de jejum com excesso calórico — isso anula o benefício.'},
+  {k:['café','manhã','breakfast'],r:'Café da manhã rico em proteína melhora saciedade e mantém massa muscular. Ovos, iogurte grego, queijo cottage ou whey são ótimas opções.'},
+  {k:['carbo','carb','arroz','massa','pão'],r:'Carbs peri-treino (antes/depois) potencializam performance e recuperação. Fora do treino, prefira fontes de baixo índice glicêmico: arroz integral, batata-doce, aveia.'},
+  {k:['gordura','fat','azeite','abacate'],r:'Gorduras boas (omega-3, azeite, abacate) são essenciais para hormônios e absorção de vitaminas. Mire em 20–35% das calorias totais vindas de gordura.'},
+  {k:['suplemento','whey','creatina'],r:'Creatina monoidrato (3–5g/dia) é o suplemento mais estudado e eficaz para força e volume. Whey é conveniente pós-treino mas não substituí comida real.'},
+  {k:['água','hidrat'],r:'Meta: 35ml por kg de peso corporal por dia. Em dias de treino intenso, adicione 500–700ml. Urina amarelo-claro é o indicador mais simples de hidratação adequada.'},
+  {k:['dieta','keto','paleo','low'],r:'Toda dieta que funciona tem um ponto em comum: controle calórico e adesão. A melhor dieta é a que você consegue manter. Keto, paleo e low-carb funcionam — o que importa é consistência.'},
+];
+const COACH_TIPS_TRAIN = [
+  {k:['série','rep','volume','set'],r:'Para hipertrofia: 10–20 séries por músculo por semana, 6–12 reps por série, com carga próxima à falha (2–3 reps de reserva). Progrida carga ou volume semana a semana.'},
+  {k:['descanso','rest','recover'],r:'Músculos crescem no descanso, não no treino. Durma 7–9h. Respeite 48h de recuperação entre sessões do mesmo grupo muscular.'},
+  {k:['cardio','aeróbico','corrida'],r:'Para saúde cardiovascular: 150min/semana de cardio moderado. Para perda de gordura: cardio LISS em jejum matinal ou HIIT 2–3x/semana de 15–20min pós-treino de força.'},
+  {k:['aquecimento','warm'],r:'5–10min de aquecimento geral (bike, pular corda) + séries de aquecimento com 40–60% da carga. Aquecimento reduz lesão e melhora performance.'},
+  {k:['progresso','progressão','platô'],r:'Sem progressão de carga ou volume, não há ganho. Aumente carga quando conseguir todas as reps com boa técnica. Se travou, varie o estímulo: tempo sob tensão, drop sets, super sets.'},
+  {k:['joelho','costas','dor','lesão'],r:'Dor é sinal. Pare o exercício que dói e substitua por uma variação sem dor. Nunca treine em cima de inflamação. Consulte um fisioterapeuta para lesões persistentes.'},
+  {k:['hipertrofia','músculo','volume','massa'],r:'Pilares da hipertrofia: tensão mecânica (carga alta), dano muscular (excêntrico lento) e estresse metabólico (pouco descanso). Você precisa dos três.'},
+  {k:['força','1rm','powerlifting'],r:'Para força máxima: 3–6 reps, 3–6 séries, 3–5min de descanso, foco em agachamento/terra/supino/desenvolvimento. Periodize com semanas de descarga a cada 4–6 semanas.'},
+  {k:['iniciante','começ','começar'],r:'Como iniciante, qualquer treino funciona — o estímulo novidade já gera adaptação. Foque em aprender a técnica antes de adicionar carga. 3x por semana full body é o melhor ponto de partida.'},
+  {k:['frequência','quantas vezes','por semana'],r:'Cada músculo se beneficia de ser treinado 2x/semana. Com 3 dias: full body. Com 4 dias: upper/lower. Com 5–6 dias: push/pull/leg. Consistência bate qualquer split complexo.'},
+];
+
+function _coachFallback(msg, type){
+  const lower = msg.toLowerCase();
+  const tips = type==='nut' ? COACH_TIPS_NUT : COACH_TIPS_TRAIN;
+  const match = tips.find(t=>t.k.some(k=>lower.includes(k)));
+  return match ? match.r : (type==='nut'
+    ? 'Dica geral: foque em proteína suficiente, déficit calórico moderado e consistência. Ative o coach IA com sua API Key para perguntas personalizadas.'
+    : 'Dica geral: progressive overload, descanso adequado e consistência são os pilares. Ative o coach IA com sua API Key para orientações personalizadas.');
+}
+
 async function sendNutMsg() {
   const inp = document.getElementById('nut-input');
   const msg = inp.value.trim(); if(!msg) return;
-  if(!D.apiKey){toast(tr('t_api_needed'));openSheet('api-ov');return;}
+  if(!D.apiKey){
+    const q = document.getElementById('nut-input')?.value?.trim()||'';
+    if(!q) return;
+    document.getElementById('nut-input').value='';
+    const feed = document.getElementById('nut-chat-feed');
+    if(feed){ feed.innerHTML += `<div class="ai-msg user">${q}</div><div class="ai-msg ai">💡 ${_coachFallback(q,'nut')}<br><br><span style="font-size:11px;color:var(--dim)">Ative o Coach IA com sua API Key para respostas personalizadas →</span></div>`; feed.scrollTop=9999; }
+    return;
+  }
   inp.value=''; document.getElementById('nut-send-btn').disabled=true;
   appendAiMsg('nut-chat-feed','user',msg);
   showTypingInFeed('nut-chat-feed','nut-typing');
@@ -4552,7 +4645,13 @@ async function sendWoMsg(dayKey) {
   const inp = document.getElementById('wo-input-'+dayKey);
   const feed = 'wo-feed-'+dayKey;
   const msg = inp.value.trim(); if(!msg) return;
-  if(!D.apiKey){toast(tr('t_api_needed'));openSheet('api-ov');return;}
+  if(!D.apiKey){
+    const q = inp?.value?.trim()||msg;
+    inp.value='';
+    const feedEl = document.getElementById(feed);
+    if(feedEl){ feedEl.innerHTML += `<div class="ai-msg user">${q}</div><div class="ai-msg ai">💡 ${_coachFallback(q,'trainer')}<br><br><span style="font-size:11px;color:var(--dim)">Ative o Coach IA com sua API Key para respostas personalizadas →</span></div>`; feedEl.scrollTop=9999; }
+    return;
+  }
   inp.value='';
   appendAiMsg(feed,'user',msg);
   showTypingInFeed(feed,'wo-typing-'+dayKey);
