@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-22T03:00:00Z">
+<meta name="app-version" content="2026-05-26T04:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -2319,6 +2319,7 @@ let D = {
   exFeedback: {}, sessionFeedback: {},
   shopChecked: {}, mealChecked: {}, exChecked: {}, extraFoods: {},
   customPlan: { active: false, sessions: [] },
+  woExLoad: {},
   appMode: 'full', dietType: 'balanced', useNutrition: true, useFasting: true,
   weightUnit: 'lbs',
   nutDay: 0,
@@ -2371,6 +2372,7 @@ function load() {
   if (!D.extraFoods) D.extraFoods = {};
   if(!D.customPlan) D.customPlan = { active: false, sessions: [] };
   if(!Array.isArray(D.customPlan.sessions)) D.customPlan.sessions = [];
+  if(!D.woExLoad) D.woExLoad = {};
   if(!D.appMode) D.appMode = 'full';
   if(!D.dietType) D.dietType = 'balanced';
   if(D.useNutrition === undefined) D.useNutrition = true;
@@ -5274,6 +5276,7 @@ function buildSessionHTML(key, session, idx) {
     const done = checked[exKey];
     const fbKey = key+'_'+i+'_fb';
     const fb = (D.exFeedback||{})[fbKey]||'';
+    const lastWoLoad = ((D.woExLoad||{})[exKey]||[])[0];
     return `<div class="ex-row${done?' done-ex':''}" id="exrow-${exKey}">
       <div class="ex-top">
         <div class="ex-checkbox${done?' done':''}" onclick="toggleExCheck('${exKey}',this,'exrow-${exKey}')">
@@ -5282,6 +5285,7 @@ function buildSessionHTML(key, session, idx) {
         <div class="ex-info">
           <div class="ex-name">${ex.name}</div>
           <div class="ex-detail">${ex.sets}×${ex.reps} · ${ex.rest} · <span style="color:var(--gold)">${ex.load}</span></div>
+          <div id="wo-load-badge-wrap-${exKey}" style="margin-top:2px;display:${lastWoLoad?'flex':'none'};align-items:center;gap:4px"><span style="font-size:10px;color:var(--dim)">↑ última:</span><span id="wo-load-badge-${exKey}" style="font-size:11px;color:var(--gold);font-weight:700;background:rgba(201,169,110,.1);border:1px solid rgba(201,169,110,.2);border-radius:4px;padding:1px 7px">${lastWoLoad?(lastWoLoad.reps?lastWoLoad.reps+'×':'')+(lastWoLoad.load||'—'):''}</span></div>
         </div>
         <div class="ex-actions">
           <a class="ex-yt-btn" href="https://www.youtube.com/results?search_query=${ex.yt}" target="_blank">
@@ -5289,11 +5293,29 @@ function buildSessionHTML(key, session, idx) {
             YT
           </a>
           <div class="ex-yt-btn" onclick="openAlternatives('${ex.name}')" style="background:var(--gold-bg);border-color:rgba(201,169,110,.25);color:var(--gold);cursor:pointer">ALT</div>
-          <div class="ex-expand-btn" onclick="toggleExPanel('exdet-${exKey}',this)">+</div>
+          <div class="ex-expand-btn" onclick="toggleExPanel('exdet-${exKey}',this);renderWoExLoadHist('${exKey}')">+</div>
         </div>
       </div>
       <div class="ex-detail-panel" id="exdet-${exKey}">
         <div class="ex-notes"><strong>${lang==='pt'?'EXECUÇÃO':'EXECUTION'}</strong>${ex.notes}</div>
+        <!-- Weight log -->
+        <div style="border-top:1px solid var(--bdr);padding:10px 0 6px;margin-top:4px">
+          <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:8px">🏋️ CARGA USADA HOJE</div>
+          <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+            <div style="flex:1">
+              <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">REPS</div>
+              <input type="number" inputmode="numeric" id="wo-reps-${exKey}" placeholder="${ex.reps.split('-')[0]||'10'}"
+                style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;padding:7px 6px;color:var(--text);font-size:18px;text-align:center;font-family:'Bebas Neue',sans-serif;outline:none">
+            </div>
+            <div style="flex:1">
+              <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">CARGA</div>
+              <input type="text" inputmode="decimal" id="wo-load-${exKey}" placeholder="lbs"
+                style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;padding:7px 6px;color:var(--gold);font-size:18px;text-align:center;font-family:'Bebas Neue',sans-serif;outline:none">
+            </div>
+            <button onclick="saveWoExLoad('${exKey}')" style="padding:10px 14px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">✓ LOG</button>
+          </div>
+          <div id="wo-load-hist-${exKey}" style="margin-bottom:8px"></div>
+        </div>
         <textarea class="ex-feedback-input" id="fb-${fbKey}" placeholder="${tr('feedback_ph')}">${fb}</textarea>
         <button class="ex-feedback-save" onclick="saveExFeedback('${fbKey}')">${lang==='pt'?'SALVAR':'SAVE'}</button>
         <div style="clear:both;margin-top:8px"></div>
@@ -5372,6 +5394,43 @@ function toggleExPanel(id, btn) {
   if(!panel) return;
   panel.classList.toggle('open');
   btn.textContent = panel.classList.contains('open')?'−':'+';
+}
+
+function saveWoExLoad(exKey) {
+  const repsEl = document.getElementById('wo-reps-'+exKey);
+  const loadEl = document.getElementById('wo-load-'+exKey);
+  if(!repsEl || !loadEl) return;
+  const reps = repsEl.value.trim();
+  const load = loadEl.value.trim();
+  if(!reps && !load) { toast('Informe reps ou carga'); return; }
+  if(!D.woExLoad) D.woExLoad = {};
+  if(!D.woExLoad[exKey]) D.woExLoad[exKey] = [];
+  D.woExLoad[exKey].unshift({ date: TODAY, reps, load, ts: Date.now() });
+  // Keep last 10 entries per exercise
+  if(D.woExLoad[exKey].length > 10) D.woExLoad[exKey] = D.woExLoad[exKey].slice(0,10);
+  save();
+  toast('✓ Carga registrada');
+  renderWoExLoadHist(exKey);
+  // Update header badge live
+  const badge = document.getElementById('wo-load-badge-'+exKey);
+  const badgeWrap = document.getElementById('wo-load-badge-wrap-'+exKey);
+  if(badge && badgeWrap) {
+    const entry = D.woExLoad[exKey][0];
+    badge.textContent = (entry.reps?entry.reps+'×':'')+(entry.load||'—');
+    badgeWrap.style.display = 'flex';
+  }
+}
+
+function renderWoExLoadHist(exKey) {
+  const histEl = document.getElementById('wo-load-hist-'+exKey);
+  if(!histEl) return;
+  const entries = (D.woExLoad||{})[exKey]||[];
+  if(!entries.length){ histEl.innerHTML = '<div style="font-size:10px;color:var(--dim);margin-top:4px">Nenhum registro ainda</div>'; return; }
+  histEl.innerHTML = entries.slice(0,5).map((e,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;${i<entries.length-1?'border-bottom:1px solid var(--bdr)':''}">
+      <span style="font-size:10px;color:var(--dim)">${e.date===TODAY?'Hoje':e.date}</span>
+      <span style="font-size:11px;color:var(--gold);font-weight:600">${e.reps?e.reps+' reps · ':''} ${e.load||'—'}</span>
+    </div>`).join('');
 }
 
 function saveExFeedback(key) {
@@ -7061,6 +7120,18 @@ function renderSecaHoje() {
           <div style="font-size:15px;color:var(--text);font-weight:700;line-height:1.2">${ex.name}${ex.warn?` <span style="color:var(--red);font-size:11px">⚠️ JOELHO</span>`:''}${ex._substituted?` <span style="color:var(--gold);font-size:10px;font-weight:700">↔ SUBSTITUÍDO</span>`:''}
           </div>
           <div style="font-size:12px;color:var(--mid);margin-top:2px">${ex.sets}×${ex.reps} · ${ex.rest} · <span id="exprog-${planIdx}-${i}" style="color:${exAllDone?'var(--green)':'var(--gold)'};font-weight:700">${exDoneCount}/${SERIES_COUNT}</span></div>
+          ${(()=>{
+            if(!lastSeries) return '';
+            const parts = Array.from({length:SERIES_COUNT},(_,s)=>{
+              const l=lastSeries[s]?.load, r=lastSeries[s]?.reps;
+              if(!l&&!r) return null;
+              return (r?r+'×':'')+(l||'—');
+            }).filter(Boolean);
+            if(!parts.length) return '';
+            const unique=[...new Set(parts)];
+            const txt = unique.length===1 ? unique[0] : parts.map((p,si)=>`S${si+1}:${p}`).join(' · ');
+            return `<div style="margin-top:3px;display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:var(--dim)">↑ última:</span><span style="font-size:11px;color:var(--gold);font-weight:700;background:rgba(201,169,110,.1);border:1px solid rgba(201,169,110,.2);border-radius:4px;padding:1px 7px">${txt}</span></div>`;
+          })()}
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
           <a class="ex-yt-btn" href="https://www.youtube.com/results?search_query=${ex.yt}" target="_blank" onclick="event.stopPropagation()" style="font-size:10px;padding:6px 8px">YT</a>
