@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T04:00:00Z">
+<meta name="app-version" content="2026-05-26T05:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -840,6 +840,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="day-nav-label" id="nut-day-label">DIA 1</div>
       <button class="day-nav-btn" onclick="changeNutDay(1)">PRÓXIMO →</button>
     </div>
+
+    <!-- Diet day tracker -->
+    <div id="diet-start-card" style="margin:0 0 6px"></div>
 
     <!-- Diet switcher row -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;margin:0 0 4px;background:var(--s1);border-radius:var(--r);border:1px solid var(--bdr)">
@@ -1879,6 +1882,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
 </div>
 
+<!-- DIET START DATE SHEET -->
+<div class="overlay" id="diet-start-ov" onclick="if(event.target===this)closeSheet('diet-start-ov')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">INÍCIO DA DIETA</div>
+    <div class="sheet-desc">Defina quando você começou. O app vai calcular automaticamente em qual dia do plano você está.</div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:8px">DATA DE INÍCIO</div>
+      <input class="sheet-input" id="diet-start-input" type="date" style="margin-bottom:0;width:100%;box-sizing:border-box">
+    </div>
+    <button class="btn btn-gold btn-full" style="margin-bottom:10px" onclick="confirmSetDietStart()">✓ CONFIRMAR</button>
+    <button class="btn btn-outline btn-full" onclick="closeSheet('diet-start-ov')">Cancelar</button>
+  </div>
+</div>
+
 <!-- MANUAL FAST SHEET -->
 <div class="overlay" id="manual-fast-ov" onclick="if(event.target===this)closeSheet('manual-fast-ov')">
   <div class="sheet">
@@ -2320,6 +2338,7 @@ let D = {
   shopChecked: {}, mealChecked: {}, exChecked: {}, extraFoods: {},
   customPlan: { active: false, sessions: [] },
   woExLoad: {},
+  dietStartDate: null,
   appMode: 'full', dietType: 'balanced', useNutrition: true, useFasting: true,
   weightUnit: 'lbs',
   nutDay: 0,
@@ -2373,6 +2392,7 @@ function load() {
   if(!D.customPlan) D.customPlan = { active: false, sessions: [] };
   if(!Array.isArray(D.customPlan.sessions)) D.customPlan.sessions = [];
   if(!D.woExLoad) D.woExLoad = {};
+  if(D.dietStartDate === undefined) D.dietStartDate = null;
   if(!D.appMode) D.appMode = 'full';
   if(!D.dietType) D.dietType = 'balanced';
   if(D.useNutrition === undefined) D.useNutrition = true;
@@ -4568,6 +4588,7 @@ async function _runAppInit() {
   initWater();
   initFastTimer();
   buildWorkoutUI();
+  snapNutDayToToday();
   renderNutDay();
   renderShoppingList();
   initTrainerChat();
@@ -5517,6 +5538,7 @@ function renderNutDay() {
   const existing = D.nutritionHistory.find(n=>n.date===TODAY);
   if(!existing) D.nutritionHistory.unshift({date:TODAY, ts:Date.now(), day:D.nutDay+1, kcal:day.kcal, prot:day.prot});
   save();
+  renderDietStartCard();
   renderExtraFoods();
 }
 
@@ -5678,6 +5700,90 @@ function switchDietType(type) {
   renderNutDay();
   const dietLabels = {balanced:'Balanceada',keto:'Keto',paleo:'Paleo',lowcarb:'Low Carb','6meals':'6 Refeições',veg:'Vegetariana'};
   toast('Plano ' + (dietLabels[type]||type) + ' ativado ✓');
+}
+
+// ── Diet start date tracking ──────────────────────────────────
+function getDietDayInfo() {
+  if(!D.dietStartDate) return null;
+  const start = new Date(D.dietStartDate);
+  start.setHours(0,0,0,0);
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  const diffDays = Math.round((now - start) / 86400000);
+  if(diffDays < 0) return null; // start is in the future
+  const absoluteDay = diffDays + 1; // Day 1 = the start date itself
+  const plan = getNutPlan();
+  const planIndex = diffDays % plan.length;
+  return { absoluteDay, planIndex };
+}
+
+function snapNutDayToToday() {
+  const info = getDietDayInfo();
+  if(info) D.nutDay = info.planIndex;
+}
+
+function renderDietStartCard() {
+  const card = document.getElementById('diet-start-card');
+  if(!card) return;
+  const info = getDietDayInfo();
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  if(!D.dietStartDate) {
+    card.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s1);border:1px dashed var(--bdr2);border-radius:var(--r)">
+      <div>
+        <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);font-weight:700">Início da Dieta</div>
+        <div style="font-size:13px;color:var(--mid);margin-top:2px">Nenhum início definido</div>
+      </div>
+      <button onclick="openSetDietStart()" style="background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:6px;color:var(--gold);font-size:11px;font-weight:700;padding:7px 13px;cursor:pointer;letter-spacing:1px">📅 INICIAR</button>
+    </div>`;
+    return;
+  }
+
+  const startDate = new Date(D.dietStartDate + 'T12:00:00');
+  const startStr = `${startDate.getDate()} ${months[startDate.getMonth()]} ${startDate.getFullYear()}`;
+  const absoluteDay = info ? info.absoluteDay : '?';
+  const isOnToday = info && D.nutDay === info.planIndex;
+
+  const hojeBtn = (!isOnToday && info)
+    ? `<button onclick="snapNutDayToToday();renderNutDay()" style="background:var(--green-bg);border:1px solid rgba(82,168,120,.3);border-radius:6px;color:var(--green);font-size:10px;font-weight:700;padding:5px 11px;cursor:pointer;white-space:nowrap">↩ HOJE</button>`
+    : '';
+
+  card.innerHTML = `<div style="padding:12px 14px;background:rgba(82,168,120,.07);border:1px solid rgba(82,168,120,.22);border-radius:var(--r)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div>
+        <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:2px">📅 Dieta em Progresso</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--text);line-height:1.1">DIA ${absoluteDay}</div>
+        <div style="font-size:11px;color:var(--dim);margin-top:1px">Iniciada em ${startStr} · Plano dia ${(info?info.planIndex:D.nutDay)+1}/7</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        ${hojeBtn}
+        <button onclick="openSetDietStart()" style="background:var(--s2);border:1px solid var(--bdr);border-radius:6px;color:var(--mid);font-size:10px;font-weight:700;padding:5px 11px;cursor:pointer">✎ Alterar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openSetDietStart() {
+  const inp = document.getElementById('diet-start-input');
+  if(inp) {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const dd = String(today.getDate()).padStart(2,'0');
+    inp.value = D.dietStartDate || `${yyyy}-${mm}-${dd}`;
+  }
+  openSheet('diet-start-ov');
+}
+
+function confirmSetDietStart() {
+  const inp = document.getElementById('diet-start-input');
+  if(!inp || !inp.value) { toast('Selecione uma data'); return; }
+  D.dietStartDate = inp.value; // stored as YYYY-MM-DD
+  snapNutDayToToday();
+  save();
+  closeSheet('diet-start-ov');
+  renderNutDay();
+  toast('✓ Início da dieta registrado');
 }
 
 function toggleMealCheck(key, el) {
