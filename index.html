@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T07:00:00Z">
+<meta name="app-version" content="2026-05-26T08:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -5311,10 +5311,7 @@ function buildSessionHTML(key, session, idx) {
         <div class="ex-info">
           <div class="ex-name">${ex.name}</div>
           <div class="ex-detail">${ex.sets}×${ex.reps} · ${ex.rest} · <span style="color:var(--gold)">${ex.load}</span></div>
-          <div id="wo-load-badge-wrap-${exKey}" style="margin-top:5px;display:${lastWoLoad?'flex':'none'};align-items:center;justify-content:space-between;background:rgba(201,169,110,.08);border:1px solid rgba(201,169,110,.18);border-radius:6px;padding:5px 9px">
-            <span style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">Última sessão</span>
-            <span id="wo-load-badge-${exKey}" style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold);letter-spacing:1px">${lastWoLoad?(lastWoLoad.reps?lastWoLoad.reps+' × ':'')+(lastWoLoad.load||'—'):''}</span>
-          </div>
+          <div id="wo-hint-${exKey}" style="margin-top:2px;font-size:11px;color:var(--dim)">${lastWoLoad?'↑ '+(lastWoLoad.reps?lastWoLoad.reps+'× ':'')+( lastWoLoad.load||'—'):''}</div>
         </div>
         <div class="ex-actions">
           <a class="ex-yt-btn" href="https://www.youtube.com/results?search_query=${ex.yt}" target="_blank">
@@ -5327,24 +5324,30 @@ function buildSessionHTML(key, session, idx) {
       </div>
       <div class="ex-detail-panel" id="exdet-${exKey}">
         <div class="ex-notes"><strong>${lang==='pt'?'EXECUÇÃO':'EXECUTION'}</strong>${ex.notes}</div>
-        <!-- Weight log -->
-        <div style="border-top:1px solid var(--bdr);padding:10px 0 6px;margin-top:4px">
-          <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:8px">📈 HISTÓRICO</div>
-          <div id="wo-load-hist-${exKey}" style="margin-bottom:12px"></div>
-          <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:8px">🏋️ REGISTRAR HOJE</div>
-          <div style="display:flex;gap:8px;align-items:flex-end">
-            <div style="flex:1">
-              <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">REPS</div>
-              <input type="number" inputmode="numeric" id="wo-reps-${exKey}" placeholder="${ex.reps.split('-')[0]||'10'}"
-                style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;padding:7px 6px;color:var(--text);font-size:18px;text-align:center;font-family:'Bebas Neue',sans-serif;outline:none">
+        <!-- Weight log — card unificado: referência + inputs na mesma caixa -->
+        <div style="border-top:1px solid var(--bdr);padding:10px 0 4px;margin-top:4px">
+          <div style="background:var(--s2);border:1px solid var(--bdr2);border-radius:8px;overflow:hidden;margin-bottom:8px">
+            ${lastWoLoad?`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:rgba(201,169,110,.07);border-bottom:1px solid rgba(201,169,110,.15)">
+              <span style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">Última sessão</span>
+              <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold);letter-spacing:.5px">${lastWoLoad.reps?lastWoLoad.reps+' × ':''}${lastWoLoad.load||'—'}</span>
+            </div>`:''}
+            <div style="padding:10px;display:flex;gap:8px;align-items:flex-end">
+              <div style="flex:1">
+                <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:4px">REPS</div>
+                <input type="number" inputmode="numeric" id="wo-reps-${exKey}"
+                  value="${lastWoLoad&&lastWoLoad.reps?lastWoLoad.reps:''}" placeholder="${ex.reps.split('-')[0]||'10'}"
+                  style="width:100%;box-sizing:border-box;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;padding:8px 6px;color:var(--text);font-size:20px;text-align:center;font-family:'Bebas Neue',sans-serif;outline:none">
+              </div>
+              <div style="flex:1">
+                <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:4px">CARGA</div>
+                <input type="text" inputmode="decimal" id="wo-load-${exKey}"
+                  value="${lastWoLoad&&lastWoLoad.load?lastWoLoad.load:''}" placeholder="lbs"
+                  style="width:100%;box-sizing:border-box;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;padding:8px 6px;color:var(--gold);font-size:20px;text-align:center;font-family:'Bebas Neue',sans-serif;outline:none">
+              </div>
+              <button onclick="saveWoExLoad('${exKey}')" style="padding:10px 14px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;align-self:flex-end">✓ LOG</button>
             </div>
-            <div style="flex:1">
-              <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">CARGA</div>
-              <input type="text" inputmode="decimal" id="wo-load-${exKey}" placeholder="lbs"
-                style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;padding:7px 6px;color:var(--gold);font-size:18px;text-align:center;font-family:'Bebas Neue',sans-serif;outline:none">
-            </div>
-            <button onclick="saveWoExLoad('${exKey}')" style="padding:10px 14px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">✓ LOG</button>
           </div>
+          <div id="wo-load-hist-${exKey}"></div>
         </div>
         <textarea class="ex-feedback-input" id="fb-${fbKey}" placeholder="${tr('feedback_ph')}">${fb}</textarea>
         <button class="ex-feedback-save" onclick="saveExFeedback('${fbKey}')">${lang==='pt'?'SALVAR':'SAVE'}</button>
@@ -5441,13 +5444,11 @@ function saveWoExLoad(exKey) {
   save();
   toast('✓ Carga registrada');
   renderWoExLoadHist(exKey);
-  // Update header badge live
-  const badge = document.getElementById('wo-load-badge-'+exKey);
-  const badgeWrap = document.getElementById('wo-load-badge-wrap-'+exKey);
-  if(badge && badgeWrap) {
-    const entry = D.woExLoad[exKey][0];
-    badge.textContent = (entry.reps?entry.reps+' × ':'')+(entry.load||'—');
-    badgeWrap.style.display = 'flex';
+  // Atualiza o hint sutil no header do exercício
+  const hint = document.getElementById('wo-hint-'+exKey);
+  if(hint) {
+    const e = D.woExLoad[exKey][0];
+    hint.textContent = '↑ '+(e.reps?e.reps+'× ':'')+( e.load||'—');
   }
 }
 
