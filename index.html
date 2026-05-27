@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T06:00:00Z">
+<meta name="app-version" content="2026-05-26T07:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1401,8 +1401,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px" id="profile-backup-title">MEUS DADOS</div>
       <button onclick="exportBackup()" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left" id="profile-export-btn">📤 EXPORTAR DADOS</button>
       <label style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:block;text-align:left;margin-bottom:8px" id="profile-import-btn">📥 IMPORTAR DADOS<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
+      <button id="opx-check-update-btn" onclick="if(window._opxCheckUpdate)_opxCheckUpdate(this)" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left">🔄 VERIFICAR ATUALIZAÇÃO</button>
       <button onclick="resetApp()" style="width:100%;padding:14px;background:var(--red-bg);border:1px solid rgba(224,82,82,.3);border-radius:8px;color:var(--red);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-align:left">🗑 RECOMEÇAR DO ZERO</button>
       <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5">Apaga tudo deste aparelho e reinicia o app. Use se este não for o seu perfil.</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:10px;text-align:right;letter-spacing:.5px" id="app-version-display"></div>
     </div>
 
     <div style="height:100px"></div>
@@ -4442,6 +4444,9 @@ function renderProfilePage() {
 
   setEl('ps-bf', D.bodyFat ? D.bodyFat+'%' : '—');
   setEl('ps-target', D.targetLbs ? dispW(D.targetLbs)+(D.weightUnit==='kg'?' kg':' lbs') : '—');
+  // Mostra versão atual no perfil
+  const verEl = document.getElementById('app-version-display');
+  if(verEl){ const m=document.querySelector('meta[name="app-version"]'); verEl.textContent = m ? 'v '+m.content : ''; }
 
   // Details list
   const equipLabels = {dumbbell:'Halteres',barbell:'Barra',kettlebell:'Kettlebell',bench:'Banco',rack:'Rack',cable:'Polia',legpress:'Leg press',smith:'Smith',machines:'Máquinas',hack:'Hack squat',treadmill:'Esteira',bike:'Bike',elliptical:'Elíptico',rower:'Remo',bands:'Elásticos',trx:'TRX',bodyweight:'Peso corporal',jumprope:'Corda',box:'Caixa'};
@@ -8221,43 +8226,82 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
   var META_URL = document.querySelector('meta[name="app-update-url"]');
   if(!META_VER || !META_URL) return;
   var CURRENT = META_VER.content;
-  var URL = META_URL.content;
+  var REMOTE_URL = META_URL.content;
   var CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 min
   var checking = false;
+  var _pendingHtml = null;
 
-  async function check(){
-    if(checking || !navigator.onLine) return;
+  // Limpa o param de cache-bust da URL após um hard reload
+  if(location.search.includes('_opxv=')) {
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
+
+  async function check(manual){
+    if(checking) return;
+    if(!navigator.onLine && !manual) return;
     checking = true;
     try {
-      var res = await fetch(URL + '?t=' + Date.now(), {cache:'no-store'});
-      if(!res.ok) return;
+      var res = await fetch(REMOTE_URL + '?t=' + Date.now(), {cache:'no-store'});
+      if(!res.ok) throw new Error('fetch fail');
       var txt = await res.text();
       var m = txt.match(/<meta name="app-version" content="([^"]+)"/);
-      if(!m) return;
+      if(!m) throw new Error('no version');
       var remote = m[1];
       if(remote && remote !== CURRENT){
+        _pendingHtml = txt;
         showUpdateBanner(remote);
+        return 'update';
       }
-    } catch(e){} finally { checking = false; }
+      return 'latest';
+    } catch(e){ return 'error'; } finally { checking = false; }
+  }
+
+  function hardReload(){
+    // Limpa Cache API (sem Service Worker, mas por precaução)
+    var doNav = function(){
+      // Força busca da rede com query param — bypassa HTTP cache do browser e iOS PWA
+      var base = location.origin + location.pathname;
+      location.replace(base + '?_opxv=' + Date.now());
+    };
+    if('caches' in window){
+      caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); })
+        .then(doNav).catch(doNav);
+    } else { doNav(); }
   }
 
   function showUpdateBanner(remote){
-    if(document.getElementById('opusx-update-banner')) return;
+    var existing = document.getElementById('opusx-update-banner');
+    if(existing) existing.remove();
     var b = document.createElement('div');
     b.id = 'opusx-update-banner';
-    b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#080A0C;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:Inter,system-ui,sans-serif;font-size:14px;border-top:1px solid #2a2d31;box-shadow:0 -8px 24px rgba(0,0,0,.4)';
-    b.innerHTML = '<span style="flex:1">Nova versão disponível</span><button id="opusx-update-now" style="background:#fff;color:#080A0C;border:0;padding:8px 14px;border-radius:6px;font-weight:600;cursor:pointer">Atualizar</button><button id="opusx-update-later" style="background:transparent;color:#aaa;border:0;padding:8px;cursor:pointer">Depois</button>';
+    // Posicionado ACIMA da nav (bottom: 60px) e com fundo gold para não passar despercebido
+    b.style.cssText = 'position:fixed;left:0;right:0;bottom:60px;z-index:99999;background:#C9A96E;color:#080A0C;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:Inter,system-ui,sans-serif;font-size:14px;font-weight:600;box-shadow:0 -4px 20px rgba(201,169,110,.35);animation:slideUp .25s ease';
+    b.innerHTML = '<span style="flex:1">🆕 Atualização disponível</span>'
+      +'<button id="opusx-update-now" style="background:#080A0C;color:#C9A96E;border:0;padding:9px 16px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.5px">ATUALIZAR</button>'
+      +'<button id="opusx-update-later" style="background:transparent;color:rgba(8,10,12,.55);border:0;padding:8px;cursor:pointer;font-size:20px;line-height:1">×</button>';
     document.body.appendChild(b);
-    document.getElementById('opusx-update-now').onclick = function(){
-      if('caches' in window){ caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).finally(reload); }
-      else reload();
-    };
+    document.getElementById('opusx-update-now').onclick = hardReload;
     document.getElementById('opusx-update-later').onclick = function(){ b.remove(); };
   }
-  function reload(){ location.reload(); }
+
+  // Expõe globalmente para o botão manual do perfil
+  window._opxCheckUpdate = async function(btnEl){
+    if(btnEl){ btnEl.textContent = '⏳ Verificando...'; btnEl.disabled = true; }
+    var result = await check(true);
+    if(btnEl){ btnEl.disabled = false; btnEl.textContent = '🔄 VERIFICAR ATUALIZAÇÃO'; }
+    if(result === 'latest'){
+      if(window.toast) toast('✓ App já está na versão mais recente');
+      else alert('App já está na versão mais recente.');
+    } else if(result === 'error'){
+      if(window.toast) toast('Sem conexão ou erro ao verificar');
+    }
+    // se result === 'update', o banner já apareceu
+  };
+
+  window._opxHardReload = hardReload;
 
   // checa no load, ao voltar pro app, e periodicamente
-  window.addEventListener('load', function(){ setTimeout(check, 2500); });
+  window.addEventListener('load', function(){ setTimeout(check, 2000); });
   document.addEventListener('visibilitychange', function(){ if(!document.hidden) check(); });
   setInterval(check, CHECK_INTERVAL_MS);
 })();
