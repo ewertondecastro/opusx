@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T09:00:00Z">
+<meta name="app-version" content="2026-05-26T10:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1363,6 +1363,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         <div id="profile-details-chevron" style="color:var(--dim);font-size:14px;transition:transform .2s">▾</div>
       </div>
       <div id="profile-details-list" style="display:none;border-top:1px solid var(--bdr)"></div>
+    </div>
+
+    <!-- Nível de treino -->
+    <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:12px">NÍVEL DE TREINO</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="setFitnessLevel('beginner',this)" id="lvl-beginner" style="flex:1;padding:11px 6px;border-radius:8px;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:1.5px solid var(--bdr);background:var(--s2);color:var(--mid);transition:all .2s">🌱 Iniciante</button>
+        <button onclick="setFitnessLevel('inter',this)"    id="lvl-inter"    style="flex:1;padding:11px 6px;border-radius:8px;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:1.5px solid var(--bdr);background:var(--s2);color:var(--mid);transition:all .2s">⚙️ Intermediário</button>
+        <button onclick="setFitnessLevel('adv',this)"      id="lvl-adv"      style="flex:1;padding:11px 6px;border-radius:8px;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:1.5px solid var(--bdr);background:var(--s2);color:var(--mid);transition:all .2s">🏆 Avançado</button>
+      </div>
     </div>
 
     <!-- Limitations -->
@@ -4451,6 +4461,16 @@ function renderProfilePage() {
   // Mostra versão atual no perfil
   const verEl = document.getElementById('app-version-display');
   if(verEl){ const m=document.querySelector('meta[name="app-version"]'); verEl.textContent = m ? 'v '+m.content : ''; }
+  // Destaca o nível atual
+  const curLevel = (D.userProfile||{}).level || 'inter';
+  ['beginner','inter','adv'].forEach(lv=>{
+    const btn = document.getElementById('lvl-'+lv);
+    if(!btn) return;
+    const active = lv===curLevel;
+    btn.style.borderColor  = active ? 'var(--gold)' : 'var(--bdr)';
+    btn.style.background   = active ? 'var(--gold-bg)' : 'var(--s2)';
+    btn.style.color        = active ? 'var(--gold)' : 'var(--mid)';
+  });
 
   // Details list
   const equipLabels = {dumbbell:'Halteres',barbell:'Barra',kettlebell:'Kettlebell',bench:'Banco',rack:'Rack',cable:'Polia',legpress:'Leg press',smith:'Smith',machines:'Máquinas',hack:'Hack squat',treadmill:'Esteira',bike:'Bike',elliptical:'Elíptico',rower:'Remo',bands:'Elásticos',trx:'TRX',bodyweight:'Peso corporal',jumprope:'Corda',box:'Caixa'};
@@ -4544,6 +4564,15 @@ function changeAvatar() {
     reader.readAsDataURL(file);
   };
   inp.click();
+}
+
+function setFitnessLevel(level) {
+  if(!D.userProfile) D.userProfile = {};
+  D.userProfile.level = level;
+  save();
+  renderProfilePage(); // atualiza o highlight
+  const labels = {beginner:'Iniciante',inter:'Intermediário',adv:'Avançado'};
+  toast('Nível atualizado: '+labels[level]);
 }
 
 function openEditProfile() {
