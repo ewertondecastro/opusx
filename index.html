@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T10:00:00Z">
+<meta name="app-version" content="2026-05-26T11:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -6049,20 +6049,48 @@ function toggleShop(key, el) {
 // ══════════════════════════════════
 function renderWorkoutHistory() {
   const list = document.getElementById('workout-history-list'); if(!list) return;
-  const hist = D.workoutHistory||[];
-  if(!hist.length){list.innerHTML='<div class="empty">'+(lang==='pt'?'Nenhum treino registrado ainda.':'No workouts logged yet.')+'</div>';return;}
-  list.innerHTML = hist.slice(0,20).map(h=>{
+
+  // Treinos regulares (plano semanal)
+  const regular = (D.workoutHistory||[]).map(h=>({...h, _src:'wo'}));
+
+  // Treinos Opus 15 (secaGlobal) — converte para o mesmo formato
+  const secaEntries = (D.secaGlobal||[]).map(e=>{
+    const log = (D.secaLog||{})[e.key]||{};
+    return {
+      _src:'seca',
+      ts: e.ts||log.ts||0,
+      title: 'Opus 15 — Treino '+e.type,
+      complete: true,
+      startTs: log.startTs,
+      endTs: log.endTs,
+    };
+  });
+
+  const merged = [...regular, ...secaEntries]
+    .filter(h=>h.ts)
+    .sort((a,b)=>(b.ts||0)-(a.ts||0))
+    .slice(0,40);
+
+  if(!merged.length){
+    list.innerHTML='<div class="empty">'+(lang==='pt'?'Nenhum treino registrado ainda.<br>Complete uma sessão para ver aqui.':'No workouts logged yet.')+'</div>';
+    return;
+  }
+
+  list.innerHTML = merged.map(h=>{
     const d=new Date(h.ts).toLocaleDateString(lang==='pt'?'pt-BR':'en-US',{month:'short',day:'numeric'});
-    let timeStr = '';
-    if(h.startTs && h.endTs){
-      const durMin = Math.round((h.endTs - h.startTs)/60000);
-      const dh = Math.floor(durMin/60), dm = durMin%60;
-      timeStr = ` · 🕐 ${fmt12(new Date(h.startTs))} – ${fmt12(new Date(h.endTs))} (${dh?dh+'h ':''}${dm}min)`;
+    let timeStr='';
+    if(h.startTs&&h.endTs){
+      const durMin=Math.round((h.endTs-h.startTs)/60000);
+      const dh=Math.floor(durMin/60), dm=durMin%60;
+      timeStr=` · 🕐 ${fmt12(new Date(h.startTs))}–${fmt12(new Date(h.endTs))} (${dh?dh+'h ':''}${dm}min)`;
     }
+    const sub = h._src==='seca'
+      ? 'Opus 15'+timeStr
+      : `${h.done}/${h.total} ${lang==='pt'?'exercícios':'exercises'}${h.feedback?' · '+h.feedback.slice(0,40):''}${timeStr}`;
     return `<div class="hist-row">
       <div class="hist-date">${d}</div>
-      <div class="hist-content"><div class="hist-title">${h.title}</div><div class="hist-sub">${h.done}/${h.total} ${lang==='pt'?'exercícios':'exercises'}${h.feedback?' · '+h.feedback.slice(0,40)+'…':''}${timeStr}</div></div>
-      <div class="hist-badge" style="${h.complete?'background:var(--green-bg);color:var(--green)':'background:var(--gold-bg);color:var(--gold)'}">${h.complete?(lang==='pt'?'OK':'OK'):(lang==='pt'?'PARCIAL':'PARTIAL')}</div>
+      <div class="hist-content"><div class="hist-title">${h.title}</div><div class="hist-sub">${sub}</div></div>
+      <div class="hist-badge" style="${h.complete?'background:var(--green-bg);color:var(--green)':'background:var(--gold-bg);color:var(--gold)'}">${h.complete?'OK':(lang==='pt'?'PARCIAL':'PARTIAL')}</div>
     </div>`;
   }).join('');
 }
