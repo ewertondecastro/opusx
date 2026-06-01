@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T11:00:00Z">
+<meta name="app-version" content="2026-05-26T12:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -7642,6 +7642,15 @@ function renderSecaHoje() {
 
   html += `</div>`;
 
+  // FORÇA — botão concluído
+  const _fkey = getCurrentWeekKey()+'_'+planIdx;
+  const _fDone = !!(D.secaLog||{})[_fkey]?.strengthDone;
+  html += `<div style="padding:0 14px;margin:10px 0 4px">
+    <button class="btn-executed${_fDone?' done':''}" onclick="markSecaPartDone(${planIdx},'${type}','strength')">
+      ${_fDone ? '✓ FORÇA CONCLUÍDA' : '💪 FORÇA CONCLUÍDA'}
+    </button>
+  </div>`;
+
   // CARDIO BLOCK — always shown after strength
   const cardio = type === 'A' ? SECA_CARDIO_A : SECA_CARDIO_B;
   html += `<div style="margin:12px 14px 0;background:var(--s1);border:1px solid rgba(82,137,201,.3);border-radius:var(--r);overflow:hidden">
@@ -7682,13 +7691,20 @@ function renderSecaHoje() {
       }).join('')}
       <span style="font-size:13px;color:var(--dim);margin-left:4px">rounds</span>
     </div>`:''}
-    <div style="padding:10px 16px 14px">
+    <div style="padding:10px 16px 10px">
       <button onclick="openSkipModal('cardio','o cardio')" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer">😮‍💨 Não vou fazer o cardio</button>
     </div>
+    <div style="padding:0 14px 14px">
+      ${(()=>{
+        const _ckey2 = getCurrentWeekKey()+'_'+planIdx;
+        const _cDone = !!(D.secaLog||{})[_ckey2]?.cardioDone;
+        return `<button class="btn-executed${_cDone?' done':''}" style="background:${_cDone?'rgba(82,137,201,.15)':'var(--blue)'};color:${_cDone?'var(--blue)':'#fff'};border:${_cDone?'1.5px solid rgba(82,137,201,.4)':'none'};box-shadow:${_cDone?'none':'0 4px 20px rgba(82,137,201,.3)'}" onclick="markSecaPartDone(${planIdx},'${type}','cardio')">
+          ${_cDone ? '✓ CARDIO CONCLUÍDO' : '🏃 CARDIO CONCLUÍDO'}
+        </button>`;
+      })()}
+    </div>
   </div>`;
-  const btnLabel = isDone ? '✓ SESSÃO CONCLUÍDA' : 'MARCAR SESSÃO COMO EXECUTADA';
-  const btnCls = isDone ? 'btn-executed done' : 'btn-executed';
-  // Horários de início/fim do treino
+  // Horários e retroativo
   const _skey = getCurrentWeekKey()+'_'+planIdx;
   const _slog = (D.secaLog||{})[_skey];
   const _sstart = (D.secaSessionStart||{})[_skey];
@@ -7707,7 +7723,6 @@ function renderSecaHoje() {
     timesHtml = `<div style="margin-top:10px;text-align:center;font-size:12px;color:var(--mid)">🕐 Treino iniciado às <strong style="color:var(--text)">${fmt12(new Date(_sstart))}</strong></div>`;
   }
   html += `<div style="padding:0 14px">
-    <button class="${btnCls}" onclick="markSecaDone(${planIdx},'${type}')">${btnLabel}</button>
     ${timesHtml}
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
       <div style="font-size:13px;color:var(--dim);flex:1">Esqueceu de marcar um dia anterior?</div>
@@ -8216,6 +8231,49 @@ function stopRestTimer(ck) {
   if(restTimerInterval) { clearInterval(restTimerInterval); restTimerInterval=null; }
   const wrap = document.getElementById('timer-'+ck);
   if(wrap) wrap.classList.remove('show');
+}
+
+function markSecaPartDone(planIdx, type, part) {
+  const weekKey = getCurrentWeekKey();
+  const key = weekKey+'_'+planIdx;
+  if(!D.secaLog) D.secaLog = {};
+  if(!D.secaLog[key]) D.secaLog[key] = {type, ts: Date.now()};
+
+  const partKey = part+'Done'; // 'strengthDone' or 'cardioDone'
+  D.secaLog[key][partKey] = !D.secaLog[key][partKey];
+  D.secaLog[key].ts = D.secaLog[key].ts || Date.now();
+
+  const bothDone = D.secaLog[key].strengthDone && D.secaLog[key].cardioDone;
+  const wasDone  = D.secaLog[key].done;
+
+  if(bothDone && !wasDone) {
+    // Ambos concluídos pela primeira vez → sessão completa
+    D.secaLog[key].done    = true;
+    D.secaLog[key].endTs   = Date.now();
+    if(!D.secaLog[key].startTs && D.secaSessionStart?.[key])
+      D.secaLog[key].startTs = D.secaSessionStart[key];
+    if(!D.secaGlobal) D.secaGlobal = [];
+    D.secaGlobal = D.secaGlobal.filter(e=>e.key!==key);
+    D.secaGlobal.push({key, type, ts:Date.now()});
+    D.secaGlobal = D.secaGlobal.slice(-60);
+    snapshotSeriesHistory(type, planIdx);
+    celebrate(lang==='pt'?'TREINO COMPLETO! 💪':'WORKOUT DONE! 💪',
+      lang==='pt'?'Força + Cardio. Isso é disciplina real.':'Strength + Cardio. That\'s real discipline.');
+    track('workout_logged', {type, planIdx, part:'both'});
+  } else if(!bothDone && wasDone) {
+    // Desmarcou um dos dois — remove sessão completa
+    D.secaLog[key].done = false;
+    D.secaGlobal = (D.secaGlobal||[]).filter(e=>e.key!==key);
+  } else if(D.secaLog[key][partKey]) {
+    // Marcou apenas uma parte
+    const label = part==='strength'?'Força':'Cardio';
+    toast('✓ '+label+' concluído!');
+    track('workout_logged', {type, planIdx, part});
+  }
+
+  save();
+  buildSecaDayTabs();
+  renderSecaHoje();
 }
 
 function markSecaDone(planIdx, type) {
