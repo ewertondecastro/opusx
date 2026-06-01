@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T12:00:00Z">
+<meta name="app-version" content="2026-05-26T13:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -2353,6 +2353,7 @@ let D = {
   customPlan: { active: false, sessions: [] },
   woExLoad: {},
   woExpand: {},
+  secaCardioOpen: {},
   dietStartDate: null,
   appMode: 'full', dietType: 'balanced', useNutrition: true, useFasting: true,
   weightUnit: 'lbs',
@@ -7653,14 +7654,20 @@ function renderSecaHoje() {
 
   // CARDIO BLOCK — always shown after strength
   const cardio = type === 'A' ? SECA_CARDIO_A : SECA_CARDIO_B;
+  const _cardioOpen = (D.secaCardioOpen||{})[planIdx] !== false; // default open
+  const _cardioDoneHdr = !!(D.secaLog||{})[getCurrentWeekKey()+'_'+planIdx]?.cardioDone;
   html += `<div style="margin:12px 14px 0;background:var(--s1);border:1px solid rgba(82,137,201,.3);border-radius:var(--r);overflow:hidden">
-    <div style="padding:14px 16px;background:rgba(82,137,201,.08);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
+    <div style="padding:14px 16px;background:rgba(82,137,201,.08);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleSecaCardio(${planIdx})">
       <div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--blue);letter-spacing:.5px">${cardio.label}</div>
         <div style="font-size:12px;color:var(--dim);margin-top:3px">Após o treino de força · Faça em dias alternados</div>
       </div>
-      <div class="badge badge-blue" style="font-size:10px">CARDIO</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${_cardioDoneHdr?`<div class="badge badge-blue" style="font-size:10px;background:rgba(82,137,201,.15)">✓ FEITO</div>`:`<div class="badge badge-blue" style="font-size:10px">CARDIO</div>`}
+        <div id="cardio-chevron-${planIdx}" style="color:var(--blue);font-size:16px;transition:transform .2s;transform:rotate(${_cardioOpen?'0':'180'}deg)">▾</div>
+      </div>
     </div>
+    <div id="cardio-body-${planIdx}" style="display:${_cardioOpen?'block':'none'}">
     <div style="padding:10px 16px;background:rgba(82,137,201,.05);border-bottom:1px solid var(--bdr)">
       <div style="font-size:12px;color:var(--blue);line-height:1.5">${cardio.coach}</div>
     </div>
@@ -7703,6 +7710,7 @@ function renderSecaHoje() {
         </button>`;
       })()}
     </div>
+    </div><!-- /cardio-body -->
   </div>`;
   // Horários e retroativo
   const _skey = getCurrentWeekKey()+'_'+planIdx;
@@ -8231,6 +8239,18 @@ function stopRestTimer(ck) {
   if(restTimerInterval) { clearInterval(restTimerInterval); restTimerInterval=null; }
   const wrap = document.getElementById('timer-'+ck);
   if(wrap) wrap.classList.remove('show');
+}
+
+function toggleSecaCardio(planIdx) {
+  if(!D.secaCardioOpen) D.secaCardioOpen = {};
+  // default open = true, so first toggle closes it
+  const wasOpen = D.secaCardioOpen[planIdx] !== false;
+  D.secaCardioOpen[planIdx] = !wasOpen;
+  save();
+  const body = document.getElementById('cardio-body-'+planIdx);
+  const chevron = document.getElementById('cardio-chevron-'+planIdx);
+  if(body) body.style.display = D.secaCardioOpen[planIdx] ? 'block' : 'none';
+  if(chevron) chevron.style.transform = `rotate(${D.secaCardioOpen[planIdx]?0:180}deg)`;
 }
 
 function markSecaPartDone(planIdx, type, part) {
