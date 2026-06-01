@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T08:00:00Z">
+<meta name="app-version" content="2026-05-26T09:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -819,10 +819,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
     <div class="day-tabs" id="day-tabs"></div>
     <div id="plan-mode-toggle" style="display:flex;margin:0 14px 12px;background:var(--s1);border:1px solid var(--bdr);border-radius:8px;overflow:hidden">
-      <button id="toggle-opusx" onclick="switchPlanMode('opusx')" style="flex:1;padding:10px;background:var(--gold);color:var(--gold-ink);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer">PLANO OPUS X</button>
+      <button id="toggle-opusx" onclick="switchPlanMode('opusx')" style="flex:1;padding:10px;background:var(--gold);color:var(--gold-ink);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer">OPUS X</button>
+      <button id="toggle-aiplan" onclick="switchPlanMode('aiplan')" style="flex:1;padding:10px;background:transparent;color:var(--mid);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer">✨ PLANO IA</button>
       <button id="toggle-custom" onclick="switchPlanMode('custom')" style="flex:1;padding:10px;background:transparent;color:var(--mid);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer">MEU PLANO</button>
     </div>
     <div id="workout-sessions"></div>
+    <div id="aiplan-section" style="display:none"></div>
     <div id="custom-plan-section" style="display:none"></div>
   </div>
 </div>
@@ -2340,6 +2342,7 @@ let D = {
   shopChecked: {}, mealChecked: {}, exChecked: {}, extraFoods: {},
   customPlan: { active: false, sessions: [] },
   woExLoad: {},
+  woExpand: {},
   dietStartDate: null,
   appMode: 'full', dietType: 'balanced', useNutrition: true, useFasting: true,
   weightUnit: 'lbs',
@@ -2394,6 +2397,7 @@ function load() {
   if(!D.customPlan) D.customPlan = { active: false, sessions: [] };
   if(!Array.isArray(D.customPlan.sessions)) D.customPlan.sessions = [];
   if(!D.woExLoad) D.woExLoad = {};
+  if(!D.woExpand) D.woExpand = {};
   if(D.dietStartDate === undefined) D.dietStartDate = null;
   if(!D.appMode) D.appMode = 'full';
   if(!D.dietType) D.dietType = 'balanced';
@@ -5281,6 +5285,12 @@ function switchWorkoutDay(key) {
   if(sess) sess.classList.add('on');
 }
 
+function parseRestSecs(rest) {
+  if(!rest) return 90;
+  const m = rest.match(/(\d+)\s*m(?:in)?/i), s = rest.match(/(\d+)\s*s/i);
+  return (m?parseInt(m[1])*60:0)+(s?parseInt(s[1]):0) || 90;
+}
+
 function buildSessionHTML(key, session, idx) {
   if(session.type==='rest') {
     return `<div class="workout-session" id="ws-${key}">
@@ -5291,68 +5301,120 @@ function buildSessionHTML(key, session, idx) {
     </div>`;
   }
 
+  const NSERIES = 3;
   const exercises = (session.exercises||[]);
-  const dateKey = TODAY+'_'+key;
   const checked = D.exChecked||{};
-  const doneCount = exercises.filter((_,i)=>checked[key+'_ex_'+i]).length;
+
+  // exercise done = all series checked OR exercise-level checked
+  const doneCount = exercises.filter((_,i)=>{
+    const ek = key+'_ex_'+i;
+    return !!checked[ek] || Array.from({length:NSERIES},(_,s)=>!!checked['wos_'+ek+'_s'+s]).every(Boolean);
+  }).length;
   const progPct = exercises.length?Math.round(doneCount/exercises.length*100):0;
 
   const exHTML = exercises.map((ex,i)=>{
     const exKey = key+'_ex_'+i;
-    const done = checked[exKey];
+    const exAllDone = Array.from({length:NSERIES},(_,s)=>!!checked['wos_'+exKey+'_s'+s]).every(Boolean);
+    const exDone = !!checked[exKey] || exAllDone;
     const fbKey = key+'_'+i+'_fb';
     const fb = (D.exFeedback||{})[fbKey]||'';
-    const lastWoLoad = ((D.woExLoad||{})[exKey]||[])[0];
-    return `<div class="ex-row${done?' done-ex':''}" id="exrow-${exKey}">
-      <div class="ex-top">
-        <div class="ex-checkbox${done?' done':''}" onclick="toggleExCheck('${exKey}',this,'exrow-${exKey}')">
+    const isExpanded = !!(D.woExpand||{})[exKey];
+    const restSecs = parseRestSecs(ex.rest);
+
+    // Last session reference: prefer per-series history, fallback to woExLoad
+    const histKey = 'load_wo_'+exKey;
+    const loadHistory = (D.loadHistory||{})[histKey]||[];
+    const lastSeries = loadHistory.length ? loadHistory[loadHistory.length-1]?.series : null;
+    const legacyLast = ((D.woExLoad||{})[exKey]||[])[0];
+
+    const lastBadge = (()=>{
+      if(lastSeries) {
+        const parts = lastSeries.filter(Boolean).map((s,si)=>`S${si+1}:${s.reps?s.reps+'×':''}${s.load||'—'}`);
+        return parts.length ? '↑ '+parts.join(' · ') : '';
+      }
+      if(legacyLast) return '↑ '+(legacyLast.reps?legacyLast.reps+'× ':'')+(legacyLast.load||'—');
+      return '';
+    })();
+
+    // Per-series rows
+    const seriesRows = Array.from({length:NSERIES},(_,s)=>{
+      const sk = 'wos_'+exKey+'_s'+s;
+      const sdone = !!checked[sk];
+      const sd = (D.seriesData||{})[sk]||{};
+      const refReps = lastSeries?.[s]?.reps || (s===0&&legacyLast?.reps)||'';
+      const refLoad = lastSeries?.[s]?.load || (s===0&&legacyLast?.load)||'';
+      const ck = 'wo_'+exKey+'_'+s; // timer key
+
+      return `<div id="srow-${sk}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bdr);background:${sdone?'rgba(82,168,120,.06)':''}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;width:32px">
+          <span style="font-size:10px;color:var(--dim);font-weight:700;letter-spacing:.5px">S${s+1}</span>
+          <div id="wochk-${sk}" onclick="woSeriesDone('${sk}','${exKey}',${s},${NSERIES})" style="width:26px;height:26px;border-radius:6px;border:1.5px solid ${sdone?'var(--green)':'var(--bdr2)'};background:${sdone?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;flex-shrink:0">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.5;stroke-linecap:round;display:${sdone?'block':'none'}"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">REPS</div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <input type="number" inputmode="numeric" id="woreps-${sk}"
+              placeholder="${ex.reps.split(/[-–]/)[0].trim()||'10'}" value="${sd.reps||''}"
+              style="width:56px;background:var(--s2);border:1px solid var(--bdr);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
+              onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'"
+              onchange="saveWoSeriesData('${sk}','${exKey}')">
+            ${refReps&&!sd.reps?`<span style="font-size:9px;color:var(--dim)">↑${refReps}</span>`:''}
+          </div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">CARGA</div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <input type="text" inputmode="decimal" id="woload-${sk}"
+              placeholder="lbs" value="${sd.load||''}"
+              style="width:64px;background:var(--s2);border:1px solid var(--bdr);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
+              onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'"
+              onchange="saveWoSeriesData('${sk}','${exKey}')">
+            ${refLoad&&!sd.load?`<span style="font-size:9px;color:var(--dim)">↑${refLoad}</span>`:''}
+          </div>
+        </div>
+        <button onclick="woSeriesDone('${sk}','${exKey}',${s},${NSERIES},true);startRestTimer('${ck}',${restSecs})"
+          style="padding:8px 10px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:6px;color:var(--gold);font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">
+          ✓ ${restSecs>=60?Math.floor(restSecs/60)+'m':restSecs+'s'}
+        </button>
+      </div>
+      <div class="rest-timer-wrap" id="timer-${ck}">
+        <div class="rest-timer-num" id="timer-num-${ck}">${restSecs}</div>
+        <div class="rest-timer-bar"><div class="rest-timer-fill" id="timer-bar-${ck}" style="width:100%"></div></div>
+        <button class="btn-start-rest" onclick="startRestTimer('${ck}',${restSecs})">RESET</button>
+        <button class="btn-start-rest" onclick="stopRestTimer('${ck}')" style="background:var(--s2);color:var(--mid);border:1px solid var(--bdr)">✕</button>
+      </div>`;
+    }).join('');
+
+    return `<div class="ex-row${exDone?' done-ex':''}" id="exrow-${exKey}">
+      <div class="ex-top" style="cursor:pointer" onclick="toggleWoExpand('${exKey}')">
+        <div class="ex-checkbox${exDone?' done':''}" onclick="event.stopPropagation();toggleExCheck('${exKey}',this,'exrow-${exKey}')">
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
         <div class="ex-info">
           <div class="ex-name">${ex.name}</div>
           <div class="ex-detail">${ex.sets}×${ex.reps} · ${ex.rest} · <span style="color:var(--gold)">${ex.load}</span></div>
-          <div id="wo-hint-${exKey}" style="margin-top:2px;font-size:11px;color:var(--dim)">${lastWoLoad?'↑ '+(lastWoLoad.reps?lastWoLoad.reps+'× ':'')+( lastWoLoad.load||'—'):''}</div>
+          ${lastBadge?`<div style="margin-top:2px;font-size:11px;color:var(--dim)">${lastBadge}</div>`:''}
         </div>
-        <div class="ex-actions">
+        <div class="ex-actions" onclick="event.stopPropagation()">
           <a class="ex-yt-btn" href="https://www.youtube.com/results?search_query=${ex.yt}" target="_blank">
             <svg viewBox="0 0 24 24"><path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.2c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v2c0 2 .3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.2 21.5 12 21.5 12 21.5s4.2 0 6.8-.3c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-2C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l6.6 3.6-6.6 3.6z"/></svg>
             YT
           </a>
           <div class="ex-yt-btn" onclick="openAlternatives('${ex.name}')" style="background:var(--gold-bg);border-color:rgba(201,169,110,.25);color:var(--gold);cursor:pointer">ALT</div>
-          <div class="ex-expand-btn" onclick="toggleExPanel('exdet-${exKey}',this);renderWoExLoadHist('${exKey}')">+</div>
+          <div class="ex-expand-btn" id="woexp-btn-${exKey}">${isExpanded?'−':'+'}</div>
         </div>
       </div>
-      <div class="ex-detail-panel" id="exdet-${exKey}">
-        <div class="ex-notes"><strong>${lang==='pt'?'EXECUÇÃO':'EXECUTION'}</strong>${ex.notes}</div>
-        <!-- Weight log — card unificado: referência + inputs na mesma caixa -->
-        <div style="border-top:1px solid var(--bdr);padding:10px 0 4px;margin-top:4px">
-          <div style="background:var(--s2);border:1px solid var(--bdr2);border-radius:8px;overflow:hidden;margin-bottom:8px">
-            ${lastWoLoad?`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:rgba(201,169,110,.07);border-bottom:1px solid rgba(201,169,110,.15)">
-              <span style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">Última sessão</span>
-              <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold);letter-spacing:.5px">${lastWoLoad.reps?lastWoLoad.reps+' × ':''}${lastWoLoad.load||'—'}</span>
-            </div>`:''}
-            <div style="padding:10px;display:flex;gap:8px;align-items:flex-end">
-              <div style="flex:1">
-                <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:4px">REPS</div>
-                <input type="number" inputmode="numeric" id="wo-reps-${exKey}"
-                  value="${lastWoLoad&&lastWoLoad.reps?lastWoLoad.reps:''}" placeholder="${ex.reps.split('-')[0]||'10'}"
-                  style="width:100%;box-sizing:border-box;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;padding:8px 6px;color:var(--text);font-size:20px;text-align:center;font-family:'Bebas Neue',sans-serif;outline:none">
-              </div>
-              <div style="flex:1">
-                <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:4px">CARGA</div>
-                <input type="text" inputmode="decimal" id="wo-load-${exKey}"
-                  value="${lastWoLoad&&lastWoLoad.load?lastWoLoad.load:''}" placeholder="lbs"
-                  style="width:100%;box-sizing:border-box;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;padding:8px 6px;color:var(--gold);font-size:20px;text-align:center;font-family:'Bebas Neue',sans-serif;outline:none">
-              </div>
-              <button onclick="saveWoExLoad('${exKey}')" style="padding:10px 14px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;align-self:flex-end">✓ LOG</button>
-            </div>
-          </div>
-          <div id="wo-load-hist-${exKey}"></div>
+      <div id="woexp-${exKey}" style="display:${isExpanded?'block':'none'}">
+        <div style="background:var(--s1);border-top:1px solid var(--bdr)">${seriesRows}</div>
+        <div style="padding:10px 14px;border-top:1px solid var(--bdr)">
+          <div class="ex-notes"><strong>${lang==='pt'?'EXECUÇÃO':'EXECUTION'}</strong>${ex.notes}</div>
+          <textarea class="ex-feedback-input" id="fb-${fbKey}" placeholder="${tr('feedback_ph')}">${fb}</textarea>
+          <button class="ex-feedback-save" onclick="saveExFeedback('${fbKey}')">${lang==='pt'?'SALVAR':'SAVE'}</button>
+          <div style="clear:both;margin-top:8px"></div>
+          <button onclick="openSkipModal('exercise','${ex.name.replace(/'/g,'')}')" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;margin-top:6px">😮‍💨 Não vou fazer esse exercício</button>
         </div>
-        <textarea class="ex-feedback-input" id="fb-${fbKey}" placeholder="${tr('feedback_ph')}">${fb}</textarea>
-        <button class="ex-feedback-save" onclick="saveExFeedback('${fbKey}')">${lang==='pt'?'SALVAR':'SAVE'}</button>
-        <div style="clear:both;margin-top:8px"></div>
-        <button onclick="openSkipModal('exercise','${ex.name.replace(/'/g,'')}')" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;margin-top:6px">😮‍💨 Não vou fazer esse exercício</button>
       </div>
     </div>`;
   }).join('');
@@ -5427,6 +5489,62 @@ function toggleExPanel(id, btn) {
   if(!panel) return;
   panel.classList.toggle('open');
   btn.textContent = panel.classList.contains('open')?'−':'+';
+}
+
+function toggleWoExpand(exKey) {
+  if(!D.woExpand) D.woExpand = {};
+  D.woExpand[exKey] = !D.woExpand[exKey];
+  save();
+  const panel = document.getElementById('woexp-'+exKey);
+  const btn   = document.getElementById('woexp-btn-'+exKey);
+  if(panel) panel.style.display = D.woExpand[exKey] ? 'block' : 'none';
+  if(btn)   btn.textContent      = D.woExpand[exKey] ? '−' : '+';
+}
+
+function saveWoSeriesData(sk, exKey) {
+  const r = document.getElementById('woreps-'+sk);
+  const l = document.getElementById('woload-'+sk);
+  if(!D.seriesData) D.seriesData = {};
+  D.seriesData[sk] = { reps: r?.value||'', load: l?.value||'', ts: Date.now() };
+  save();
+}
+
+function woSeriesDone(sk, exKey, si, total, withTimer) {
+  if(!D.exChecked) D.exChecked = {};
+  D.exChecked[sk] = !D.exChecked[sk];
+  saveWoSeriesData(sk, exKey);
+
+  // Update row & checkbox UI
+  const row = document.getElementById('srow-'+sk);
+  const chk = document.getElementById('wochk-'+sk);
+  if(row) row.style.background = D.exChecked[sk] ? 'rgba(82,168,120,.06)' : '';
+  if(chk) {
+    chk.style.borderColor = D.exChecked[sk] ? 'var(--green)' : 'var(--bdr2)';
+    chk.style.background  = D.exChecked[sk] ? 'var(--green)' : 'transparent';
+    const svg = chk.querySelector('svg');
+    if(svg) svg.style.display = D.exChecked[sk] ? 'block' : 'none';
+  }
+
+  // Last series done → save history to loadHistory + auto-close after 400ms
+  if(D.exChecked[sk] && si === total-1) {
+    const histKey = 'load_wo_'+exKey;
+    if(!D.loadHistory) D.loadHistory = {};
+    if(!D.loadHistory[histKey]) D.loadHistory[histKey] = [];
+    const series = Array.from({length:total},(_,s)=>{
+      const wsk = 'wos_'+exKey+'_s'+s;
+      return D.seriesData?.[wsk] || null;
+    });
+    D.loadHistory[histKey].push({ date: TODAY, series });
+    if(D.loadHistory[histKey].length > 10) D.loadHistory[histKey].shift();
+    save();
+    setTimeout(()=>{
+      D.woExpand[exKey] = false;
+      const panel = document.getElementById('woexp-'+exKey);
+      const btn   = document.getElementById('woexp-btn-'+exKey);
+      if(panel) panel.style.display = 'none';
+      if(btn)   btn.textContent = '+';
+    }, 400);
+  }
 }
 
 function saveWoExLoad(exKey) {
@@ -5941,18 +6059,154 @@ function renderFastHistory2() {
 let _editingSessionIdx = -1; // -1 = new session
 
 function switchPlanMode(mode){
-  const isCustom = mode === 'custom';
-  D.customPlan.active = isCustom;
+  D.customPlan.active = (mode === 'custom');
   save();
-  document.getElementById('toggle-opusx').style.cssText = isCustom
-    ? 'flex:1;padding:10px;background:transparent;color:var(--mid);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer'
-    : 'flex:1;padding:10px;background:var(--gold);color:var(--gold-ink);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer';
-  document.getElementById('toggle-custom').style.cssText = isCustom
-    ? 'flex:1;padding:10px;background:var(--gold);color:var(--gold-ink);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer'
-    : 'flex:1;padding:10px;background:transparent;color:var(--mid);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer';
-  document.getElementById('workout-sessions').style.display = isCustom ? 'none' : '';
-  document.getElementById('custom-plan-section').style.display = isCustom ? '' : 'none';
-  if(isCustom) renderCustomPlan();
+  const on = 'flex:1;padding:10px;background:var(--gold);color:var(--gold-ink);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer';
+  const off = 'flex:1;padding:10px;background:transparent;color:var(--mid);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer';
+  ['opusx','aiplan','custom'].forEach(m=>{
+    const el = document.getElementById('toggle-'+m);
+    if(el) el.style.cssText = m===mode ? on : off;
+  });
+  document.getElementById('workout-sessions').style.display       = mode==='opusx' ? '' : 'none';
+  document.getElementById('aiplan-section').style.display         = mode==='aiplan' ? '' : 'none';
+  document.getElementById('custom-plan-section').style.display    = mode==='custom' ? '' : 'none';
+  if(mode==='custom') renderCustomPlan();
+  if(mode==='aiplan') renderAIPlan();
+}
+
+// ── AI PLAN — plano gerado pelo perfil do usuário ──────────────────────────
+const _AI_PLAN_DATA = {
+  hyper: {
+    label:'Hipertrofia', color:'var(--gold)',
+    sessions:[
+      {title:'PUSH — Peito / Ombro / Tríceps', focus:'Volume e sobrecarga progressiva', exercises:[
+        {name:'Supino Reto com Halteres',sets:'4',reps:'8–12',rest:'90s',load:'30–50 lb cada',notes:'Descida controlada 3s. Contração no topo.',yt:'supino+reto+halter+execução'},
+        {name:'Desenvolvimento com Halteres',sets:'3',reps:'10–12',rest:'90s',load:'20–30 lb cada',notes:'Cotovelos 90° na descida. Sem arquear lombar.',yt:'desenvolvimento+halter+ombro'},
+        {name:'Elevação Lateral',sets:'3',reps:'15',rest:'60s',load:'10–15 lb',notes:'Sem balançar. Pivô fora da articulação.',yt:'elevação+lateral+ombro'},
+        {name:'Tríceps na Polia',sets:'3',reps:'12–15',rest:'60s',load:'25–35 lb',notes:'Cotovelos fixos. Extensão completa.',yt:'tríceps+polia+corda'},
+        {name:'Flexão de Peito',sets:'3',reps:'15–20',rest:'60s',load:'Corporal',notes:'Corpo reto. Descida até tocar o chão.',yt:'flexão+peito+técnica'},
+      ]},
+      {title:'PULL — Costas / Bíceps',focus:'Amplitude e contração escápula',exercises:[
+        {name:'Remada com Halteres (Unilateral)',sets:'4',reps:'10–12',rest:'90s',load:'35–50 lb',notes:'Puxar até o quadril. Retrair escápula.',yt:'remada+unilateral+halter+costas'},
+        {name:'Pulldown na Polia',sets:'3',reps:'12',rest:'90s',load:'40–60 lb',notes:'Pegada aberta. Puxar até o queixo.',yt:'pulldown+polia+costas'},
+        {name:'Remada Inclinada com Halteres',sets:'3',reps:'12',rest:'90s',load:'25–35 lb cada',notes:'Apoio no banco. Cotovelos próximos ao corpo.',yt:'remada+inclinada+halter'},
+        {name:'Rosca Direta com Halteres',sets:'3',reps:'12',rest:'60s',load:'20–30 lb cada',notes:'Supinação no topo. Cotovelos fixos.',yt:'rosca+direta+halter'},
+        {name:'Rosca Martelo',sets:'3',reps:'12',rest:'60s',load:'20–25 lb cada',notes:'Pegada neutra. Controle a descida.',yt:'rosca+martelo+bíceps'},
+      ]},
+      {title:'LEGS — Quadríceps / Posterior / Glúteos',focus:'Força e volume nas pernas',exercises:[
+        {name:'Agachamento com Halteres (Goblet)',sets:'4',reps:'12–15',rest:'90s',load:'35–50 lb',notes:'Joelhos na linha dos pés. Desça abaixo do paralelo.',yt:'agachamento+goblet+halter+técnica'},
+        {name:'Leg Press',sets:'4',reps:'10–15',rest:'90s',load:'Máquina',notes:'Pés na largura dos ombros. Não trave os joelhos.',yt:'leg+press+técnica+execução'},
+        {name:'Stiff com Halteres',sets:'3',reps:'12',rest:'90s',load:'25–40 lb cada',notes:'Quadril para trás. Sensação de estiramento.',yt:'stiff+halter+posterior+coxa'},
+        {name:'Cadeira Extensora',sets:'3',reps:'15',rest:'60s',load:'Máquina',notes:'Contração total no topo. Descida controlada.',yt:'cadeira+extensora+quadríceps'},
+        {name:'Elevação de Panturrilha',sets:'4',reps:'20',rest:'45s',load:'Corporal / Halteres',notes:'Amplitude máxima. Segure 1s no topo.',yt:'panturrilha+elevação+técnica'},
+      ]},
+    ]
+  },
+  fat: {
+    label:'Perda de gordura', color:'var(--red)',
+    sessions:[
+      {title:'FULL BODY A — Circuito',focus:'Alta intensidade, pouco descanso',exercises:[
+        {name:'Agachamento com Salto',sets:'3',reps:'15',rest:'45s',load:'Corporal',notes:'Aterrisse suavemente. Joelhos absorvendo o impacto.',yt:'agachamento+salto+técnica'},
+        {name:'Supino com Halteres',sets:'3',reps:'15',rest:'45s',load:'20–30 lb cada',notes:'Movimento controlado. Respiração constante.',yt:'supino+halter+técnica'},
+        {name:'Remada com Halteres',sets:'3',reps:'15',rest:'45s',load:'25–35 lb',notes:'Puxar até o quadril. Sem girar o tronco.',yt:'remada+halter+técnica'},
+        {name:'Passada com Halteres',sets:'3',reps:'12 cada',rest:'45s',load:'15–25 lb cada',notes:'Passo largo. Joelho traseiro quase no chão.',yt:'passada+halter+técnica'},
+        {name:'Prancha',sets:'3',reps:'30–45s',rest:'30s',load:'Corporal',notes:'Abdômen contraído. Quadril neutro.',yt:'prancha+técnica+abdominal'},
+      ]},
+      {title:'FULL BODY B — Força + Cardio',focus:'Compostos pesados + intervalo',exercises:[
+        {name:'Levantamento Terra com Halteres',sets:'4',reps:'10',rest:'60s',load:'30–50 lb cada',notes:'Barra junto ao corpo. Quadril empurra para frente.',yt:'levantamento+terra+halter+técnica'},
+        {name:'Desenvolvimento com Halteres',sets:'3',reps:'12',rest:'60s',load:'20–30 lb cada',notes:'Cotovelos 90°. Core contraído.',yt:'desenvolvimento+halter+ombro'},
+        {name:'Pulldown na Polia',sets:'3',reps:'12',rest:'60s',load:'40–55 lb',notes:'Puxar até o queixo. Escápula retraída.',yt:'pulldown+polia+técnica'},
+        {name:'Afundo (Lunges)',sets:'3',reps:'12 cada',rest:'45s',load:'Corporal / Halteres',notes:'Tronco ereto. Joelho traseiro quase no chão.',yt:'afundo+lunges+técnica'},
+        {name:'Burpee',sets:'3',reps:'10',rest:'60s',load:'Corporal',notes:'Movimento fluido. Salto com braços para cima.',yt:'burpee+técnica+execução'},
+      ]},
+    ]
+  },
+  strength: {
+    label:'Força', color:'var(--blue)',
+    sessions:[
+      {title:'FORÇA A — Peito e Costas',focus:'Sobrecarga máxima — 5×5',exercises:[
+        {name:'Supino com Halteres',sets:'5',reps:'5',rest:'3min',load:'45–60 lb cada',notes:'Movimento explosivo na subida. Descida 3s.',yt:'supino+halter+força'},
+        {name:'Remada com Halteres (Unilateral)',sets:'5',reps:'5',rest:'3min',load:'50–65 lb',notes:'Carga máxima gerenciável. Forma estrita.',yt:'remada+unilateral+força'},
+        {name:'Desenvolvimento com Halteres',sets:'4',reps:'6',rest:'2min',load:'35–45 lb cada',notes:'Força máxima. Sem compensações.',yt:'desenvolvimento+halter+força'},
+        {name:'Pulldown com Pegada Fechada',sets:'4',reps:'6',rest:'2min',load:'55–70 lb',notes:'Carga pesada. Contrair dorsais.',yt:'pulldown+fechado+força'},
+      ]},
+      {title:'FORÇA B — Pernas',focus:'Agachamento e Terra pesados',exercises:[
+        {name:'Agachamento Goblet Pesado',sets:'5',reps:'5',rest:'3min',load:'50–70 lb',notes:'Amplitude total. Carga máxima.',yt:'agachamento+goblet+pesado+força'},
+        {name:'Levantamento Terra com Halteres',sets:'5',reps:'5',rest:'3min',load:'45–60 lb cada',notes:'Form estrita. Empurrar o chão com os pés.',yt:'terra+halter+força'},
+        {name:'Stiff com Halteres',sets:'4',reps:'6',rest:'2min',load:'35–50 lb cada',notes:'Estiramento máximo. Sem curvar a coluna.',yt:'stiff+halter+força'},
+        {name:'Leg Press (Pesado)',sets:'4',reps:'6',rest:'2min',load:'Máquina pesada',notes:'Amplitude total. Carga progressiva.',yt:'leg+press+pesado+força'},
+      ]},
+    ]
+  },
+  glutes: {
+    label:'Glúteos & Pernas', color:'#C952A4',
+    sessions:[
+      {title:'LOWER A — Glúteos e Posterior',focus:'Ativação e volume glúteo',exercises:[
+        {name:'Hip Thrust com Halteres',sets:'4',reps:'12–15',rest:'60s',load:'35–50 lb',notes:'Quadril até extensão total. Contraindo glúteo no topo.',yt:'hip+thrust+halter+glúteo'},
+        {name:'Stiff com Halteres',sets:'4',reps:'12',rest:'90s',load:'25–40 lb cada',notes:'Posteriors. Quadril para trás. Estiramento máximo.',yt:'stiff+halter+posterior'},
+        {name:'Passada Reversa com Halteres',sets:'3',reps:'12 cada',rest:'60s',load:'15–25 lb cada',notes:'Passo para trás. Joelho traseiro quase no chão.',yt:'passada+reversa+halter+glúteo'},
+        {name:'Cadeira Abdutora',sets:'3',reps:'20',rest:'45s',load:'Máquina',notes:'Contração total na abertura. Descida controlada.',yt:'abdutora+glúteo+técnica'},
+        {name:'Elevação de Panturrilha',sets:'4',reps:'20',rest:'45s',load:'Halteres',notes:'Amplitude máxima. Segure no topo.',yt:'panturrilha+técnica'},
+      ]},
+      {title:'LOWER B — Quadríceps e Volume',focus:'Força e definição nas pernas',exercises:[
+        {name:'Agachamento com Halteres (Goblet)',sets:'4',reps:'12–15',rest:'90s',load:'35–50 lb',notes:'Abaixo do paralelo. Joelhos para fora.',yt:'agachamento+goblet+técnica'},
+        {name:'Leg Press',sets:'4',reps:'15',rest:'90s',load:'Máquina',notes:'Pés afastados para mais glúteo.',yt:'leg+press+glúteo+pés+largos'},
+        {name:'Cadeira Extensora',sets:'3',reps:'15–20',rest:'60s',load:'Máquina',notes:'Extensão total. Segure 1s no topo.',yt:'extensora+quadríceps'},
+        {name:'Agachamento Sumô com Haltere',sets:'3',reps:'15',rest:'60s',load:'35–50 lb',notes:'Pés bem abertos. Pés em diagonal. Glúteo médio.',yt:'agachamento+sumo+halter+glúteo'},
+        {name:'Elevação de Quadril no Chão',sets:'3',reps:'20',rest:'45s',load:'Corporal / Halter no colo',notes:'Squeeze total em cada rep. Sem acelerar.',yt:'glute+bridge+técnica'},
+      ]},
+    ]
+  },
+  default: {
+    label:'Saúde Geral', color:'var(--green)',
+    sessions:[
+      {title:'FULL BODY A',focus:'Funcionais e compostos',exercises:[
+        {name:'Agachamento com Halteres',sets:'3',reps:'12',rest:'60s',load:'20–35 lb cada',notes:'Joelhos alinhados. Desça abaixo do paralelo.',yt:'agachamento+halter+técnica'},
+        {name:'Supino com Halteres',sets:'3',reps:'12',rest:'60s',load:'20–30 lb cada',notes:'Amplitude controlada. Respiração constante.',yt:'supino+halter+técnica'},
+        {name:'Remada com Halteres',sets:'3',reps:'12',rest:'60s',load:'25–35 lb',notes:'Puxar até o quadril. Forma estrita.',yt:'remada+halter+técnica'},
+        {name:'Prancha',sets:'3',reps:'30s',rest:'45s',load:'Corporal',notes:'Core firme. Respiração constante.',yt:'prancha+técnica'},
+        {name:'Caminhada ou Bike',sets:'1',reps:'20 min',rest:'—',load:'Cardio leve',notes:'Zona 2 — consegue conversar.',yt:'caminhada+cardio+zona+2'},
+      ]},
+      {title:'FULL BODY B',focus:'Equilíbrio e resistência',exercises:[
+        {name:'Levantamento Terra com Halteres',sets:'3',reps:'10',rest:'90s',load:'25–40 lb cada',notes:'Quadril para trás. Coluna neutra.',yt:'terra+halter+técnica'},
+        {name:'Desenvolvimento com Halteres',sets:'3',reps:'12',rest:'60s',load:'15–25 lb cada',notes:'Core firme. Sem arquear lombar.',yt:'desenvolvimento+halter+técnica'},
+        {name:'Passada com Halteres',sets:'3',reps:'10 cada',rest:'60s',load:'15–20 lb cada',notes:'Tronco ereto. Passo largo.',yt:'passada+halter+técnica'},
+        {name:'Rosca Direta',sets:'3',reps:'12',rest:'45s',load:'15–20 lb cada',notes:'Supinação no topo.',yt:'rosca+direta+técnica'},
+        {name:'Tríceps Francês com Haltere',sets:'3',reps:'12',rest:'45s',load:'20–25 lb',notes:'Cotovelos apontados para cima.',yt:'tríceps+francês+técnica'},
+      ]},
+    ]
+  }
+};
+
+function _getAIPlanKey() {
+  const goals = D.userProfile?.goals || [];
+  if(goals.includes('hyper')||goals.includes('recomp')) return 'hyper';
+  if(goals.includes('fat'))    return 'fat';
+  if(goals.includes('strength')) return 'strength';
+  if(goals.includes('glutes')) return 'glutes';
+  return 'default';
+}
+
+function renderAIPlan() {
+  const sec = document.getElementById('aiplan-section');
+  if(!sec) return;
+  const pk = _getAIPlanKey();
+  const plan = _AI_PLAN_DATA[pk];
+  const level = D.userProfile?.level || 'inter';
+  const levelLabel = {beginner:'Iniciante',inter:'Intermediário',adv:'Avançado'}[level]||'Intermediário';
+
+  sec.innerHTML = `
+    <div style="margin:0 14px 12px;padding:12px 14px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r)">
+      <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:4px">Plano gerado para</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:${plan.color}">${plan.label}</span>
+          <span style="font-size:12px;color:var(--mid);margin-left:8px">· ${levelLabel}</span>
+        </div>
+        <button onclick="toast('Edite seu objetivo no Perfil para mudar o plano')" style="background:transparent;border:none;color:var(--dim);font-size:11px;cursor:pointer">✎ Trocar objetivo →</button>
+      </div>
+    </div>
+    ${plan.sessions.map((session,si)=>buildSessionHTML('ai_'+si, session, si)).join('')}`;
 }
 
 function renderCustomPlan(){
