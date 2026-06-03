@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T13:00:00Z">
+<meta name="app-version" content="2026-05-26T14:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -2619,7 +2619,7 @@ const WORKOUT_PLAN = {
         { name: 'Rosca Direta com Halteres', sets: '3', reps: '12', rest: '60s', load: '20 lb cada', notes: 'Cotovelos fixos. Supinação no topo. Desça completamente.', yt: 'rosca+direta+halter+execução+correta' },
         { name: 'Encolhimento de Ombros (Halteres)', sets: '4', reps: '15', rest: '60s', load: '30 lb cada', notes: 'FOCO TRAPÉZIO. Elevação pura. Sem girar. Segura 1 segundo no topo. Amplitude máxima.', yt: 'encolhimento+ombros+trapézio+halter' },
         { name: 'Facepull na Polia', sets: '3', reps: '15', rest: '60s', load: '20 lb', notes: 'Polia alta. Puxar em direção ao rosto. Cotovelos para cima. Ótimo para postura.', yt: 'facepull+polia+trapézio+execução' },
-        { name: 'Prancha Lateral', sets: '3', reps: '20–30s cada lado', rest: '45s', load: 'Corporal', notes: 'Quadril elevado. Corpo reto. Alvo: oblíquo e love handles.', yt: 'prancha+lateral+oblíquo+execução' },
+        { name: 'Prancha Lateral', sets: '3', reps: '20–30s cada lado', rest: '45s', load: 'Corporal', notes: 'Quadril elevado. Corpo reto. Alvo: oblíquo e flancos.', yt: 'prancha+lateral+oblíquo+execução' },
       ]
     },
     Fri: {
@@ -2627,7 +2627,7 @@ const WORKOUT_PLAN = {
       exercises: [
         { name: 'Supino Reto com Halteres', sets: '3', reps: '10–12', rest: '90s', load: '25 lb cada', notes: 'Amplitude completa. Controle a descida. Não bater no peito.', yt: 'supino+reto+halter+execução' },
         { name: 'Rosca Martelo', sets: '3', reps: '12', rest: '60s', load: '20 lb cada', notes: 'Pegada neutra. FOCO BÍCEPS BRAQUIAL. Sem balançar.', yt: 'rosca+martelo+bíceps+execução' },
-        { name: 'Tríceps Testa com Halteres', sets: '3', reps: '12', rest: '60s', load: '15 lb cada', notes: 'Deitado. Cotovelos fixos. Leva ao topo da cabeça. Extensão completa.', yt: 'tríceps+testa+halter+execução' },
+        { name: 'Tríceps Testa com Halteres', sets: '3', reps: '12', rest: '60s', load: '15 lb cada', notes: 'Deitado. Cotovelos fixos. Leve ao topo da cabeça. Extensão completa.', yt: 'tríceps+testa+halter+execução' },
         { name: 'Rosca Scott', sets: '3', reps: '12', rest: '60s', load: '30 lb (barra)', notes: 'ISOLAMENTO TOTAL do bíceps. Sem trapacear. Amplitude máxima.', yt: 'rosca+scott+bíceps+execução' },
         { name: 'Encolhimento Unilateral (Halteres)', sets: '3', reps: '15 cada', rest: '60s', load: '35 lb', notes: 'TRAPÉZIO unilateral. Rotação leve no final para ativar o trapézio superior.', yt: 'encolhimento+unilateral+trapézio' },
         { name: 'Cadeira Abdominal (Crunch)', sets: '3', reps: '20', rest: '60s', load: '25 lb', notes: 'Expirar na contração. Não puxar o pescoço. Foco no abdômen.', yt: 'crunch+máquina+abdominal+execução' },
@@ -2646,7 +2646,7 @@ const WORKOUT_PLAN = {
       exercises: [
         { name: 'Bicicleta Ergométrica', sets: '1', reps: '30 min', rest: '—', load: 'Resistência 5–7/20', notes: 'Sem impacto. Ideal para joelhos. Ritmo constante. FC: 120–140 bpm.', yt: 'bicicleta+ergométrica+cardio+emagrecimento' },
         { name: 'Mobilidade de Quadril', sets: '2', reps: '10 cada lado', rest: '30s', load: 'Corporal', notes: 'Rotação de quadril deitado. Proteção dos joelhos. Movimento lento.', yt: 'mobilidade+quadril+deitado+exercício' },
-        { name: 'Elevação de Panturrilha (Em pé)', sets: '3', reps: '20', rest: '30s', load: 'Corporal', notes: 'Segura na parede. Sem impacto. Fortalece tornozelo e panturrilha.', yt: 'elevação+panturrilha+em+pé+execução' },
+        { name: 'Elevação de Panturrilha (Em pé)', sets: '3', reps: '20', rest: '30s', load: 'Corporal', notes: 'Segure na parede. Sem impacto. Fortalece tornozelo e panturrilha.', yt: 'elevação+panturrilha+em+pé+execução' },
       ]
     },
     Sat: { type: 'rest', label: 'SAB', title: 'DESCANSO', focus: 'Recuperação ativa' },
@@ -4687,7 +4687,7 @@ function suggestFastProtocol(){
   let h, why;
   if(exp < 3){
     h = 14;
-    why = 'Você está no começo do jejum. O 14:10 adapta seu corpo sem sofrimento — domine ele por 1-2 semanas antes de subir.';
+    why = 'Você está no começo do jejum. O 14:10 adapta seu corpo sem sofrimento — domine-o por 1-2 semanas antes de subir.';
   } else if(goals.includes('hyper')){
     h = 14;
     why = 'Seu foco é ganho de massa. Uma janela de alimentação maior (14:10) facilita comer proteína e calorias suficientes pra crescer.';
@@ -4853,7 +4853,7 @@ function renderWater() {
   const bar = document.getElementById('water-bar');
   if(bar) bar.style.width = pct+'%';
   const rem = goal - drank;
-  setEl('water-remain', rem>0 ? ('faltam '+rem+' oz para a meta') : '✓ meta atingida — siga hidratado');
+  setEl('water-remain', rem>0 ? ('Faltam '+rem+' oz para a meta') : '✓ Meta atingida — siga hidratado!');
 }
 
 // ══════════════════════════════════
@@ -5116,7 +5116,7 @@ function saveManualFast(){
 const FAST_START_MSGS = [
   'Jejum iniciado. Cada hora agora trabalha a seu favor. 🔥',
   'Começou. Disciplina é o que separa quem quer de quem faz.',
-  'Relógio rodando. Seu corpo já vai trocar o combustível pra gordura.',
+  'Relógio rodando. Seu corpo já está trocando o combustível por gordura.',
   'Iniciado. Lembre: a fome vem em ondas — e passa. O orgulho fica.',
   'Vai com tudo. O mais difícil é começar — e você já começou.',
   'Jejum ON. Bebe água, respira fundo e confia no processo.',
