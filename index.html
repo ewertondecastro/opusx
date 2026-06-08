@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-05-26T14:00:00Z">
+<meta name="app-version" content="2026-06-08T12:00:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -2354,6 +2354,7 @@ let D = {
   woExLoad: {},
   woExpand: {},
   secaCardioOpen: {},
+  secaTypeOverride: {},
   dietStartDate: null,
   appMode: 'full', dietType: 'balanced', useNutrition: true, useFasting: true,
   weightUnit: 'lbs',
@@ -2409,6 +2410,7 @@ function load() {
   if(!Array.isArray(D.customPlan.sessions)) D.customPlan.sessions = [];
   if(!D.woExLoad) D.woExLoad = {};
   if(!D.woExpand) D.woExpand = {};
+  if(!D.secaTypeOverride) D.secaTypeOverride = {};
   if(D.dietStartDate === undefined) D.dietStartDate = null;
   if(!D.appMode) D.appMode = 'full';
   if(!D.dietType) D.dietType = 'balanced';
@@ -5321,6 +5323,11 @@ function parseRestSecs(rest) {
   return (m?parseInt(m[1])*60:0)+(s?parseInt(s[1]):0) || 90;
 }
 
+// Returns true if exercise is timed (prancha, isometric, etc.) — no load, just seconds
+function isTimedEx(ex) {
+  return /\d+s/.test(ex.reps) || /prancha|isométrica|isometrica/i.test(ex.name);
+}
+
 function buildSessionHTML(key, session, idx) {
   if(session.type==='rest') {
     return `<div class="workout-session" id="ws-${key}">
@@ -5342,14 +5349,25 @@ function buildSessionHTML(key, session, idx) {
   }).length;
   const progPct = exercises.length?Math.round(doneCount/exercises.length*100):0;
 
-  const exHTML = exercises.map((ex,i)=>{
+  const exHTML = exercises.map((origEx,i)=>{
     const exKey = key+'_ex_'+i;
+    // Apply workout tab substitution if any
+    const woSub = (D.exSub||{})['wo_'+exKey];
+    const ex = woSub ? {
+      ...origEx,
+      name: woSub.name,
+      yt: encodeURIComponent(woSub.name+' execução técnica'),
+      notes: woSub.detail || origEx.notes,
+      _substituted: true,
+      _origName: origEx.name,
+    } : origEx;
     const exAllDone = Array.from({length:NSERIES},(_,s)=>!!checked['wos_'+exKey+'_s'+s]).every(Boolean);
     const exDone = !!checked[exKey] || exAllDone;
     const fbKey = key+'_'+i+'_fb';
     const fb = (D.exFeedback||{})[fbKey]||'';
     const isExpanded = !!(D.woExpand||{})[exKey];
     const restSecs = parseRestSecs(ex.rest);
+    const isTimed = isTimedEx(ex);
 
     // Last session reference: prefer per-series history, fallback to woExLoad
     const histKey = 'load_wo_'+exKey;
@@ -5374,6 +5392,11 @@ function buildSessionHTML(key, session, idx) {
       const refReps = lastSeries?.[s]?.reps || (s===0&&legacyLast?.reps)||'';
       const refLoad = lastSeries?.[s]?.load || (s===0&&legacyLast?.load)||'';
       const ck = 'wo_'+exKey+'_'+s; // timer key
+      // Pre-fill with previous session values if no current session data
+      const fillReps = sd.reps || refReps || '';
+      const fillLoad = sd.load || refLoad || '';
+      const repsHasRef = !sd.reps && refReps;
+      const loadHasRef = !sd.load && refLoad;
 
       return `<div id="srow-${sk}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bdr);background:${sdone?'rgba(82,168,120,.06)':''}">
         <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;width:32px">
@@ -5383,27 +5406,25 @@ function buildSessionHTML(key, session, idx) {
           </div>
         </div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">REPS</div>
-          <div style="display:flex;align-items:center;gap:5px">
+          <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">${isTimed?'TEMPO (seg)':'REPS'}</div>
+          <div style="position:relative">
             <input type="number" inputmode="numeric" id="woreps-${sk}"
-              placeholder="${ex.reps.split(/[-–]/)[0].trim()||'10'}" value="${sd.reps||''}"
-              style="width:56px;background:var(--s2);border:1px solid var(--bdr);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
-              onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'"
+              placeholder="${isTimed?'seg':ex.reps.split(/[-–]/)[0].trim()||'10'}" value="${fillReps}"
+              style="width:${isTimed?'80px':'56px'};background:var(--s2);border:1px solid ${repsHasRef?'rgba(201,169,110,.35)':'var(--bdr)'};color:${repsHasRef?'var(--gold)':'var(--text)'};font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
+              onfocus="this.style.borderColor='var(--gold)';this.style.color='var(--text)'" onblur="this.style.borderColor='var(--bdr)'"
               onchange="saveWoSeriesData('${sk}','${exKey}')">
-            ${refReps&&!sd.reps?`<span style="font-size:9px;color:var(--dim)">↑${refReps}</span>`:''}
           </div>
         </div>
-        <div style="flex:1;min-width:0">
+        ${isTimed ? '' : `<div style="flex:1;min-width:0">
           <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">CARGA</div>
-          <div style="display:flex;align-items:center;gap:5px">
+          <div style="position:relative">
             <input type="text" inputmode="decimal" id="woload-${sk}"
-              placeholder="lbs" value="${sd.load||''}"
-              style="width:64px;background:var(--s2);border:1px solid var(--bdr);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
+              placeholder="lbs" value="${fillLoad}"
+              style="width:64px;background:var(--s2);border:1px solid ${loadHasRef?'rgba(201,169,110,.35)':'var(--bdr)'};color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
               onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'"
               onchange="saveWoSeriesData('${sk}','${exKey}')">
-            ${refLoad&&!sd.load?`<span style="font-size:9px;color:var(--dim)">↑${refLoad}</span>`:''}
           </div>
-        </div>
+        </div>`}
         <button onclick="woSeriesDone('${sk}','${exKey}',${s},${NSERIES},true);startRestTimer('${ck}',${restSecs})"
           style="padding:8px 10px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:6px;color:var(--gold);font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">
           ✓ ${restSecs>=60?Math.floor(restSecs/60)+'m':restSecs+'s'}
@@ -5423,8 +5444,8 @@ function buildSessionHTML(key, session, idx) {
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
         <div class="ex-info">
-          <div class="ex-name">${ex.name}</div>
-          <div class="ex-detail">${ex.sets}×${ex.reps} · ${ex.rest} · <span style="color:var(--gold)">${ex.load}</span></div>
+          <div class="ex-name">${ex.name}${ex._substituted?` <span style="color:var(--gold);font-size:10px;font-weight:700;letter-spacing:.5px">↔ SUB</span>`:''}</div>
+          <div class="ex-detail">${ex.sets}×${ex.reps} · ${ex.rest}${!isTimed?' · <span style="color:var(--gold)">'+ex.load+'</span>':''}</div>
           ${lastBadge?`<div style="margin-top:2px;font-size:11px;color:var(--dim)">${lastBadge}</div>`:''}
         </div>
         <div class="ex-actions" onclick="event.stopPropagation()">
@@ -5432,7 +5453,7 @@ function buildSessionHTML(key, session, idx) {
             <svg viewBox="0 0 24 24"><path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.2c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v2c0 2 .3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.2 21.5 12 21.5 12 21.5s4.2 0 6.8-.3c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-2C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l6.6 3.6-6.6 3.6z"/></svg>
             YT
           </a>
-          <div class="ex-yt-btn" onclick="openAlternatives('${ex.name}')" style="background:var(--gold-bg);border-color:rgba(201,169,110,.25);color:var(--gold);cursor:pointer">ALT</div>
+          <div class="ex-yt-btn" onclick="openAlternatives('${(ex._substituted?ex._origName:ex.name).replace(/'/g,'')}','wo','${exKey}')" style="background:var(--gold-bg);border-color:rgba(201,169,110,.25);color:var(--gold);cursor:pointer">ALT</div>
           <div class="ex-expand-btn" id="woexp-btn-${exKey}">${isExpanded?'−':'+'}</div>
         </div>
       </div>
@@ -5555,8 +5576,11 @@ function woSeriesDone(sk, exKey, si, total, withTimer) {
     if(svg) svg.style.display = D.exChecked[sk] ? 'block' : 'none';
   }
 
-  // Last series done → save history to loadHistory + auto-close after 400ms
-  if(D.exChecked[sk] && si === total-1) {
+  // When ALL series are done → save history to loadHistory + auto-close after 400ms
+  const allSeriesDone = D.exChecked[sk] && Array.from({length:total},(_,s2)=>{
+    return !!D.exChecked['wos_'+exKey+'_s'+s2];
+  }).every(Boolean);
+  if(allSeriesDone) {
     const histKey = 'load_wo_'+exKey;
     if(!D.loadHistory) D.loadHistory = {};
     if(!D.loadHistory[histKey]) D.loadHistory[histKey] = [];
@@ -7124,7 +7148,8 @@ function substituteExercise(altIdx){
   track('exercise_substituted', {to:a.name});
   closeSheet('alt-ov');
   toast('Exercício substituído por: '+a.name);
-  renderSecaHoje();
+  if(_altContext.type === 'wo') buildWorkoutUI();
+  else renderSecaHoje();
 }
 
 function revertExercise(){
@@ -7133,7 +7158,8 @@ function revertExercise(){
   save();
   closeSheet('alt-ov');
   toast('Voltou ao exercício original ✓');
-  renderSecaHoje();
+  if(_altContext.type === 'wo') buildWorkoutUI();
+  else renderSecaHoje();
 }
 
 // ══════════════════════════════════
@@ -7421,6 +7447,14 @@ function selectSecaDay(idx) {
   renderSecaHoje();
 }
 
+function setSecaType(planIdx, type) {
+  if(!D.secaTypeOverride) D.secaTypeOverride = {};
+  const weekKey = getCurrentWeekKey();
+  D.secaTypeOverride[weekKey+'_'+planIdx] = type;
+  save();
+  renderSecaHoje();
+}
+
 // Motivational phrases (daily, rotates)
 const FRASES = [
   'Disciplina é fazer o que precisa ser feito mesmo quando não quer.',
@@ -7462,8 +7496,10 @@ function renderSecaHoje() {
     const _autoKey = weekKey+'_'+planIdx;
     if(!D.secaSessionStart[_autoKey]){ D.secaSessionStart[_autoKey] = Date.now(); save(); }
   }
-  // Determine what type to show for this day
-  const type = isDone ? loggedDay.type : getNextSecaType();
+  // Determine what type to show for this day (override manual > auto-detect)
+  const _typeOverrideKey = weekKey+'_'+planIdx;
+  const _typeOverride = (D.secaTypeOverride||{})[_typeOverrideKey];
+  const type = isDone ? loggedDay.type : (_typeOverride || getNextSecaType());
 
   let html = '';
 
@@ -7473,6 +7509,10 @@ function renderSecaHoje() {
       <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:4px">${todayName.toUpperCase()}</div>
       <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:${type==='A'?'var(--gold)':'var(--blue)'};letter-spacing:.5px">TREINO ${type}</div>
       <div style="font-size:13px;color:var(--mid);margin-top:3px">3 séries × 15–20 reps · Descanso 40s · Aquecimento 10 min</div>
+      ${!isDone?`<div style="display:flex;gap:6px;margin-top:10px">
+        <button onclick="setSecaType(${planIdx},'A')" style="padding:5px 16px;border:1.5px solid ${type==='A'?'var(--gold)':'var(--bdr2)'};background:${type==='A'?'var(--gold-bg)':'transparent'};color:${type==='A'?'var(--gold)':'var(--dim)'};border-radius:6px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;cursor:pointer;transition:all .15s">A</button>
+        <button onclick="setSecaType(${planIdx},'B')" style="padding:5px 16px;border:1.5px solid ${type==='B'?'var(--blue)':'var(--bdr2)'};background:${type==='B'?'rgba(82,137,201,.12)':'transparent'};color:${type==='B'?'var(--blue)':'var(--dim)'};border-radius:6px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;cursor:pointer;transition:all .15s">B</button>
+      </div>`:''}
     </div>
     ${isDone?'<div class="badge badge-green">✓ FEITO</div>':'<div class="badge badge-gold">PRÓXIMO</div>'}
   </div>`;
@@ -8276,6 +8316,8 @@ function markSecaPartDone(planIdx, type, part) {
     D.secaGlobal = D.secaGlobal.filter(e=>e.key!==key);
     D.secaGlobal.push({key, type, ts:Date.now()});
     D.secaGlobal = D.secaGlobal.slice(-60);
+    // Clear manual type override for this day (session complete, type is locked in log)
+    if(D.secaTypeOverride) delete D.secaTypeOverride[key];
     snapshotSeriesHistory(type, planIdx);
     celebrate(lang==='pt'?'TREINO COMPLETO! 💪':'WORKOUT DONE! 💪',
       lang==='pt'?'Força + Cardio. Isso é disciplina real.':'Strength + Cardio. That\'s real discipline.');
