@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-06-29T01:57:34Z">
+<meta name="app-version" content="2026-06-29T13:39:51Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -6359,6 +6359,113 @@ function renderAIPlan() {
     ${plan.sessions.map((session,si)=>buildSessionHTML('ai_'+si, session, si)).join('')}`;
 }
 
+// Render rico de exercício do plano custom — séries/cargas + substitutos, igual ao Opus 15
+function buildCustomExerciseHTML(s, origEx, i){
+  const checked = D.exChecked||{};
+  const exKey = 'cu_'+s.id+'_ex_'+i;
+  const subKey = 'cu_'+exKey;                 // type 'cu' → D.exSub['cu_'+exKey]
+  const woSub = (D.exSub||{})[subKey];
+  const ex = woSub ? { ...origEx, name:woSub.name, notes:(woSub.detail||origEx.notes||''), _substituted:true, _origName:origEx.name } : origEx;
+
+  const isTimed  = isTimedEx(ex);
+  const isCardio = /min/i.test(ex.reps||'');
+  const nSeries  = isCardio ? 0 : Math.max(1, parseInt(ex.sets)||3);
+  const restSecs = parseRestSecs(ex.rest);
+  const isExpanded = !!(D.woExpand||{})[exKey];
+
+  const exAllDone = nSeries>0 && Array.from({length:nSeries},(_,sx)=>!!checked['wos_'+exKey+'_s'+sx]).every(Boolean);
+  const exDone = !!checked[exKey] || exAllDone;
+
+  // referência da última sessão (carga/reps)
+  const histKey = 'load_wo_'+exKey;
+  const loadHistory = (D.loadHistory||{})[histKey]||[];
+  const lastSeries = loadHistory.length ? loadHistory[loadHistory.length-1]?.series : null;
+  const lastBadge = (()=>{
+    if(!lastSeries) return '';
+    const parts = lastSeries.filter(Boolean).map((s2,si)=>`S${si+1}:${s2.reps?s2.reps+'×':''}${s2.load||'—'}`);
+    return parts.length ? '↑ '+parts.join(' · ') : '';
+  })();
+
+  const ytQuery = encodeURIComponent(ex.name.replace(/^[A-D]\d\)\s*/,'').replace(/^🏁\s*Finalizador\s*—\s*/i,'').trim()+' execução técnica');
+  const altName = (ex._substituted?ex._origName:ex.name).replace(/^[A-D]\d\)\s*/,'').replace(/^🏁\s*Finalizador\s*—\s*/i,'').replace(/'/g,'').trim();
+  const hasMuscle = !!muscleOf(altName);
+
+  // corpo expandível
+  let body;
+  if(isCardio){
+    body = `<div style="padding:12px 14px;border-top:1px solid var(--bdr)">
+      <div style="font-size:13px;color:var(--mid);line-height:1.6">⏱️ <strong style="color:var(--text)">${ex.reps}</strong>${ex.load?` · <span style="color:var(--gold)">${ex.load}</span>`:''}${ex.notes?`<br>${ex.notes}`:''}</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px">Marque no ✓ ao lado quando terminar.</div>
+    </div>`;
+  } else {
+    const seriesRows = Array.from({length:nSeries},(_,sx)=>{
+      const sk = 'wos_'+exKey+'_s'+sx;
+      const sdone = !!checked[sk];
+      const sd = (D.seriesData||{})[sk]||{};
+      const refReps = lastSeries?.[sx]?.reps || '';
+      const refLoad = lastSeries?.[sx]?.load || '';
+      const fillReps = sd.reps || refReps || '';
+      const fillLoad = sd.load || refLoad || '';
+      const repsHasRef = !sd.reps && refReps;
+      const loadHasRef = !sd.load && refLoad;
+      const ck = 'cu_'+exKey+'_'+sx;
+      const repsPh = isTimed ? 'seg' : ((ex.reps||'').split(/[-–]/)[0].trim()||'10');
+      return `<div id="srow-${sk}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bdr);background:${sdone?'rgba(82,168,120,.06)':''}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;width:32px">
+          <span style="font-size:10px;color:var(--dim);font-weight:700;letter-spacing:.5px">S${sx+1}</span>
+          <div id="wochk-${sk}" onclick="woSeriesDone('${sk}','${exKey}',${sx},${nSeries})" style="width:26px;height:26px;border-radius:6px;border:1.5px solid ${sdone?'var(--green)':'var(--bdr2)'};background:${sdone?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.5;stroke-linecap:round;display:${sdone?'block':'none'}"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">${isTimed?'TEMPO (seg)':'REPS'}</div>
+          <input type="number" inputmode="numeric" id="woreps-${sk}" placeholder="${repsPh}" value="${fillReps}"
+            style="width:${isTimed?'80px':'56px'};background:var(--s2);border:1px solid ${repsHasRef?'rgba(201,169,110,.35)':'var(--bdr)'};color:${repsHasRef?'var(--gold)':'var(--text)'};font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
+            onfocus="this.style.borderColor='var(--gold)';this.style.color='var(--text)'" onblur="this.style.borderColor='var(--bdr)'" onchange="saveWoSeriesData('${sk}','${exKey}')">
+        </div>
+        ${isTimed ? '' : `<div style="flex:1;min-width:0">
+          <div style="font-size:9px;color:var(--dim);font-weight:700;letter-spacing:1px;margin-bottom:3px">CARGA</div>
+          <input type="text" inputmode="decimal" id="woload-${sk}" placeholder="lbs" value="${fillLoad}"
+            style="width:64px;background:var(--s2);border:1px solid ${loadHasRef?'rgba(201,169,110,.35)':'var(--bdr)'};color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px;border-radius:6px;outline:none;text-align:center"
+            onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--bdr)'" onchange="saveWoSeriesData('${sk}','${exKey}')">
+        </div>`}
+        <button onclick="woSeriesDone('${sk}','${exKey}',${sx},${nSeries},true);startRestTimer('${ck}',${restSecs})"
+          style="padding:8px 10px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:6px;color:var(--gold);font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">✓ ${restSecs>=60?Math.floor(restSecs/60)+'m':restSecs+'s'}</button>
+      </div>
+      <div class="rest-timer-wrap" id="timer-${ck}">
+        <div class="rest-timer-num" id="timer-num-${ck}">${restSecs}</div>
+        <div class="rest-timer-bar"><div class="rest-timer-fill" id="timer-bar-${ck}" style="width:100%"></div></div>
+        <button class="btn-start-rest" onclick="startRestTimer('${ck}',${restSecs})">RESET</button>
+        <button class="btn-start-rest" onclick="stopRestTimer('${ck}')" style="background:var(--s2);color:var(--mid);border:1px solid var(--bdr)">✕</button>
+      </div>`;
+    }).join('');
+    const noteTxt = ex.notes || (ex.load ? 'Carga sugerida: '+ex.load : '');
+    body = `<div style="background:var(--s1);border-top:1px solid var(--bdr)">${seriesRows}</div>
+      ${noteTxt?`<div style="padding:10px 14px;border-top:1px solid var(--bdr)"><div class="ex-notes"><strong>${lang==='pt'?'NOTA':'NOTE'}</strong>${noteTxt}</div></div>`:''}`;
+  }
+
+  return `<div class="ex-row${exDone?' done-ex':''}" id="exrow-${exKey}">
+    <div class="ex-top" style="cursor:pointer" onclick="toggleWoExpand('${exKey}')">
+      <div class="ex-checkbox${exDone?' done':''}" onclick="event.stopPropagation();toggleExCheck('${exKey}',this,'exrow-${exKey}')">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="ex-info">
+        <div class="ex-name">${ex.name}${ex._substituted?` <span style="color:var(--gold);font-size:10px;font-weight:700;letter-spacing:.5px">↔ SUB</span>`:''}</div>
+        <div class="ex-detail">${ex.sets}×${ex.reps}${ex.rest?' · '+ex.rest:''}${(!isTimed&&!isCardio&&ex.load)?' · <span style="color:var(--gold)">'+ex.load+'</span>':''}</div>
+        ${lastBadge?`<div style="margin-top:2px;font-size:11px;color:var(--dim)">${lastBadge}</div>`:''}
+      </div>
+      <div class="ex-actions" onclick="event.stopPropagation()">
+        <a class="ex-yt-btn" href="https://www.youtube.com/results?search_query=${ytQuery}" target="_blank">
+          <svg viewBox="0 0 24 24"><path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.2c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v2c0 2 .3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.2 21.5 12 21.5 12 21.5s4.2 0 6.8-.3c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-2C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l6.6 3.6-6.6 3.6z"/></svg>YT
+        </a>
+        ${hasMuscle?`<div class="ex-yt-btn" onclick="openAlternatives('${altName}','cu','${exKey}')" style="background:var(--gold-bg);border-color:rgba(201,169,110,.25);color:var(--gold);cursor:pointer">ALT</div>`:''}
+        <div class="ex-expand-btn" id="woexp-btn-${exKey}">${isExpanded?'−':'+'}</div>
+      </div>
+    </div>
+    <div id="woexp-${exKey}" style="display:${isExpanded?'block':'none'}">${body}</div>
+  </div>`;
+}
+
 function renderCustomPlan(){
   const sec = document.getElementById('custom-plan-section');
   if(!sec) return;
@@ -6427,14 +6534,7 @@ function renderCustomPlan(){
           <button onclick="deleteCustomSession(${si})" style="background:transparent;border:1px solid var(--bdr2);border-radius:6px;color:var(--dim);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer">✕</button>
         </div>
       </div>
-      ${(s.exercises||[]).map((ex,ei)=>`
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bdr)">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;color:var(--text);font-weight:600">${ex.name}</div>
-            <div style="font-size:12px;color:var(--mid);margin-top:2px">${ex.sets}×${ex.reps}${ex.rest?' · '+ex.rest:''}${ex.load?' · <span style="color:var(--gold)">'+ex.load+'</span>':''}</div>
-          </div>
-          <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name+' exercício')}" target="_blank" style="font-size:10px;padding:5px 7px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;color:var(--dim);font-weight:700;text-decoration:none">YT</a>
-        </div>`).join('')}
+      ${(s.exercises||[]).map((ex,ei)=>buildCustomExerciseHTML(s, ex, ei)).join('')}
     </div>`;}).join('')
   + `<div style="padding:0 14px 20px">
       <button onclick="openSchedule()" class="btn btn-outline btn-full" style="padding:13px;margin-bottom:8px">🗓️ Definir dias da semana</button>
@@ -7459,6 +7559,7 @@ function substituteExercise(altIdx){
   closeSheet('alt-ov');
   toast('Exercício substituído por: '+a.name);
   if(_altContext.type === 'wo') buildWorkoutUI();
+  else if(_altContext.type === 'cu') renderCustomPlan();
   else renderSecaHoje();
 }
 
@@ -7469,6 +7570,7 @@ function revertExercise(){
   closeSheet('alt-ov');
   toast('Voltou ao exercício original ✓');
   if(_altContext.type === 'wo') buildWorkoutUI();
+  else if(_altContext.type === 'cu') renderCustomPlan();
   else renderSecaHoje();
 }
 
