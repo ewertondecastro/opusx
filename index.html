@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-06-29T01:38:24Z">
+<meta name="app-version" content="2026-06-29T01:57:34Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -2011,6 +2011,20 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-btns">
       <button class="btn btn-outline" onclick="closeSheet('custom-session-ov')" style="flex:1">Cancelar</button>
       <button class="btn btn-gold" onclick="saveCustomSession()" style="flex:2;margin:0">Salvar Sessão</button>
+    </div>
+  </div>
+</div>
+
+<!-- WEEKLY SCHEDULE SHEET -->
+<div class="overlay" id="sched-ov" onclick="if(event.target===this)closeSheet('sched-ov')">
+  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">DIAS DA SEMANA</div>
+    <div class="sheet-desc">Defina o treino de cada dia. O app mostra "hoje" sozinho — você não precisa pensar.</div>
+    <div id="sched-list" style="margin-bottom:16px"></div>
+    <div class="sheet-btns">
+      <button class="btn btn-outline" onclick="closeSheet('sched-ov')" style="flex:1">Cancelar</button>
+      <button class="btn btn-gold" onclick="saveSchedule()" style="flex:2;margin:0">Salvar dias</button>
     </div>
   </div>
 </div>
@@ -4770,14 +4784,23 @@ function initHome() {
   setEl('h-streak', fastStreak);
   setEl('h-fasts', (D.fastHistory||[]).length);
 
-  // Today workout label
-  const plan = WORKOUT_PLAN[lang]||WORKOUT_PLAN.pt;
-  const todayKey = getTodayKey();
-  const session = plan[todayKey];
-  if(session && session.type !== 'rest') {
-    setEl('h-workout-label', session.title);
+  // Today workout label — usa o plano custom (com cronograma) se ativo
+  const cust = (typeof getCustomTodaySession==='function') ? getCustomTodaySession() : undefined;
+  if(cust !== undefined){
+    if(cust === 'rest' || cust == null){
+      setEl('h-workout-label', lang==='pt'?'Descanso hoje':'Rest day');
+    } else {
+      setEl('h-workout-label', cust.name);
+    }
   } else {
-    setEl('h-workout-label', lang==='pt'?'Descanso hoje':'Rest day');
+    const plan = WORKOUT_PLAN[lang]||WORKOUT_PLAN.pt;
+    const todayKey = getTodayKey();
+    const session = plan[todayKey];
+    if(session && session.type !== 'rest') {
+      setEl('h-workout-label', session.title);
+    } else {
+      setEl('h-workout-label', lang==='pt'?'Descanso hoje':'Rest day');
+    }
   }
 
   // Weight — show last logged or prompt
@@ -4806,15 +4829,41 @@ function updateHomeStats() {
 function arcSetR(id,c,p){const e=document.getElementById(id);if(e)e.style.strokeDashoffset=c-(c*p);}
 
 function renderTodayWorkout() {
+  const el = document.getElementById('h-today-exercises');
+  if(!el) return;
+
+  // Plano custom com cronograma tem prioridade
+  const cust = (typeof getCustomTodaySession==='function') ? getCustomTodaySession() : undefined;
+  if(cust !== undefined){
+    if(cust === 'rest' || cust == null){
+      el.innerHTML = '<div class="empty" style="padding:14px 0">'+( lang==='pt'?'Dia de descanso. Recuperação ativa.':'Rest day. Active recovery.' )+'</div>';
+      return;
+    }
+    el.innerHTML = (cust.exercises||[]).slice(0,5).map((ex,i) => {
+      const key = 'cust_'+cust.id+'_ex_'+i;
+      const done = (D.exChecked||{})[key];
+      const sub = `${ex.sets}×${ex.reps}${ex.load?' · '+ex.load:''}`;
+      return `<div class="tw-exercise">
+        <div class="tw-check${done?' done':''}" onclick="toggleExCheckHome('${key}',this)">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="tw-info"><div class="tw-name">${ex.name}</div><div class="tw-sets">${sub}</div></div>
+        <a class="ex-yt-btn" href="https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name+' exercício')}" target="_blank">
+          <svg viewBox="0 0 24 24" width="10" height="10"><path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.2c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v2c0 2 .3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.2 21.5 12 21.5 12 21.5s4.2 0 6.8-.3c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-2C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l6.6 3.6-6.6 3.6z"/></svg>
+          YT
+        </a>
+      </div>`;
+    }).join('');
+    return;
+  }
+
   const todayKey = getTodayKey();
   const plan = WORKOUT_PLAN[lang]||WORKOUT_PLAN.pt;
   const session = plan[todayKey];
-  const el = document.getElementById('h-today-exercises');
   if (!session || session.type === 'rest') {
-    if(el) el.innerHTML = '<div class="empty" style="padding:14px 0">'+( lang==='pt'?'Dia de descanso. Recuperação ativa.':'Rest day. Active recovery.' )+'</div>';
+    el.innerHTML = '<div class="empty" style="padding:14px 0">'+( lang==='pt'?'Dia de descanso. Recuperação ativa.':'Rest day. Active recovery.' )+'</div>';
     return;
   }
-  if(!el) return;
   el.innerHTML = (session.exercises||[]).slice(0,4).map((ex,i) => {
     const key = todayKey+'_ex_'+i;
     const done = (D.exChecked||{})[key];
@@ -6326,11 +6375,51 @@ function renderCustomPlan(){
       </div>`;
     return;
   }
-  sec.innerHTML = sessions.map((s,si)=>`
-    <div style="margin:0 14px 12px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden">
+  const today = getTodayKey();
+  const sch = D.customPlan.schedule || {};
+  const hasSchedule = Object.keys(sch).length > 0;
+  const todaySess = getCustomTodaySession(); // sessão | 'rest' | null | undefined
+
+  // ── Card HOJE ──
+  let heroInner;
+  if(todaySess && todaySess!=='rest'){
+    heroInner = `<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px">${WEEKDAY_PT[today]} · Hoje</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--text);letter-spacing:.5px;line-height:1.05">${todaySess.name}</div>
+      <div style="font-size:12px;color:var(--mid);margin-top:4px">${todaySess.focus||''}${todaySess.focus?' · ':''}${(todaySess.exercises||[]).length} exercícios</div>
+      <button onclick="(document.getElementById('cs-card-${todaySess.id}')||{}).scrollIntoView&&document.getElementById('cs-card-${todaySess.id}').scrollIntoView({behavior:'smooth',block:'start'})" class="btn btn-gold btn-full" style="padding:12px;margin-top:12px">VER TREINO DE HOJE ↓</button>`;
+  } else if(hasSchedule){
+    heroInner = `<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px">${WEEKDAY_PT[today]} · Hoje</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--text);letter-spacing:.5px">😴 Descanso</div>
+      <div style="font-size:12px;color:var(--mid);margin-top:4px">Recuperação ativa: caminhada leve, hidratação e sono.</div>`;
+  } else {
+    heroInner = `<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px">Sem dias definidos</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--text);letter-spacing:.5px">Defina seu cronograma</div>
+      <div style="font-size:12px;color:var(--mid);margin-top:4px">Diga qual treino fazer em cada dia da semana e o app cuida do resto.</div>
+      <button onclick="openSchedule()" class="btn btn-gold btn-full" style="padding:12px;margin-top:12px">🗓️ DEFINIR DIAS DA SEMANA</button>`;
+  }
+  const hero = `<div style="margin:0 14px 10px;padding:16px;background:linear-gradient(135deg,var(--gold-bg),var(--s1));border:1px solid rgba(201,169,110,.35);border-radius:var(--r)">${heroInner}</div>`;
+
+  // ── Tira da semana ──
+  let strip = '';
+  if(hasSchedule){
+    strip = `<div onclick="openSchedule()" style="display:flex;gap:5px;margin:0 14px 4px;cursor:pointer">`
+      + DAY_ORDER.map(day=>{
+          const tag=schedTag(sch[day]); const isT=day===today;
+          return `<div style="flex:1;text-align:center;padding:7px 2px;border-radius:8px;background:${isT?'var(--gold)':'var(--s2)'};border:1px solid ${isT?'var(--gold)':'var(--bdr)'}">
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;color:${isT?'var(--gold-ink)':'var(--dim)'}">${WEEKDAY_SHORT[day]}</div>
+            <div style="font-size:10px;font-weight:700;margin-top:3px;line-height:1.2;color:${isT?'var(--gold-ink)':(tag.rest?'var(--dim)':'var(--mid)')}">${tag.rest?'😴':tag.t}</div>
+          </div>`;
+        }).join('')
+      + `</div><div style="text-align:right;margin:0 14px 14px"><button onclick="openSchedule()" style="background:transparent;border:none;color:var(--gold);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer">✎ Ajustar dias</button></div>`;
+  }
+
+  sec.innerHTML = hero + strip + sessions.map((s,si)=>{
+    const isToday = todaySess && todaySess!=='rest' && todaySess.id===s.id;
+    return `
+    <div id="cs-card-${s.id}" style="margin:0 14px 12px;background:var(--s1);border:1px solid ${isToday?'var(--gold)':'var(--bdr)'};border-radius:var(--r);overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--s2);border-bottom:1px solid var(--bdr)">
         <div style="flex:1;min-width:0">
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--text);letter-spacing:.5px">${s.name||'Sessão '+(si+1)}</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--text);letter-spacing:.5px">${s.name||'Sessão '+(si+1)}${isToday?' <span style="font-size:10px;background:var(--gold);color:var(--gold-ink);padding:2px 7px;border-radius:4px;letter-spacing:1px;margin-left:6px;vertical-align:middle">HOJE</span>':''}</div>
           <div style="font-size:12px;color:var(--dim);margin-top:2px">${s.focus||'—'} · ${(s.exercises||[]).length} exercícios</div>
         </div>
         <div style="display:flex;gap:6px">
@@ -6346,8 +6435,9 @@ function renderCustomPlan(){
           </div>
           <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name+' exercício')}" target="_blank" style="font-size:10px;padding:5px 7px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;color:var(--dim);font-weight:700;text-decoration:none">YT</a>
         </div>`).join('')}
-    </div>`).join('')
+    </div>`;}).join('')
   + `<div style="padding:0 14px 20px">
+      <button onclick="openSchedule()" class="btn btn-outline btn-full" style="padding:13px;margin-bottom:8px">🗓️ Definir dias da semana</button>
       <button onclick="openNewSession()" class="btn btn-outline btn-full" style="padding:13px;margin-bottom:8px">+ NOVA SESSÃO</button>
       <button onclick="loadBurnPlan()" class="btn btn-outline btn-full" style="padding:13px;font-size:12px;opacity:.85">🔥 Recarregar plano Queima 60</button>
     </div>`;
@@ -6398,9 +6488,72 @@ function loadBurnPlan(){
   // preset primeiro, depois suas sessões
   D.customPlan.sessions = presets.concat(D.customPlan.sessions);
   D.customPlan.active = true;
+  // cronograma semanal padrão: Força A/B 4x + cárdio 2x + descanso domingo
+  const idA = base+1, idB = base+2, idC = base+3;
+  D.customPlan.schedule = { Mon:idA, Tue:idC, Wed:idB, Thu:idC, Fri:idA, Sat:idB, Sun:'rest' };
   save();
   switchPlanMode('custom');
   toast('Plano Queima 60 carregado 🔥');
+}
+
+// ── Cronograma semanal do plano custom ──
+const WEEKDAY_PT = { Mon:'Segunda', Tue:'Terça', Wed:'Quarta', Thu:'Quinta', Fri:'Sexta', Sat:'Sábado', Sun:'Domingo' };
+const WEEKDAY_SHORT = { Mon:'SEG', Tue:'TER', Wed:'QUA', Thu:'QUI', Fri:'SEX', Sat:'SÁB', Sun:'DOM' };
+
+// retorna: objeto-sessão de hoje | 'rest' | null (sem agenda/sessão) | undefined (plano inativo)
+function getCustomTodaySession(){
+  if(!(D.customPlan && D.customPlan.active)) return undefined;
+  const sch = D.customPlan.schedule; if(!sch) return null;
+  const v = sch[getTodayKey()];
+  if(v==null) return null;
+  if(v==='rest') return 'rest';
+  return (D.customPlan.sessions||[]).find(s=>s.id===v) || null;
+}
+
+// tag curta pra tira da semana
+function schedTag(v){
+  if(v==='rest'||v==null) return {t:'Descanso', rest:true};
+  const s=(D.customPlan.sessions||[]).find(x=>x.id===v);
+  if(!s) return {t:'—', rest:true};
+  let n=s.name.replace(/^[^\p{L}]+/u,'').trim().split('—')[0].trim();
+  n=n.replace(/^Força\s+/i,'F-').replace(/Condicionamento.*/i,'Cárdio');
+  if(n.length>7) n=n.slice(0,6)+'…';
+  return {t:n, rest:false, name:s.name};
+}
+
+function openSchedule(){
+  const sch = (D.customPlan && D.customPlan.schedule) || {};
+  const sessions = (D.customPlan && D.customPlan.sessions) || [];
+  const today = getTodayKey();
+  const list = document.getElementById('sched-list');
+  list.innerHTML = DAY_ORDER.map(day=>{
+    const cur = sch[day];
+    const opts = `<option value="rest"${cur==='rest'||cur==null?' selected':''}>😴 Descanso</option>`
+      + sessions.map(s=>`<option value="${s.id}"${String(cur)===String(s.id)?' selected':''}>${s.name}</option>`).join('');
+    const isToday = day===today;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;margin-bottom:6px;background:${isToday?'var(--gold-bg)':'var(--s2)'};border:1px solid ${isToday?'rgba(201,169,110,.4)':'var(--bdr)'};border-radius:8px">
+      <div style="width:46px;font-size:12px;font-weight:800;letter-spacing:1px;color:${isToday?'var(--gold)':'var(--mid)'}">${WEEKDAY_SHORT[day]}</div>
+      <select id="sched-sel-${day}" style="flex:1;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px">${opts}</select>
+    </div>`;
+  }).join('');
+  openSheet('sched-ov');
+}
+
+function saveSchedule(){
+  D.customPlan = D.customPlan || { active:false, sessions:[] };
+  const sch = {};
+  DAY_ORDER.forEach(day=>{
+    const el = document.getElementById('sched-sel-'+day);
+    if(!el) return;
+    sch[day] = el.value==='rest' ? 'rest' : Number(el.value);
+  });
+  D.customPlan.schedule = sch;
+  save();
+  closeSheet('sched-ov');
+  renderCustomPlan();
+  if(typeof initHome==='function') initHome();
+  if(typeof renderTodayWorkout==='function') renderTodayWorkout();
+  toast('Dias da semana salvos ✓');
 }
 
 function openNewSession(){
