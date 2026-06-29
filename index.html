@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-06-08T12:00:00Z">
+<meta name="app-version" content="2026-06-29T01:38:24Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1825,9 +1825,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <div class="overlay" id="fast-edit-ov" onclick="if(event.target===this)closeSheet('fast-edit-ov')">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <div class="sheet-title" id="fe-title">EDITAR INÍCIO</div>
-    <div class="sheet-desc" id="fe-desc">Esqueceu de registrar? Ajuste data e hora de início do jejum.</div>
-    <div style="display:flex;gap:10px;margin-bottom:18px">
+    <div class="sheet-title" id="fe-title">EDITAR JEJUM</div>
+    <div class="sheet-desc" id="fe-desc">Ajuste a data e hora de início e de fim do jejum como quiser.</div>
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:6px">INÍCIO</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
       <div style="flex:1">
         <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">DATA</div>
         <input type="date" id="fe-date" class="sheet-input" style="margin-bottom:0;font-size:16px">
@@ -1837,11 +1838,26 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         <input type="time" id="fe-time" class="sheet-input" style="margin-bottom:0;font-size:16px">
       </div>
     </div>
-    <div class="sheet-note" id="fe-note">O timer será recalculado a partir do horário informado.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700">FIM</div>
+      <button id="fe-end-clear" onclick="clearFastEditEnd()" style="background:transparent;border:none;color:var(--dim);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;padding:2px 0">Ainda em jejum ✕</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <div style="flex:1">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">DATA</div>
+        <input type="date" id="fe-end-date" class="sheet-input" style="margin-bottom:0;font-size:16px">
+      </div>
+      <div style="flex:1">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">HORA</div>
+        <input type="time" id="fe-end-time" class="sheet-input" style="margin-bottom:0;font-size:16px">
+      </div>
+    </div>
+    <div class="sheet-note" id="fe-note">Deixe o fim em branco pra continuar o jejum em andamento. Preencha pra encerrar no horário certo.</div>
     <div class="sheet-btns">
       <button class="btn btn-outline" onclick="closeSheet('fast-edit-ov')" style="flex:1">Cancelar</button>
       <button class="btn btn-gold" onclick="applyFastEdit()" style="flex:2;margin:0">Aplicar</button>
     </div>
+    <button id="fe-del-btn" onclick="deleteFastEntry()" style="display:none;width:100%;margin-top:10px;padding:13px;background:transparent;border:1px solid rgba(224,82,82,.4);border-radius:var(--rs);color:var(--red,#E05252);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Excluir este jejum</button>
   </div>
 </div>
 
@@ -5147,12 +5163,13 @@ function beginFast() {
   toast(FAST_START_MSGS[Math.floor(Math.random()*FAST_START_MSGS.length)]);
 }
 
-function endFast() {
-  const elapsed = Math.floor((Date.now()-D.fastStart)/1000);
+function endFast(endTsOverride) {
+  const endTs = endTsOverride || Date.now();
+  const elapsed = Math.floor((endTs-D.fastStart)/1000);
   const goal = D.fastH*3600; const pct = elapsed/goal;
   track('fast_ended', {goal_h:D.fastH, elapsed_h:Math.round(elapsed/3600), complete:pct>=1});
   D.fastHistory = D.fastHistory||[];
-  D.fastHistory.unshift({date:TODAY, ts:D.fastStart, endTs:Date.now(), goal:D.fastH, elapsed:Math.floor(elapsed/60), complete:pct>=1});
+  D.fastHistory.unshift({date:new Date(D.fastStart).toDateString(), ts:D.fastStart, endTs:endTs, goal:D.fastH, elapsed:Math.floor(elapsed/60), complete:pct>=1});
   D.fastHistory = D.fastHistory.slice(0,30);
   D.fastStart = null; save();
   clearInterval(fastTick);
@@ -5165,7 +5182,7 @@ function endFast() {
   setEl('t-state', tr('fast_done')); setEl('fm-rem','—');
   arcFast(805,1); dotFast(1);
   document.getElementById('t-arc').style.stroke = 'var(--green)';
-  const now=new Date(), eatH=24-D.fastH, end=new Date(now.getTime()+eatH*3600000);
+  const now=new Date(endTs), eatH=24-D.fastH, end=new Date(now.getTime()+eatH*3600000);
   document.getElementById('win-card').classList.add('show');
   setEl('win-eye',tr('win_eye'));
   const endMsg = FAST_END_MSGS[Math.floor(Math.random()*FAST_END_MSGS.length)];
@@ -5263,13 +5280,14 @@ function renderFastHistory() {
   const statsEl = document.getElementById('fh-stats');
   if(hist.length&&statsEl){const c=hist.filter(h=>h.complete).length;statsEl.textContent=`${c}/${hist.length}`;}
   if(!hist.length){list.innerHTML=`<div class="empty" style="padding:14px 0">${tr('fh_empty')}</div>`;return;}
-  list.innerHTML = hist.slice(0,8).map(h => {
+  list.innerHTML = hist.slice(0,8).map((h,i) => {
     const hours=(h.elapsed/60).toFixed(1);const pct=Math.min(h.elapsed/60/h.goal,1);
     const d=new Date(h.ts).toLocaleDateString(lang==='pt'?'pt-BR':'en-US',{month:'short',day:'numeric'});
-    return `<div class="fh-row">
+    return `<div class="fh-row" onclick="openFastEditEntry(${i})" style="cursor:pointer">
       <div class="fh-bar-wrap"><div class="fh-bar" style="width:${Math.round(pct*100)}%"></div></div>
       <div class="fh-info"><div class="fh-date">${d}</div><div class="fh-dur">${hours}h / ${h.goal}h</div></div>
       <div class="fh-badge-sm ${h.complete?'ok':'partial'}">${h.complete?tr('fh_complete'):tr('fh_partial')}</div>
+      <div style="margin-left:8px;color:var(--dim);font-size:13px">✎</div>
     </div>`;
   }).join('');
 }
@@ -6124,13 +6142,14 @@ function renderFastHistory2() {
   const list = document.getElementById('fast-history-list'); if(!list) return;
   const hist = D.fastHistory||[];
   if(!hist.length){list.innerHTML='<div class="empty">'+(lang==='pt'?'Nenhum jejum registrado ainda.':'No fasts logged yet.')+'</div>';return;}
-  list.innerHTML = hist.slice(0,20).map(h=>{
+  list.innerHTML = hist.slice(0,20).map((h,i)=>{
     const d=new Date(h.ts).toLocaleDateString(lang==='pt'?'pt-BR':'en-US',{month:'short',day:'numeric'});
     const hours=(h.elapsed/60).toFixed(1);
-    return `<div class="hist-row">
+    return `<div class="hist-row" onclick="openFastEditEntry(${i})" style="cursor:pointer">
       <div class="hist-date">${d}</div>
       <div class="hist-content"><div class="hist-title">${hours}h / ${h.goal}h</div><div class="hist-sub">${h.complete?(lang==='pt'?'Completo':'Complete'):(lang==='pt'?'Parcial':'Partial')}</div></div>
       <div class="hist-badge" style="${h.complete?'background:var(--green-bg);color:var(--green)':'background:var(--gold-bg);color:var(--gold)'}">${h.complete?'OK':'PARCIAL'}</div>
+      <div style="margin-left:8px;color:var(--dim);font-size:14px">✎</div>
     </div>`;
   }).join('');
 }
@@ -6301,7 +6320,9 @@ function renderCustomPlan(){
         <div style="font-size:48px;margin-bottom:12px">🏗️</div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--text);letter-spacing:.5px;margin-bottom:8px">CRIE SEU TREINO</div>
         <div style="font-size:14px;color:var(--dim);line-height:1.6;max-width:280px;margin:0 auto 24px">Monte suas sessões com os exercícios, séries e cargas que você escolher.</div>
-        <button onclick="openNewSession()" class="btn btn-gold" style="padding:14px 32px">+ CRIAR PRIMEIRA SESSÃO</button>
+        <button onclick="loadBurnPlan()" class="btn btn-gold btn-full" style="padding:14px;max-width:320px;margin:0 auto 10px">🔥 CARREGAR PLANO QUEIMA 60</button>
+        <div style="font-size:11px;color:var(--dim);margin-bottom:18px">Força + cárdio em 1h · 3 sessões prontas · adaptado p/ joelho</div>
+        <button onclick="openNewSession()" class="btn btn-outline" style="padding:12px 28px">+ Criar sessão do zero</button>
       </div>`;
     return;
   }
@@ -6327,8 +6348,59 @@ function renderCustomPlan(){
         </div>`).join('')}
     </div>`).join('')
   + `<div style="padding:0 14px 20px">
-      <button onclick="openNewSession()" class="btn btn-outline btn-full" style="padding:13px">+ NOVA SESSÃO</button>
+      <button onclick="openNewSession()" class="btn btn-outline btn-full" style="padding:13px;margin-bottom:8px">+ NOVA SESSÃO</button>
+      <button onclick="loadBurnPlan()" class="btn btn-outline btn-full" style="padding:13px;font-size:12px;opacity:.85">🔥 Recarregar plano Queima 60</button>
     </div>`;
+}
+
+// ── PRESET: Plano "Queima 60" — força + cárdio em 1h, adaptado p/ joelho ──
+function loadBurnPlan(){
+  D.customPlan = D.customPlan || { active:false, sessions:[] };
+  D.customPlan.sessions = D.customPlan.sessions || [];
+  if(D.customPlan.sessions.some(s=>s.preset==='burn60')){
+    if(!confirm('Recarregar o plano Queima 60? Isso substitui as sessões deste preset (suas outras sessões ficam intactas).')) return;
+  }
+  // remove versão anterior deste preset, preserva sessões criadas por você
+  D.customPlan.sessions = D.customPlan.sessions.filter(s=>s.preset!=='burn60');
+  const base = Date.now();
+  const mk=(i,name,focus,exercises)=>({name,focus,exercises,preset:'burn60',id:base+i});
+  const presets = [
+    mk(1,'🔥 Força A — Corpo Inteiro','Supersets · ~60 min · poupa joelho',[
+      {name:'A1) Leg Press (amplitude confortável)',sets:3,reps:'12-15',rest:'60s',load:'Moderada'},
+      {name:'A2) Supino com Halteres',sets:3,reps:'10-12',rest:'60s',load:''},
+      {name:'B1) Terra Romeno (RDL) c/ Halteres',sets:3,reps:'10-12',rest:'60s',load:''},
+      {name:'B2) Remada na Máquina',sets:3,reps:'10-12',rest:'60s',load:''},
+      {name:'C1) Desenvolvimento de Ombro',sets:3,reps:'10-12',rest:'60s',load:''},
+      {name:'C2) Puxada na Polia (Pulldown)',sets:3,reps:'10-12',rest:'60s',load:''},
+      {name:'D1) Mesa Flexora (posterior)',sets:3,reps:'12-15',rest:'45s',load:''},
+      {name:'D2) Prancha',sets:3,reps:'30-45s',rest:'45s',load:'Isométrico'},
+      {name:'🏁 Finalizador — Intervalado Bike/Remo',sets:1,reps:'10-12 min',rest:'—',load:'30s forte / 75s leve'},
+    ]),
+    mk(2,'🔥 Força B — Corpo Inteiro','Variação · supersets · ~60 min',[
+      {name:'A1) Elevação Pélvica (Hip Thrust)',sets:3,reps:'12-15',rest:'60s',load:''},
+      {name:'A2) Crucifixo / Peck Deck',sets:3,reps:'12-15',rest:'60s',load:''},
+      {name:'B1) Stiff com Halteres',sets:3,reps:'10-12',rest:'60s',load:''},
+      {name:'B2) Remada Baixa (Cabo)',sets:3,reps:'10-12',rest:'60s',load:''},
+      {name:'C1) Elevação Lateral',sets:3,reps:'15',rest:'45s',load:''},
+      {name:'C2) Tríceps na Polia',sets:3,reps:'12-15',rest:'45s',load:''},
+      {name:'D1) Rosca Direta',sets:3,reps:'12',rest:'45s',load:''},
+      {name:'D2) Abdominal / Core',sets:3,reps:'15',rest:'45s',load:''},
+      {name:'🏁 Finalizador — Intervalado Remo/Elíptico',sets:1,reps:'10-12 min',rest:'—',load:'30s forte / 75s leve'},
+    ]),
+    mk(3,'🚶 Condicionamento — Cárdio + Core','Zona 2 · baixo impacto · 45-55 min',[
+      {name:'Caminhada Inclinada (Zona 2)',sets:1,reps:'30-40 min',rest:'—',load:'Incl. 8-12%'},
+      {name:'Bike ou Elíptico (opcional)',sets:1,reps:'10-15 min',rest:'—',load:'Moderado'},
+      {name:'Prancha',sets:3,reps:'45s',rest:'30s',load:'Isométrico'},
+      {name:'Abdominal Infra (elevação de pernas)',sets:3,reps:'15',rest:'30s',load:''},
+      {name:'Prancha Lateral',sets:3,reps:'30s/lado',rest:'30s',load:''},
+    ]),
+  ];
+  // preset primeiro, depois suas sessões
+  D.customPlan.sessions = presets.concat(D.customPlan.sessions);
+  D.customPlan.active = true;
+  save();
+  switchPlanMode('custom');
+  toast('Plano Queima 60 carregado 🔥');
 }
 
 function openNewSession(){
@@ -6714,24 +6786,99 @@ function nutQuick(el) {
 // ══════════════════════════════════
 // FAST EDIT (forgot to start)
 // ══════════════════════════════════
+// _fastEditIdx: -1 = jejum ativo (ou pronto pra iniciar); >=0 = índice no D.fastHistory
+let _fastEditIdx = -1;
+
+function _setDT(dateId, timeId, ms){
+  if(ms==null){ document.getElementById(dateId).value=''; document.getElementById(timeId).value=''; return; }
+  const x = new Date(ms);
+  document.getElementById(dateId).value = `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`;
+  document.getElementById(timeId).value = `${pad(x.getHours())}:${pad(x.getMinutes())}`;
+}
+
 function openFastEdit() {
-  const now = D.fastStart ? new Date(D.fastStart) : new Date();
-  const dateStr = now.toISOString().slice(0,10);
-  const timeStr = now.toTimeString().slice(0,5);
-  document.getElementById('fe-date').value = dateStr;
-  document.getElementById('fe-time').value = timeStr;
+  _fastEditIdx = -1;
+  _setDT('fe-date','fe-time', D.fastStart || Date.now());
+  // jejum ativo começa sem fim preenchido (= em andamento)
+  document.getElementById('fe-end-date').value = '';
+  document.getElementById('fe-end-time').value = '';
+  document.getElementById('fe-title').textContent = lang==='pt'?'EDITAR JEJUM':'EDIT FAST';
+  document.getElementById('fe-desc').textContent = lang==='pt'
+    ? 'Ajuste o início e, se esqueceu de parar, preencha o fim no horário certo.'
+    : 'Adjust the start and, if you forgot to stop, fill in the correct end time.';
+  document.getElementById('fe-del-btn').style.display = 'none';
+  document.getElementById('fe-end-clear').style.display = '';
   openSheet('fast-edit-ov');
 }
+
+function openFastEditEntry(idx){
+  const h = (D.fastHistory||[])[idx]; if(!h) return;
+  _fastEditIdx = idx;
+  _setDT('fe-date','fe-time', h.ts);
+  _setDT('fe-end-date','fe-end-time', h.endTs || (h.ts + (h.elapsed||0)*60000));
+  document.getElementById('fe-title').textContent = lang==='pt'?'EDITAR JEJUM':'EDIT FAST';
+  document.getElementById('fe-desc').textContent = lang==='pt'
+    ? 'Corrija a data e hora de início e fim deste jejum.'
+    : 'Fix the start and end date/time of this fast.';
+  document.getElementById('fe-del-btn').style.display = '';
+  document.getElementById('fe-end-clear').style.display = 'none';
+  openSheet('fast-edit-ov');
+}
+
+function clearFastEditEnd(){
+  document.getElementById('fe-end-date').value = '';
+  document.getElementById('fe-end-time').value = '';
+}
+
 function applyFastEdit() {
   const dateVal = document.getElementById('fe-date').value;
   const timeVal = document.getElementById('fe-time').value;
-  if(!dateVal||!timeVal){toast(lang==='pt'?'Preencha data e hora':'Fill date and time');return;}
-  const dt = new Date(dateVal+'T'+timeVal);
-  if(isNaN(dt.getTime())){toast(lang==='pt'?'Data/hora inválida':'Invalid date/time');return;}
-  if(dt > new Date()){toast(lang==='pt'?'Não pode ser no futuro':'Cannot be in the future');return;}
-  D.fastStart = dt.getTime();
+  if(!dateVal||!timeVal){toast(lang==='pt'?'Preencha data e hora de início':'Fill start date and time');return;}
+  const start = new Date(dateVal+'T'+timeVal);
+  if(isNaN(start.getTime())){toast(lang==='pt'?'Data/hora inválida':'Invalid date/time');return;}
+
+  const endDateVal = document.getElementById('fe-end-date').value;
+  const endTimeVal = document.getElementById('fe-end-time').value;
+  const hasEnd = endDateVal && endTimeVal;
+  let end = null;
+  if(hasEnd){
+    end = new Date(endDateVal+'T'+endTimeVal);
+    if(isNaN(end.getTime())){toast(lang==='pt'?'Fim inválido':'Invalid end');return;}
+    if(end <= start){toast(lang==='pt'?'O fim tem que ser depois do início':'End must be after start');return;}
+    if(end > new Date(Date.now()+60000)){toast(lang==='pt'?'O fim não pode ser no futuro':'End cannot be in the future');return;}
+    if(end.getTime() - start.getTime() > 365*24*3600000){toast(lang==='pt'?'Duração muito longa':'Duration too long');return;}
+  }
+  if(start > new Date()){toast(lang==='pt'?'O início não pode ser no futuro':'Start cannot be in the future');return;}
+
+  // ── Editando uma entrada do histórico ──
+  if(_fastEditIdx >= 0){
+    if(!hasEnd){toast(lang==='pt'?'Preencha a data e hora de fim':'Fill the end date and time');return;}
+    const h = D.fastHistory[_fastEditIdx]; if(!h){closeSheet('fast-edit-ov');return;}
+    const elapsedMin = Math.floor((end-start)/60000);
+    h.ts = start.getTime();
+    h.endTs = end.getTime();
+    h.elapsed = elapsedMin;
+    h.date = start.toDateString();
+    h.complete = elapsedMin/60 >= (h.goal||D.fastH||16);
+    D.fastHistory.sort((a,b)=>b.ts-a.ts);
+    save();
+    renderFastHistory(); renderFastHistory2(); setEl('h-fasts',(D.fastHistory||[]).length);
+    closeSheet('fast-edit-ov');
+    const hh=Math.floor(elapsedMin/60), mm=elapsedMin%60;
+    toast(lang==='pt'?`Jejum atualizado: ${hh}h${mm?' '+mm+'min':''} ✓`:`Fast updated: ${hh}h${mm?' '+mm+'min':''} ✓`);
+    return;
+  }
+
+  // ── Jejum ativo / pronto pra iniciar ──
+  D.fastStart = start.getTime();
   save();
-  // If not already in fasting state, activate it
+  if(hasEnd){
+    // Esqueceu de parar: encerra no horário informado
+    endFast(end.getTime());
+    closeSheet('fast-edit-ov');
+    return;
+  }
+  // Sem fim: mantém o jejum em andamento a partir do novo início
   if(!document.getElementById('fast-btn').classList.contains('btn-red')){
     document.getElementById('fast-btn').textContent = tr('fast_end_btn');
     document.getElementById('fast-btn').classList.remove('btn-gold');
@@ -6745,6 +6892,16 @@ function applyFastEdit() {
   tickFast();
   closeSheet('fast-edit-ov');
   toast(lang==='pt'?'Início do jejum ajustado!':'Fast start time updated!');
+}
+
+function deleteFastEntry(){
+  if(_fastEditIdx < 0) return;
+  if(!confirm(lang==='pt'?'Excluir este jejum do histórico?':'Delete this fast from history?')) return;
+  D.fastHistory.splice(_fastEditIdx,1);
+  save();
+  renderFastHistory(); renderFastHistory2(); setEl('h-fasts',(D.fastHistory||[]).length);
+  closeSheet('fast-edit-ov');
+  toast(lang==='pt'?'Jejum excluído':'Fast deleted');
 }
 
 // ══════════════════════════════════
