@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-06-30T01:28:15Z">
+<meta name="app-version" content="2026-06-30T01:34:16Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -949,6 +949,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           </div>
         </div>
       </div>
+
+      <div id="july-goal-card" style="margin-bottom:14px"></div>
 
       <div class="weight-chart-wrap">
         <div id="w-chart" style="margin-bottom:12px"></div>
@@ -6930,7 +6932,140 @@ function renderWeightPage(){
     const bc=document.getElementById('bmi-cursor');if(bc)bc.style.left=pct+'%';
     setEl('bmi-status','BMI <strong>'+bmi+'</strong> · '+cat);
   }
-  drawWeightChart(); renderWeightHistList();
+  drawWeightChart(); renderWeightHistList(); renderJulyGoal();
+}
+
+// ── Painel "Meta de Julho": peso + metas de caloria/proteína + lembrete ──
+function estTargets(){
+  const w = D.weightLbs || (D.weightLog&&D.weightLog.length?D.weightLog[D.weightLog.length-1].lbs:235);
+  const goalW = (D.julyGoal&&D.julyGoal.target) || w;
+  let maint;
+  if(D.heightIn && D.age){
+    const kg=w*0.453592, cm=D.heightIn*2.54;
+    const bmr = 10*kg + 6.25*cm - 5*D.age + 5; // Mifflin-St Jeor (homem)
+    maint = Math.round(bmr*1.45);              // treina quase todo dia
+  } else {
+    maint = Math.round(w*15);
+  }
+  const cal = D.calGoal || Math.max(1500, maint-500);
+  const protein = D.proteinGoal || Math.round(w*0.85);
+  return { maint, cal, protein, goalW };
+}
+
+function renderJulyGoal(){
+  const card = document.getElementById('july-goal-card');
+  if(!card) return;
+  const w = D.weightLbs || (D.weightLog&&D.weightLog.length?D.weightLog[D.weightLog.length-1].lbs:235);
+  if(!D.julyGoal){
+    D.julyGoal = { start: w, target: Math.round((w-8)*10)/10, byDate:'2026-07-31' };
+    save();
+  }
+  const g = D.julyGoal;
+  const lost = Math.max(0, g.start - w);
+  const totalToLose = Math.max(0.1, g.start - g.target);
+  const pct = Math.max(0, Math.min(100, Math.round(lost/totalToLose*100)));
+  const toGo = Math.max(0, w - g.target);
+  const u = (v)=> D.weightUnit==='kg' ? (v*0.453592).toFixed(1)+' kg' : v.toFixed(1)+' lb';
+  // dias restantes até a data-meta
+  const today = new Date(TODAY+'T00:00:00');
+  const end = new Date((g.byDate||'2026-07-31')+'T00:00:00');
+  const daysLeft = Math.max(0, Math.round((end-today)/86400000));
+
+  const t = estTargets();
+  const kcalToday = (D.log||[]).reduce((a,e)=>a+(e.kcal||0),0);
+  const protToday = (D.log||[]).reduce((a,e)=>a+(e.protein||0),0);
+  const calPct = Math.min(100, Math.round(kcalToday/Math.max(1,t.cal)*100));
+  const protPct = Math.min(100, Math.round(protToday/Math.max(1,t.protein)*100));
+  const rt = D.reminderTime || '18:00';
+
+  card.innerHTML = `
+  <div style="background:linear-gradient(135deg,var(--gold-bg),var(--s1));border:1px solid rgba(201,169,110,.35);border-radius:var(--r);padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">🎯 Meta de Julho</div>
+      <button onclick="editJulyTarget()" style="background:transparent;border:none;color:var(--dim);font-size:11px;font-weight:700;cursor:pointer">✎ Editar</button>
+    </div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:8px">
+      <div><div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase">Atual</div><div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--text);line-height:1">${u(w)}</div></div>
+      <div style="text-align:center;font-size:11px;color:var(--mid)">${lost>0?`▼ ${u(lost)} ${lang==='pt'?'perdidos':'lost'}`:`${lang==='pt'?'comece a registrar':'start logging'}`}<br>${daysLeft} ${lang==='pt'?'dias restantes':'days left'}</div>
+      <div style="text-align:right"><div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase">Meta</div><div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--green);line-height:1">${u(g.target)}</div></div>
+    </div>
+    <div style="height:8px;background:var(--s2);border-radius:6px;overflow:hidden;margin-bottom:4px"><div style="height:100%;width:${pct}%;background:var(--gold);transition:width .4s"></div></div>
+    <div style="text-align:right;font-size:11px;color:var(--mid)">${pct}% · ${toGo>0?`faltam ${u(toGo)}`:'meta atingida! 🎉'}</div>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <div style="flex:1;background:var(--s1);border:1px solid var(--bdr);border-radius:10px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700">Calorias/dia</span><span onclick="editCalGoal()" style="font-size:10px;color:var(--gold);cursor:pointer;font-weight:700">✎</span></div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--text);line-height:1">${kcalToday}<span style="font-size:13px;color:var(--mid)"> / ${t.cal}</span></div>
+        <div style="height:5px;background:var(--s2);border-radius:4px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${calPct}%;background:${kcalToday>t.cal?'var(--red)':'var(--green)'}"></div></div>
+      </div>
+      <div style="flex:1;background:var(--s1);border:1px solid var(--bdr);border-radius:10px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700">Proteína/dia</span><span onclick="editProteinGoal()" style="font-size:10px;color:var(--gold);cursor:pointer;font-weight:700">✎</span></div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--text);line-height:1">${Math.round(protToday)}<span style="font-size:13px;color:var(--mid)"> / ${t.protein}g</span></div>
+        <div style="height:5px;background:var(--s2);border-radius:4px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${protPct}%;background:var(--gold)"></div></div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.5">Déficit ~500 kcal (manutenção estimada ${t.maint}). Proteína alta protege o músculo. Toque no ✎ pra ajustar.</div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--bdr)">
+      <div style="flex:1">
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:2px">⏰ Lembrete diário</div>
+        <div style="font-size:13px;color:var(--text)">Treino + jejum às <strong style="color:var(--gold)">${rt}</strong> <span onclick="setReminderTime()" style="color:var(--gold);cursor:pointer;font-weight:700;font-size:11px">✎</span></div>
+      </div>
+      <button onclick="downloadReminderICS()" style="background:var(--gold);color:var(--gold-ink);border:none;border-radius:8px;font-size:11px;font-weight:800;letter-spacing:.5px;padding:10px 12px;cursor:pointer;white-space:nowrap">📅 Adicionar</button>
+    </div>
+  </div>`;
+}
+
+function editJulyTarget(){
+  const isKg = D.weightUnit==='kg';
+  const cur = D.julyGoal ? D.julyGoal.target : (D.weightLbs||235);
+  const shown = isKg ? (cur*0.453592).toFixed(1) : cur.toFixed(1);
+  const v = prompt(`Meta de peso para Julho (${isKg?'kg':'lb'}):`, shown);
+  if(v==null) return;
+  let lbs = parseFloat(String(v).replace(',','.'));
+  if(isNaN(lbs)){ toast('Valor inválido'); return; }
+  if(isKg) lbs = lbs/0.453592;
+  if(!D.julyGoal) D.julyGoal = { start: D.weightLbs||235, byDate:'2026-07-31' };
+  D.julyGoal.target = Math.round(lbs*10)/10;
+  D.julyGoal.start = D.julyGoal.start || D.weightLbs || 235;
+  save(); renderJulyGoal();
+  toast('Meta atualizada ✓');
+}
+function editCalGoal(){
+  const v = prompt('Meta de calorias por dia:', String(estTargets().cal));
+  if(v==null) return; const n=parseInt(v); if(isNaN(n)||n<800){ toast('Valor inválido'); return; }
+  D.calGoal = n; save(); renderJulyGoal(); toast('Meta de calorias salva ✓');
+}
+function editProteinGoal(){
+  const v = prompt('Meta de proteína por dia (g):', String(estTargets().protein));
+  if(v==null) return; const n=parseInt(v); if(isNaN(n)||n<40){ toast('Valor inválido'); return; }
+  D.proteinGoal = n; save(); renderJulyGoal(); toast('Meta de proteína salva ✓');
+}
+function setReminderTime(){
+  const v = prompt('Horário do lembrete (HH:MM, 24h):', D.reminderTime||'18:00');
+  if(v==null) return;
+  if(!/^([01]?\d|2[0-3]):[0-5]\d$/.test(v.trim())){ toast('Use o formato HH:MM'); return; }
+  D.reminderTime = v.trim(); save(); renderJulyGoal();
+  if(typeof initReminder==='function') initReminder();
+  toast('Horário salvo ✓');
+}
+function downloadReminderICS(){
+  const t = D.reminderTime || '18:00';
+  const [hh,mm] = t.split(':');
+  const dt = '20260601T'+hh.padStart(2,'0')+mm.padStart(2,'0')+'00';
+  const ics = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//OpusX//Lembrete//PT','CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT','UID:opusx-treino-'+TODAY+'@opusx','DTSTAMP:'+dt,'DTSTART:'+dt,
+    'RRULE:FREQ=DAILY','SUMMARY:🔥 Opus X — Treino + Jejum',
+    'DESCRIPTION:Hora de treinar e seguir o protocolo. Abra o Opus X.',
+    'BEGIN:VALARM','TRIGGER:PT0M','ACTION:DISPLAY','DESCRIPTION:Opus X','END:VALARM',
+    'END:VEVENT','END:VCALENDAR'
+  ].join('\r\n');
+  const blob = new Blob([ics],{type:'text/calendar'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='opusx-lembrete-diario.ics'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Lembrete diário gerado — abra o arquivo pra adicionar ao calendário 📅');
 }
 
 function drawWeightChart(){
