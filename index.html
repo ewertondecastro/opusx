@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-06-29T13:39:51Z">
+<meta name="app-version" content="2026-06-30T01:22:58Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -6440,13 +6440,24 @@ function buildCustomExerciseHTML(s, origEx, i){
       </div>`;
     }).join('');
     const noteTxt = ex.notes || (ex.load ? 'Carga sugerida: '+ex.load : '');
+    const noteLbl = ex.notes ? (lang==='pt'?'EXECUÇÃO':'EXECUTION') : (lang==='pt'?'NOTA':'NOTE');
     body = `<div style="background:var(--s1);border-top:1px solid var(--bdr)">${seriesRows}</div>
-      ${noteTxt?`<div style="padding:10px 14px;border-top:1px solid var(--bdr)"><div class="ex-notes"><strong>${lang==='pt'?'NOTA':'NOTE'}</strong>${noteTxt}</div></div>`:''}`;
+      ${noteTxt?`<div style="padding:10px 14px;border-top:1px solid var(--bdr)"><div class="ex-notes"><strong>${noteLbl}</strong>${noteTxt}</div></div>`:''}`;
   }
+
+  // feedback por exercício + pular (igual Opus 15)
+  const fbKey = exKey+'_fb';
+  const fb = (D.exFeedback||{})[fbKey]||'';
+  const exFooter = `<div style="padding:10px 14px;border-top:1px solid var(--bdr)">
+    <textarea class="ex-feedback-input" id="fb-${fbKey}" placeholder="${tr('feedback_ph')}">${fb}</textarea>
+    <button class="ex-feedback-save" onclick="saveExFeedback('${fbKey}')">${lang==='pt'?'SALVAR':'SAVE'}</button>
+    <div style="clear:both;margin-top:8px"></div>
+    <button onclick="openSkipModal('exercise','${ex.name.replace(/'/g,'')}')" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;margin-top:6px">😮‍💨 Não vou fazer esse exercício</button>
+  </div>`;
 
   return `<div class="ex-row${exDone?' done-ex':''}" id="exrow-${exKey}">
     <div class="ex-top" style="cursor:pointer" onclick="toggleWoExpand('${exKey}')">
-      <div class="ex-checkbox${exDone?' done':''}" onclick="event.stopPropagation();toggleExCheck('${exKey}',this,'exrow-${exKey}')">
+      <div class="ex-checkbox${exDone?' done':''}" onclick="event.stopPropagation();cuToggleEx('${exKey}',this,'exrow-${exKey}',${s.id})">
         <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
       <div class="ex-info">
@@ -6462,8 +6473,53 @@ function buildCustomExerciseHTML(s, origEx, i){
         <div class="ex-expand-btn" id="woexp-btn-${exKey}">${isExpanded?'−':'+'}</div>
       </div>
     </div>
-    <div id="woexp-${exKey}" style="display:${isExpanded?'block':'none'}">${body}</div>
+    <div id="woexp-${exKey}" style="display:${isExpanded?'block':'none'}">${body}${exFooter}</div>
   </div>`;
+}
+
+// check de exercício do plano custom + atualização de progresso ao vivo
+function cuToggleEx(exKey, el, rowId, sid){
+  if(!D.exChecked) D.exChecked={};
+  D.exChecked[exKey] = !D.exChecked[exKey];
+  el.classList.toggle('done', D.exChecked[exKey]);
+  const row = document.getElementById(rowId);
+  if(row) row.classList.toggle('done-ex', D.exChecked[exKey]);
+  save();
+  refreshCustomProgress(sid);
+}
+
+function refreshCustomProgress(sid){
+  const s = ((D.customPlan||{}).sessions||[]).find(x=>x.id===sid);
+  if(!s) return;
+  const total = (s.exercises||[]).length;
+  const done = (s.exercises||[]).filter((_,i)=>(D.exChecked||{})['cu_'+sid+'_ex_'+i]).length;
+  const cnt = document.getElementById('cu-cnt-'+sid);
+  if(cnt) cnt.textContent = done+'/'+total;
+  const bar = document.getElementById('cu-spb-'+sid);
+  if(bar) bar.style.width = (total?Math.round(done/total*100):0)+'%';
+}
+
+function logCustomSession(sid){
+  const s = ((D.customPlan||{}).sessions||[]).find(x=>x.id===sid);
+  if(!s) return;
+  const sfEl = document.getElementById('cu-sfb-'+sid);
+  if(sfEl){ if(!D.sessionFeedback) D.sessionFeedback={}; D.sessionFeedback['cu_'+sid+'_fb'] = sfEl.value; }
+  const total = (s.exercises||[]).length;
+  const done = (s.exercises||[]).filter((_,i)=>(D.exChecked||{})['cu_'+sid+'_ex_'+i]).length;
+  track('workout_logged', {day:'cu_'+sid, done, total, complete:done===total});
+  if(!D.workoutHistory) D.workoutHistory=[];
+  D.workoutHistory.unshift({
+    date:TODAY, ts:Date.now(), day:'cu_'+sid,
+    title:s.name, done, total, complete:done===total,
+    feedback:(D.sessionFeedback||{})['cu_'+sid+'_fb']||'',
+    startTs:null, endTs:Date.now()
+  });
+  D.workoutHistory = D.workoutHistory.slice(0,60);
+  save();
+  toast(typeof tr==='function'?tr('t_wo_logged'):'Treino registrado ✓');
+  if(typeof renderWorkoutHistory==='function') renderWorkoutHistory();
+  if(typeof initHome==='function') initHome();
+  refreshCustomProgress(sid);
 }
 
 function renderCustomPlan(){
@@ -6522,19 +6578,44 @@ function renderCustomPlan(){
 
   sec.innerHTML = hero + strip + sessions.map((s,si)=>{
     const isToday = todaySess && todaySess!=='rest' && todaySess.id===s.id;
+    const total = (s.exercises||[]).length;
+    const doneCount = (s.exercises||[]).filter((_,ei)=>(D.exChecked||{})['cu_'+s.id+'_ex_'+ei]).length;
+    const progPct = total?Math.round(doneCount/total*100):0;
+    const ckey = 'cu_'+s.id;
+    const sfb = (D.sessionFeedback||{})['cu_'+s.id+'_fb']||'';
     return `
     <div id="cs-card-${s.id}" style="margin:0 14px 12px;background:var(--s1);border:1px solid ${isToday?'var(--gold)':'var(--bdr)'};border-radius:var(--r);overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--s2);border-bottom:1px solid var(--bdr)">
         <div style="flex:1;min-width:0">
           <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--text);letter-spacing:.5px">${s.name||'Sessão '+(si+1)}${isToday?' <span style="font-size:10px;background:var(--gold);color:var(--gold-ink);padding:2px 7px;border-radius:4px;letter-spacing:1px;margin-left:6px;vertical-align:middle">HOJE</span>':''}</div>
-          <div style="font-size:12px;color:var(--dim);margin-top:2px">${s.focus||'—'} · ${(s.exercises||[]).length} exercícios</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:2px">${s.focus||'—'} · ${total} exercícios</div>
         </div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="badge badge-gold" id="cu-cnt-${s.id}" style="white-space:nowrap">${doneCount}/${total}</span>
           <button onclick="openEditSession(${si})" style="background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:6px;color:var(--gold);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer">EDITAR</button>
           <button onclick="deleteCustomSession(${si})" style="background:transparent;border:1px solid var(--bdr2);border-radius:6px;color:var(--dim);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer">✕</button>
         </div>
       </div>
+      <div style="height:4px;background:var(--s2)"><div id="cu-spb-${s.id}" style="height:100%;width:${progPct}%;background:var(--gold);transition:width .3s"></div></div>
       ${(s.exercises||[]).map((ex,ei)=>buildCustomExerciseHTML(s, ex, ei)).join('')}
+      <div style="padding:12px 14px;border-top:1px solid var(--bdr)">
+        <textarea id="cu-sfb-${s.id}" placeholder="${tr('session_fb_ph')}" style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:13px;padding:10px;min-height:54px;outline:none;resize:vertical;box-sizing:border-box">${sfb}</textarea>
+        <button onclick="logCustomSession(${s.id})" class="btn btn-gold btn-full" style="padding:13px;margin-top:10px">${tr('log_session_btn')}</button>
+      </div>
+      <div class="ai-chat-wrap" style="margin:0 14px 14px">
+        <div class="ai-chat-hd">
+          <div class="ai-chat-label">${tr('wo_ai_label')}</div>
+          <div class="ai-chat-mode">Online</div>
+        </div>
+        <div class="quick-chips">
+          ${['wo_qr1','wo_qr2','wo_qr3','wo_qr4'].map(k=>`<div class="qchip" onclick="woQuick(this,'${ckey}')">${tr(k)}</div>`).join('')}
+        </div>
+        <div class="ai-chat-feed" id="wo-feed-${ckey}" style="max-height:250px"></div>
+        <div class="ai-chat-input-row">
+          <input class="ai-input" id="wo-input-${ckey}" type="text" placeholder="${lang==='pt'?'Pergunte ao seu personal…':'Ask your trainer…'}" onkeydown="if(event.key==='Enter')sendWoMsg('${ckey}')">
+          <button class="ai-send-btn" onclick="sendWoMsg('${ckey}')"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+        </div>
+      </div>
     </div>`;}).join('')
   + `<div style="padding:0 14px 20px">
       <button onclick="openSchedule()" class="btn btn-outline btn-full" style="padding:13px;margin-bottom:8px">🗓️ Definir dias da semana</button>
@@ -6556,33 +6637,33 @@ function loadBurnPlan(){
   const mk=(i,name,focus,exercises)=>({name,focus,exercises,preset:'burn60',id:base+i});
   const presets = [
     mk(1,'🔥 Força A — Corpo Inteiro','Supersets · ~60 min · poupa joelho',[
-      {name:'A1) Leg Press (amplitude confortável)',sets:3,reps:'12-15',rest:'60s',load:'Moderada'},
-      {name:'A2) Supino com Halteres',sets:3,reps:'10-12',rest:'60s',load:''},
-      {name:'B1) Terra Romeno (RDL) c/ Halteres',sets:3,reps:'10-12',rest:'60s',load:''},
-      {name:'B2) Remada na Máquina',sets:3,reps:'10-12',rest:'60s',load:''},
-      {name:'C1) Desenvolvimento de Ombro',sets:3,reps:'10-12',rest:'60s',load:''},
-      {name:'C2) Puxada na Polia (Pulldown)',sets:3,reps:'10-12',rest:'60s',load:''},
-      {name:'D1) Mesa Flexora (posterior)',sets:3,reps:'12-15',rest:'45s',load:''},
-      {name:'D2) Prancha',sets:3,reps:'30-45s',rest:'45s',load:'Isométrico'},
-      {name:'🏁 Finalizador — Intervalado Bike/Remo',sets:1,reps:'10-12 min',rest:'—',load:'30s forte / 75s leve'},
+      {name:'A1) Leg Press (amplitude confortável)',sets:3,reps:'12-15',rest:'60s',load:'Moderada',notes:'Pés na largura do quadril. Desça só até onde o joelho ficar confortável (sem dor). Empurre pelo calcanhar, sem travar o joelho no topo.'},
+      {name:'A2) Supino com Halteres',sets:3,reps:'10-12',rest:'60s',load:'',notes:'Desça os halteres controlando 2-3s até a linha do peito. Cotovelos a ~45° do tronco. Contraia o peito ao subir.'},
+      {name:'B1) Terra Romeno (RDL) c/ Halteres',sets:3,reps:'10-12',rest:'60s',load:'',notes:'Dobra de QUADRIL, não de joelho. Empurre o bumbum pra trás, costas retas, halteres rente às pernas. Sinta o posterior alongar.'},
+      {name:'B2) Remada na Máquina',sets:3,reps:'10-12',rest:'60s',load:'',notes:'Puxe com os cotovelos, não com as mãos. Aperte as escápulas no fim. Volte controlando, sem soltar o peso.'},
+      {name:'C1) Desenvolvimento de Ombro',sets:3,reps:'10-12',rest:'60s',load:'',notes:'Empurre acima da cabeça sem arquear a lombar. Não trave os cotovelos. Desça até a orelha.'},
+      {name:'C2) Puxada na Polia (Pulldown)',sets:3,reps:'10-12',rest:'60s',load:'',notes:'Puxe a barra até a parte alta do peito, peito estufado. Conduza com os cotovelos pra baixo. Sem balançar o tronco.'},
+      {name:'D1) Mesa Flexora (posterior)',sets:3,reps:'12-15',rest:'45s',load:'',notes:'Joelho amigo: trabalha posterior sem carga axial. Flexione controlado, segure 1s no fim, volte devagar.'},
+      {name:'D2) Prancha',sets:3,reps:'30-45s',rest:'45s',load:'Isométrico',notes:'Corpo numa linha reta — sem cair o quadril nem empinar. Aperte abdômen e glúteo. Respire normal.'},
+      {name:'🏁 Finalizador — Intervalado Bike/Remo',sets:1,reps:'10-12 min',rest:'—',load:'30s forte / 75s leve',notes:'Baixo impacto pro joelho. 30s puxando forte, 75s leve pra recuperar. Repita até fechar o tempo.'},
     ]),
     mk(2,'🔥 Força B — Corpo Inteiro','Variação · supersets · ~60 min',[
-      {name:'A1) Elevação Pélvica (Hip Thrust)',sets:3,reps:'12-15',rest:'60s',load:''},
-      {name:'A2) Crucifixo / Peck Deck',sets:3,reps:'12-15',rest:'60s',load:''},
-      {name:'B1) Stiff com Halteres',sets:3,reps:'10-12',rest:'60s',load:''},
-      {name:'B2) Remada Baixa (Cabo)',sets:3,reps:'10-12',rest:'60s',load:''},
-      {name:'C1) Elevação Lateral',sets:3,reps:'15',rest:'45s',load:''},
-      {name:'C2) Tríceps na Polia',sets:3,reps:'12-15',rest:'45s',load:''},
-      {name:'D1) Rosca Direta',sets:3,reps:'12',rest:'45s',load:''},
-      {name:'D2) Abdominal / Core',sets:3,reps:'15',rest:'45s',load:''},
-      {name:'🏁 Finalizador — Intervalado Remo/Elíptico',sets:1,reps:'10-12 min',rest:'—',load:'30s forte / 75s leve'},
+      {name:'A1) Elevação Pélvica (Hip Thrust)',sets:3,reps:'12-15',rest:'60s',load:'',notes:'Costas apoiadas no banco, queixo no peito. Suba pelo calcanhar e aperte o glúteo no topo 1s. Não force a lombar.'},
+      {name:'A2) Crucifixo / Peck Deck',sets:3,reps:'12-15',rest:'60s',load:'',notes:'Cotovelos levemente flexionados e fixos. Abra controlando o alongamento do peito, feche apertando no centro.'},
+      {name:'B1) Stiff com Halteres',sets:3,reps:'10-12',rest:'60s',load:'',notes:'Igual ao RDL: empurre o quadril pra trás, joelhos quase retos, costas neutras. Desça até sentir o posterior, sem arredondar.'},
+      {name:'B2) Remada Baixa (Cabo)',sets:3,reps:'10-12',rest:'60s',load:'',notes:'Tronco firme, puxe até o umbigo, aperte as escápulas. Não use impulso da lombar.'},
+      {name:'C1) Elevação Lateral',sets:3,reps:'15',rest:'45s',load:'',notes:'Suba até a linha dos ombros liderando com os cotovelos. Sem balançar. Carga leve, foco na técnica.'},
+      {name:'C2) Tríceps na Polia',sets:3,reps:'12-15',rest:'45s',load:'',notes:'Cotovelos colados ao corpo e fixos. Estenda totalmente, volte controlando só o antebraço.'},
+      {name:'D1) Rosca Direta',sets:3,reps:'12',rest:'45s',load:'',notes:'Cotovelos fixos ao lado do corpo. Suba sem balançar, aperte o bíceps no topo, desça controlando.'},
+      {name:'D2) Abdominal / Core',sets:3,reps:'15',rest:'45s',load:'',notes:'Movimento controlado, expira ao contrair. Não puxe o pescoço — a força vem do abdômen.'},
+      {name:'🏁 Finalizador — Intervalado Remo/Elíptico',sets:1,reps:'10-12 min',rest:'—',load:'30s forte / 75s leve',notes:'Baixo impacto. 30s intenso / 75s leve. Mantenha a postura na remada (empurra perna, depois puxa braço).'},
     ]),
     mk(3,'🚶 Condicionamento — Cárdio + Core','Zona 2 · baixo impacto · 45-55 min',[
-      {name:'Caminhada Inclinada (Zona 2)',sets:1,reps:'30-40 min',rest:'—',load:'Incl. 8-12%'},
-      {name:'Bike ou Elíptico (opcional)',sets:1,reps:'10-15 min',rest:'—',load:'Moderado'},
-      {name:'Prancha',sets:3,reps:'45s',rest:'30s',load:'Isométrico'},
-      {name:'Abdominal Infra (elevação de pernas)',sets:3,reps:'15',rest:'30s',load:''},
-      {name:'Prancha Lateral',sets:3,reps:'30s/lado',rest:'30s',load:''},
+      {name:'Caminhada Inclinada (Zona 2)',sets:1,reps:'30-40 min',rest:'—',load:'Incl. 8-12%',notes:'Ritmo que dá pra conversar com um pouco de esforço (Zona 2). Não segure no corrimão — deixa o trabalho valer.'},
+      {name:'Bike ou Elíptico (opcional)',sets:1,reps:'10-15 min',rest:'—',load:'Moderado',notes:'Opção extra de baixo impacto. Ritmo moderado e constante. Bom pra somar gasto sem castigar o joelho.'},
+      {name:'Prancha',sets:3,reps:'45s',rest:'30s',load:'Isométrico',notes:'Linha reta do corpo, abdômen e glúteo apertados. Se doer a lombar, apoie nos joelhos.'},
+      {name:'Abdominal Infra (elevação de pernas)',sets:3,reps:'15',rest:'30s',load:'',notes:'Lombar colada no chão. Suba as pernas controlando, desça sem deixar bater no chão.'},
+      {name:'Prancha Lateral',sets:3,reps:'30s/lado',rest:'30s',load:'',notes:'Corpo alinhado, quadril pra cima. Aperte o oblíquo. Faça os dois lados.'},
     ]),
   ];
   // preset primeiro, depois suas sessões
