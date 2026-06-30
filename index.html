@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-06-30T01:34:16Z">
+<meta name="app-version" content="2026-06-30T11:40:42Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -872,8 +872,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
           <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--red);font-weight:700">🍕 FORA DA DIETA</div>
           <div style="font-size:12px;color:var(--dim);margin-top:2px">Comidas extras do dia</div>
         </div>
-        <button onclick="openAddExtraFood()" style="background:rgba(220,80,80,.12);border:1px solid rgba(220,80,80,.3);border-radius:6px;color:var(--red);font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer">+ ADICIONAR</button>
-        <button onclick="openFoodCamera()" style="background:rgba(82,137,201,.12);border:1px solid rgba(82,137,201,.3);border-radius:6px;color:var(--blue);font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer">📷 FOTO</button>
+        <div style="display:flex;gap:6px">
+          <button onclick="openQuickAdd()" style="background:var(--gold-bg);border:1px solid rgba(201,169,110,.4);border-radius:6px;color:var(--gold);font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer">⚡ RÁPIDO</button>
+          <button onclick="openFoodCamera()" style="background:rgba(82,137,201,.12);border:1px solid rgba(82,137,201,.3);border-radius:6px;color:var(--blue);font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer">📷</button>
+          <button onclick="openAddExtraFood()" style="background:rgba(220,80,80,.12);border:1px solid rgba(220,80,80,.3);border-radius:6px;color:var(--red);font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer">+</button>
+        </div>
       </div>
       <div id="extra-foods-list" style="padding:4px 0"></div>
     </div>
@@ -951,6 +954,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       </div>
 
       <div id="july-goal-card" style="margin-bottom:14px"></div>
+      <div id="waist-card" style="margin-bottom:14px"></div>
+      <div id="photo-card" style="margin-bottom:14px"></div>
+      <input type="file" id="progress-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handleProgressPhoto(this)">
 
       <div class="weight-chart-wrap">
         <div id="w-chart" style="margin-bottom:12px"></div>
@@ -1989,11 +1995,35 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-desc">Registre o que você comeu fora do plano — sem julgamento, só controle.</div>
     <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">O QUE VOCÊ COMEU</div>
     <input class="sheet-input" id="ef-name" type="text" placeholder="Ex: Fatia de pizza, chocolate, hambúrguer…">
-    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px;margin-top:2px">CALORIAS (OPCIONAL)</div>
-    <input class="sheet-input" id="ef-kcal" type="number" inputmode="decimal" placeholder="Ex: 350" style="margin-bottom:14px">
+    <div style="display:flex;gap:10px">
+      <div style="flex:1">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px;margin-top:2px">CALORIAS</div>
+        <input class="sheet-input" id="ef-kcal" type="number" inputmode="decimal" placeholder="Ex: 350" style="margin-bottom:14px">
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px;margin-top:2px">PROTEÍNA (g)</div>
+        <input class="sheet-input" id="ef-prot" type="number" inputmode="decimal" placeholder="Ex: 20" style="margin-bottom:14px">
+      </div>
+    </div>
     <div class="sheet-btns">
       <button class="btn btn-outline" onclick="closeSheet('extra-food-ov')" style="flex:1">Cancelar</button>
       <button class="btn btn-gold" onclick="saveExtraFood()" style="flex:2;margin:0">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK ADD (IA por texto) SHEET -->
+<div class="overlay" id="quickadd-ov" onclick="if(event.target===this)closeSheet('quickadd-ov')">
+  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">⚡ REGISTRO RÁPIDO</div>
+    <div class="sheet-desc">Escreva o que comeu — a IA estima calorias e proteína e lança no seu dia.</div>
+    <textarea id="qa-text" placeholder="Ex: 2 ovos mexidos, 150g de frango grelhado, 1 banana e um scoop de whey" style="width:100%;background:var(--s1);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:15px;padding:12px;min-height:80px;outline:none;resize:vertical;box-sizing:border-box;margin-bottom:12px"></textarea>
+    <button id="qa-estimate-btn" onclick="runQuickAddAI()" class="btn btn-gold btn-full" style="padding:13px">Estimar com IA</button>
+    <div id="qa-result" style="margin-top:14px"></div>
+    <div id="qa-btns" style="display:none;margin-top:14px" class="sheet-btns">
+      <button class="btn btn-outline" onclick="closeSheet('quickadd-ov')" style="flex:1">Cancelar</button>
+      <button class="btn btn-gold" onclick="saveQuickAdd()" style="flex:2;margin:0">Adicionar ao dia</button>
     </div>
   </div>
 </div>
@@ -5875,14 +5905,103 @@ function openAddExtraFood(){
 function saveExtraFood(){
   const name=(document.getElementById('ef-name').value||'').trim();
   const kcal=parseInt(document.getElementById('ef-kcal').value)||0;
+  const prot=parseInt((document.getElementById('ef-prot')||{}).value)||0;
   if(!name){toast('Informe o nome da comida');return;}
   if(!D.extraFoods) D.extraFoods={};
   if(!D.extraFoods[TODAY]) D.extraFoods[TODAY]=[];
   const now=new Date();
-  D.extraFoods[TODAY].push({name,kcal,ts:Date.now(),time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
+  D.extraFoods[TODAY].push({name,kcal,prot,ts:Date.now(),time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
   save(); closeSheet('extra-food-ov');
   toast(name+' registrado ✓');
-  renderExtraFoods();
+  renderExtraFoods(); if(typeof renderJulyGoal==='function') renderJulyGoal();
+}
+
+// soma do que foi registrado hoje (quick add, foto, manual)
+function consumedToday(){
+  const foods = (D.extraFoods||{})[TODAY]||[];
+  return {
+    kcal: foods.reduce((s,f)=>s+(f.kcal||0),0),
+    prot: foods.reduce((s,f)=>s+(f.prot||0),0)
+  };
+}
+
+// ── QUICK ADD: descreve em texto → IA estima kcal + proteína ──
+let _quickAddResults = [];
+function openQuickAdd(){
+  _quickAddResults = [];
+  const t=document.getElementById('qa-text'); if(t) t.value='';
+  document.getElementById('qa-result').innerHTML='';
+  document.getElementById('qa-btns').style.display='none';
+  document.getElementById('qa-estimate-btn').style.display='';
+  openSheet('quickadd-ov');
+}
+async function runQuickAddAI(){
+  const txt=(document.getElementById('qa-text').value||'').trim();
+  if(!txt){ toast('Escreva o que você comeu'); return; }
+  const resEl=document.getElementById('qa-result');
+  if(!D.apiKey){
+    // fallback manual sem IA
+    resEl.innerHTML=`<div style="background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:10px;padding:12px;font-size:13px;color:var(--mid)">
+      Sem IA configurada. Informe os totais manualmente:
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <input id="qa-mk" type="number" inputmode="decimal" placeholder="kcal" style="flex:1;background:var(--s1);border:1px solid var(--bdr);border-radius:8px;color:var(--text);padding:8px;font-size:15px">
+        <input id="qa-mp" type="number" inputmode="decimal" placeholder="proteína g" style="flex:1;background:var(--s1);border:1px solid var(--bdr);border-radius:8px;color:var(--text);padding:8px;font-size:15px">
+      </div></div>`;
+    _quickAddResults=[{manual:true, name:txt}];
+    document.getElementById('qa-btns').style.display='';
+    return;
+  }
+  document.getElementById('qa-estimate-btn').style.display='none';
+  resEl.innerHTML='<div style="text-align:center;padding:18px 0;color:var(--dim);font-size:14px">🔍 Estimando com IA…</div>';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-opus-4-5',max_tokens:500,messages:[{role:'user',content:
+        'O usuário descreve em português o que comeu. Estime porções razoáveis quando não especificadas. Retorne SOMENTE um JSON válido (sem markdown): {"items":[{"name":"nome em português","kcal":number,"prot":number}],"total_kcal":number,"total_prot":number}. Descrição: '+txt}]})
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const j=await res.json();
+    const raw=j.content[0].text.trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'');
+    const parsed=JSON.parse(raw);
+    _quickAddResults=parsed.items||[];
+    const tk=parsed.total_kcal||_quickAddResults.reduce((s,f)=>s+(f.kcal||0),0);
+    const tp=parsed.total_prot||_quickAddResults.reduce((s,f)=>s+(f.prot||0),0);
+    resEl.innerHTML=`<div>${_quickAddResults.map(f=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bdr)">
+        <div style="font-size:14px;color:var(--text);font-weight:600;flex:1;min-width:0">${f.name}</div>
+        <div style="font-size:13px;color:var(--mid);margin-left:10px;white-space:nowrap"><span style="color:var(--gold);font-weight:700">${f.kcal} kcal</span> · ${f.prot}g P</div>
+      </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700;font-size:15px">
+        <span style="color:var(--text)">TOTAL</span>
+        <span><span style="color:var(--gold)">${tk} kcal</span> · <span style="color:var(--text)">${tp}g proteína</span></span>
+      </div></div>`;
+    document.getElementById('qa-btns').style.display='';
+  }catch(e){
+    console.warn('[quickadd]',e);
+    resEl.innerHTML='<div style="color:var(--red);text-align:center;padding:14px">Não consegui estimar. Tente descrever de outro jeito ou use o botão +.</div>';
+    document.getElementById('qa-estimate-btn').style.display='';
+  }
+}
+function saveQuickAdd(){
+  if(!_quickAddResults.length){ closeSheet('quickadd-ov'); return; }
+  if(!D.extraFoods) D.extraFoods={};
+  if(!D.extraFoods[TODAY]) D.extraFoods[TODAY]=[];
+  const now=new Date();
+  const time=now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(_quickAddResults[0] && _quickAddResults[0].manual){
+    const kcal=parseInt((document.getElementById('qa-mk')||{}).value)||0;
+    const prot=parseInt((document.getElementById('qa-mp')||{}).value)||0;
+    D.extraFoods[TODAY].push({name:_quickAddResults[0].name,kcal,prot,ts:Date.now(),time,quick:true});
+  } else {
+    _quickAddResults.forEach(f=>{
+      D.extraFoods[TODAY].push({name:f.name,kcal:f.kcal||0,prot:f.prot||0,ts:Date.now(),time,quick:true});
+    });
+  }
+  save();
+  closeSheet('quickadd-ov');
+  toast('Registrado no seu dia ✓');
+  renderExtraFoods(); if(typeof renderJulyGoal==='function') renderJulyGoal();
 }
 function removeExtraFood(idx){
   if(!D.extraFoods||!D.extraFoods[TODAY]) return;
@@ -5897,15 +6016,16 @@ function renderExtraFoods(){
     return;
   }
   const totalKcal=foods.reduce((s,f)=>s+(f.kcal||0),0);
+  const totalProt=foods.reduce((s,f)=>s+(f.prot||0),0);
   list.innerHTML=foods.map((f,i)=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--bdr)">
       <div>
         <div style="font-size:14px;color:var(--text);font-weight:600">${f.name}</div>
-        <div style="font-size:12px;color:var(--dim);margin-top:2px">${f.time}${f.kcal?' · <span style="color:var(--red)">'+ f.kcal+' kcal</span>':''}</div>
+        <div style="font-size:12px;color:var(--dim);margin-top:2px">${f.time}${f.kcal?' · <span style="color:var(--gold)">'+ f.kcal+' kcal</span>':''}${f.prot?' · '+f.prot+'g P':''}</div>
       </div>
       <button onclick="removeExtraFood(${i})" style="background:transparent;border:none;color:var(--dim);font-size:18px;cursor:pointer;padding:4px 8px;line-height:1">×</button>
     </div>`).join('')
-    +(totalKcal?`<div style="padding:8px 14px;font-size:12px;color:var(--red);font-weight:700;text-align:right">Total extra: ${totalKcal} kcal</div>`:'');
+    +((totalKcal||totalProt)?`<div style="padding:8px 14px;font-size:12px;color:var(--mid);font-weight:700;text-align:right">Total do dia: <span style="color:var(--gold)">${totalKcal} kcal</span> · ${totalProt}g proteína</div>`:'');
 }
 
 let _foodPhotoResults = [];
@@ -6932,7 +7052,118 @@ function renderWeightPage(){
     const bc=document.getElementById('bmi-cursor');if(bc)bc.style.left=pct+'%';
     setEl('bmi-status','BMI <strong>'+bmi+'</strong> · '+cat);
   }
-  drawWeightChart(); renderWeightHistList(); renderJulyGoal();
+  drawWeightChart(); renderWeightHistList(); renderJulyGoal(); renderWaistCard(); renderPhotoCard();
+}
+
+// ── CINTURA — sinal de gordura melhor que a balança ──
+function waistUnit(){ return D.weightUnit==='kg' ? 'cm' : 'in'; }
+function renderWaistCard(){
+  const card=document.getElementById('waist-card'); if(!card) return;
+  const log=D.waistLog||[];
+  const last=log.length?log[log.length-1]:null;
+  const prev=log.length>1?log[log.length-2]:null;
+  const first=log.length?log[0]:null;
+  const u=waistUnit();
+  let trend='';
+  if(last&&prev){
+    const d=last.val-prev.val;
+    trend=d===0?'sem mudança':`${d<0?'▼':'▲'} ${Math.abs(d).toFixed(1)} ${u} vs. anterior`;
+  }
+  let sinceStart='';
+  if(last&&first&&log.length>1){
+    const d=last.val-first.val;
+    if(d<0) sinceStart=`▼ ${Math.abs(d).toFixed(1)} ${u} desde o início 🔥`;
+  }
+  card.innerHTML=`
+  <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">📏 Cintura</div>
+      ${last?`<div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--text);line-height:1">${last.val.toFixed(1)} <span style="font-size:13px;color:var(--mid)">${u}</span></div>`:'<div style="font-size:12px;color:var(--dim)">sem registro</div>'}
+    </div>
+    ${trend?`<div style="font-size:12px;color:${/▼/.test(trend)?'var(--green)':'var(--mid)'};margin-bottom:4px">${trend}</div>`:''}
+    ${sinceStart?`<div style="font-size:12px;color:var(--green);font-weight:700;margin-bottom:8px">${sinceStart}</div>`:''}
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <input id="waist-input" type="number" inputmode="decimal" step=".1" placeholder="cintura em ${u}" style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:22px;padding:10px 12px;outline:none">
+      <button onclick="logWaist()" style="background:var(--gold);color:var(--gold-ink);border:none;border-radius:8px;font-size:11px;font-weight:800;letter-spacing:1px;padding:10px 16px;cursor:pointer">REGISTRAR</button>
+    </div>
+    <div style="font-size:10px;color:var(--dim);margin-top:8px">Meça na altura do umbigo, relaxado, pela manhã. A cintura caindo = gordura indo embora, mesmo se a balança travar.</div>
+  </div>`;
+}
+function logWaist(){
+  const el=document.getElementById('waist-input'); if(!el) return;
+  const v=parseFloat(String(el.value).replace(',','.'));
+  if(isNaN(v)||v<=0){ toast('Informe a medida'); return; }
+  if(!D.waistLog) D.waistLog=[];
+  D.waistLog=D.waistLog.filter(w=>w.date!==TODAY);
+  D.waistLog.push({date:TODAY, val:v, unit:waistUnit(), ts:Date.now()});
+  D.waistLog=D.waistLog.slice(-120);
+  save(); renderWaistCard();
+  toast('Cintura registrada ✓');
+}
+
+// ── FOTO DE PROGRESSO (IndexedDB p/ não estourar o localStorage) ──
+let _photoDB=null;
+function photoDB(){
+  return new Promise((resolve,reject)=>{
+    if(_photoDB) return resolve(_photoDB);
+    const req=indexedDB.open('opusx-photos',1);
+    req.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains('photos')) db.createObjectStore('photos',{keyPath:'id'}); };
+    req.onsuccess=e=>{ _photoDB=e.target.result; resolve(_photoDB); };
+    req.onerror=e=>reject(e);
+  });
+}
+async function photoPut(rec){ const db=await photoDB(); return new Promise((res,rej)=>{ const tx=db.transaction('photos','readwrite'); tx.objectStore('photos').put(rec); tx.oncomplete=res; tx.onerror=rej; }); }
+async function photoAll(){ const db=await photoDB(); return new Promise((res,rej)=>{ const tx=db.transaction('photos','readonly'); const r=tx.objectStore('photos').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=rej; }); }
+async function photoDel(id){ const db=await photoDB(); return new Promise((res,rej)=>{ const tx=db.transaction('photos','readwrite'); tx.objectStore('photos').delete(id); tx.oncomplete=res; tx.onerror=rej; }); }
+
+function openProgressPhoto(){ document.getElementById('progress-photo-input').click(); }
+function handleProgressPhoto(input){
+  const file=input.files[0]; if(!file) return; input.value='';
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=async ()=>{
+      // redimensiona p/ no máx 700px de largura, JPEG comprimido
+      const maxW=700, scale=Math.min(1, maxW/img.width);
+      const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=cv.toDataURL('image/jpeg',0.7);
+      try{
+        await photoPut({id:'p_'+Date.now(), date:TODAY, ts:Date.now(), img:dataUrl});
+        toast('Foto salva ✓');
+        renderPhotoCard();
+      }catch(e){ console.warn('[photo]',e); toast('Não consegui salvar a foto'); }
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function renderPhotoCard(){
+  const card=document.getElementById('photo-card'); if(!card) return;
+  let photos=[];
+  try{ photos=await photoAll(); }catch(e){ photos=[]; }
+  photos.sort((a,b)=>b.ts-a.ts);
+  const grid=photos.length?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px">${photos.slice(0,12).map(p=>`
+    <div style="position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:1px solid var(--bdr)">
+      <img src="${p.img}" style="width:100%;height:100%;object-fit:cover" onclick="window.open('${p.img}','_blank')">
+      <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);color:#fff;font-size:9px;padding:2px 4px;text-align:center">${new Date(p.ts).toLocaleDateString(lang==='pt'?'pt-BR':'en-US',{month:'short',day:'numeric'})}</div>
+      <button onclick="delProgressPhoto('${p.id}')" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);border:none;color:#fff;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;line-height:1">×</button>
+    </div>`).join('')}</div>`
+    :'<div style="font-size:12px;color:var(--dim);text-align:center;padding:14px 0">Nenhuma foto ainda. Tire a 1ª hoje — será sua referência.</div>';
+  card.innerHTML=`
+  <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">📸 Fotos de progresso</div>
+      <button onclick="openProgressPhoto()" style="background:var(--gold);color:var(--gold-ink);border:none;border-radius:8px;font-size:11px;font-weight:800;letter-spacing:.5px;padding:9px 12px;cursor:pointer">+ Foto</button>
+    </div>
+    ${grid}
+    <div style="font-size:10px;color:var(--dim);margin-top:10px">Fica só no seu aparelho (não sai daqui). Tire sempre na mesma luz e ângulo, 1x por semana.</div>
+  </div>`;
+}
+async function delProgressPhoto(id){
+  if(!confirm('Apagar esta foto?')) return;
+  try{ await photoDel(id); renderPhotoCard(); toast('Foto apagada'); }catch(e){ toast('Erro ao apagar'); }
 }
 
 // ── Painel "Meta de Julho": peso + metas de caloria/proteína + lembrete ──
@@ -6972,8 +7203,9 @@ function renderJulyGoal(){
   const daysLeft = Math.max(0, Math.round((end-today)/86400000));
 
   const t = estTargets();
-  const kcalToday = (D.log||[]).reduce((a,e)=>a+(e.kcal||0),0);
-  const protToday = (D.log||[]).reduce((a,e)=>a+(e.protein||0),0);
+  const _cons = (typeof consumedToday==='function') ? consumedToday() : {kcal:0,prot:0};
+  const kcalToday = _cons.kcal;
+  const protToday = _cons.prot;
   const calPct = Math.min(100, Math.round(kcalToday/Math.max(1,t.cal)*100));
   const protPct = Math.min(100, Math.round(protToday/Math.max(1,t.protein)*100));
   const rt = D.reminderTime || '18:00';
@@ -7004,7 +7236,8 @@ function renderJulyGoal(){
         <div style="height:5px;background:var(--s2);border-radius:4px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${protPct}%;background:var(--gold)"></div></div>
       </div>
     </div>
-    <div style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.5">Déficit ~500 kcal (manutenção estimada ${t.maint}). Proteína alta protege o músculo. Toque no ✎ pra ajustar.</div>
+    <button onclick="openQuickAdd()" style="width:100%;margin-top:10px;padding:10px;background:var(--gold-bg);border:1px dashed rgba(201,169,110,.45);border-radius:8px;color:var(--gold);font-size:12px;font-weight:700;cursor:pointer">⚡ Registrar comida (texto → IA)</button>
+    <div style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.5">Conta o que você registra (⚡ rápido, 📷 foto ou +). Déficit ~500 kcal sobre a manutenção estimada (${t.maint}). Toque no ✎ pra ajustar as metas.</div>
 
     <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--bdr)">
       <div style="flex:1">
