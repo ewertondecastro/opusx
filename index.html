@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-07-01T21:05:06Z">
+<meta name="app-version" content="2026-07-01T21:07:41Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -615,7 +615,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 <!-- TOP CONTROLS -->
 <div class="cfg-btn" onclick="openSheet('api-ov')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
-<div class="top-btn-row"><button class="top-btn" id="lang-btn" onclick="toggleLang()">EN</button></div>
+<div class="top-btn-row">
+  <button id="ai-activate-btn" onclick="openSheet('api-ov')" style="display:none;background:var(--gold);color:var(--gold-ink);border:none;border-radius:16px;font-size:11px;font-weight:800;letter-spacing:.5px;padding:6px 12px;cursor:pointer;box-shadow:0 2px 8px rgba(201,169,110,.4);animation:aiPulse 2s ease-in-out infinite">✨ Ativar IA</button>
+  <button class="top-btn" id="lang-btn" onclick="toggleLang()">EN</button>
+</div>
+<style>@keyframes aiPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:.88}}</style>
 
 <!-- ═══════════ HOME — LAUNCHER ═══════════ -->
 <div class="page on" id="pg-home">
@@ -2706,7 +2710,7 @@ function clearGistToken(){
 }
 
 function renderAll(){
-  try { renderProfilePage(); renderTodayWorkout(); renderWater(); renderWeek(); renderFastHistory(); renderWeightPage(); renderWorkoutHistory(); buildWorkoutUI(); } catch(e){}
+  try { renderProfilePage(); renderTodayWorkout(); renderWater(); renderWeek(); renderFastHistory(); renderWeightPage(); renderWorkoutHistory(); buildWorkoutUI(); refreshAIBadge(); } catch(e){}
 }
 
 // ══════════════════════════════════
@@ -9780,7 +9784,13 @@ function openSheet(id){
   document.getElementById(id).classList.add('show');
 }
 function closeSheet(id){document.getElementById(id).classList.remove('show');}
-function saveKey(){D.apiKey=document.getElementById('api-field').value.trim();localStorage.setItem('apex_api',D.apiKey);closeSheet('api-ov');toast(tr('t_api_saved'));}
+function saveKey(){D.apiKey=document.getElementById('api-field').value.trim();localStorage.setItem('apex_api',D.apiKey);closeSheet('api-ov');toast(tr('t_api_saved'));refreshAIBadge();}
+function refreshAIBadge(){
+  const b=document.getElementById('ai-activate-btn');
+  if(b) b.style.display = D.apiKey ? 'none' : '';
+  const f=document.getElementById('api-field');
+  if(f && D.apiKey && !f.value) f.value = D.apiKey;
+}
 
 async function shareApp(){
   const url = 'https://ewertondecastro.github.io/opusx/';
