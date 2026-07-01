@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-06-30T11:40:42Z">
+<meta name="app-version" content="2026-07-01T12:29:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -817,6 +817,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px" id="wo-ey">PLANO SEMANAL</div>
       <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:1px" id="wo-title">TREINOS</div>
     </div>
+    <div style="margin:0 14px 12px">
+      <button onclick="openBodyPart()" class="btn btn-gold btn-full" style="padding:14px">🎯 MONTAR TREINO DE HOJE</button>
+      <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px">Escolha o que malhar hoje — superior, inferior, empurrar, puxar…</div>
+    </div>
+    <div id="quick-workout-section"></div>
     <div class="day-tabs" id="day-tabs"></div>
     <div id="plan-mode-toggle" style="display:flex;margin:0 14px 12px;background:var(--s1);border:1px solid var(--bdr);border-radius:8px;overflow:hidden">
       <button id="toggle-opusx" onclick="switchPlanMode('opusx')" style="flex:1;padding:10px;background:var(--gold);color:var(--gold-ink);border:none;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer">OPUS X</button>
@@ -2024,6 +2029,38 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div id="qa-btns" style="display:none;margin-top:14px" class="sheet-btns">
       <button class="btn btn-outline" onclick="closeSheet('quickadd-ov')" style="flex:1">Cancelar</button>
       <button class="btn btn-gold" onclick="saveQuickAdd()" style="flex:2;margin:0">Adicionar ao dia</button>
+    </div>
+  </div>
+</div>
+
+<!-- BODY PART / MONTAR TREINO SHEET -->
+<div class="overlay" id="bodypart-ov" onclick="if(event.target===this)closeSheet('bodypart-ov')">
+  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">MONTAR TREINO DE HOJE</div>
+    <div class="sheet-desc">Escolha o que malhar — o app gera na hora com cargas e substitutos.</div>
+
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:8px">Rápido</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <button onclick="generateWorkout('superior')" style="padding:14px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer;text-align:left">💪 Superior<div style="font-size:10px;color:var(--dim);font-weight:500;margin-top:2px">Peito, costas, ombro, braço</div></button>
+      <button onclick="generateWorkout('inferior')" style="padding:14px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer;text-align:left">🦵 Inferior<div style="font-size:10px;color:var(--dim);font-weight:500;margin-top:2px">Perna e glúteo (poupa joelho)</div></button>
+      <button onclick="generateWorkout('push')" style="padding:14px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer;text-align:left">⬆️ Empurrar<div style="font-size:10px;color:var(--dim);font-weight:500;margin-top:2px">Peito, ombro, tríceps</div></button>
+      <button onclick="generateWorkout('pull')" style="padding:14px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer;text-align:left">⬇️ Puxar<div style="font-size:10px;color:var(--dim);font-weight:500;margin-top:2px">Costas e bíceps</div></button>
+      <button onclick="generateWorkout('fullbody')" style="padding:14px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer;text-align:left">🏋️ Corpo inteiro<div style="font-size:10px;color:var(--dim);font-weight:500;margin-top:2px">Um pouco de tudo</div></button>
+      <button onclick="generateWorkout('core')" style="padding:14px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer;text-align:left">🔥 Abdômen<div style="font-size:10px;color:var(--dim);font-weight:500;margin-top:2px">Core e abdômen</div></button>
+    </div>
+
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:8px">Ou escolha os músculos</div>
+    <div id="bp-muscle-chips" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px"></div>
+
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mid);margin-bottom:14px;cursor:pointer">
+      <input type="checkbox" id="bp-knee" checked style="width:18px;height:18px;accent-color:var(--gold)">
+      🦵 Poupar o joelho (evita agachamento profundo e impacto)
+    </label>
+
+    <div class="sheet-btns">
+      <button class="btn btn-outline" onclick="closeSheet('bodypart-ov')" style="flex:1">Cancelar</button>
+      <button class="btn btn-gold" onclick="generateFromChips()" style="flex:2;margin:0">Gerar treino</button>
     </div>
   </div>
 </div>
@@ -5421,6 +5458,8 @@ function buildWorkoutUI() {
   if(D.customPlan && D.customPlan.active){
     switchPlanMode('custom');
   }
+  // Treino montado por grupo (se houver)
+  if(typeof renderQuickWorkout==='function') renderQuickWorkout();
 }
 
 function switchWorkoutDay(key) {
@@ -6640,8 +6679,14 @@ function cuToggleEx(exKey, el, rowId, sid){
   refreshCustomProgress(sid);
 }
 
+// acha uma sessão pelo id — no plano custom OU no treino rápido gerado
+function findCuSession(sid){
+  if(D.quickWorkout && D.quickWorkout.id===sid) return D.quickWorkout;
+  return ((D.customPlan||{}).sessions||[]).find(x=>x.id===sid);
+}
+
 function refreshCustomProgress(sid){
-  const s = ((D.customPlan||{}).sessions||[]).find(x=>x.id===sid);
+  const s = findCuSession(sid);
   if(!s) return;
   const total = (s.exercises||[]).length;
   const done = (s.exercises||[]).filter((_,i)=>(D.exChecked||{})['cu_'+sid+'_ex_'+i]).length;
@@ -6652,7 +6697,7 @@ function refreshCustomProgress(sid){
 }
 
 function logCustomSession(sid){
-  const s = ((D.customPlan||{}).sessions||[]).find(x=>x.id===sid);
+  const s = findCuSession(sid);
   if(!s) return;
   const sfEl = document.getElementById('cu-sfb-'+sid);
   if(sfEl){ if(!D.sessionFeedback) D.sessionFeedback={}; D.sessionFeedback['cu_'+sid+'_fb'] = sfEl.value; }
@@ -6673,6 +6718,142 @@ function logCustomSession(sid){
   if(typeof renderWorkoutHistory==='function') renderWorkoutHistory();
   if(typeof initHome==='function') initHome();
   refreshCustomProgress(sid);
+}
+
+// ══════════════════════════════════
+// MONTAR TREINO POR GRUPO MUSCULAR
+// ══════════════════════════════════
+const MUSCLE_META = {
+  peito:{lbl:'Peito'}, costas:{lbl:'Costas'}, ombro:{lbl:'Ombro'},
+  biceps:{lbl:'Bíceps'}, triceps:{lbl:'Tríceps'}, quadriceps:{lbl:'Quadríceps'},
+  posterior:{lbl:'Posterior'}, gluteo:{lbl:'Glúteo'}, panturrilha:{lbl:'Panturrilha'}, abdomen:{lbl:'Abdômen'}
+};
+const BODY_PRESETS = {
+  superior:{ name:'💪 Superior', muscles:['peito','costas','ombro','triceps','biceps'] },
+  inferior:{ name:'🦵 Inferior', muscles:['quadriceps','posterior','gluteo','panturrilha'] },
+  push:{ name:'⬆️ Empurrar (Push)', muscles:['peito','ombro','triceps'] },
+  pull:{ name:'⬇️ Puxar (Pull)', muscles:['costas','biceps'] },
+  fullbody:{ name:'🏋️ Corpo Inteiro', muscles:['peito','costas','quadriceps','ombro','posterior','abdomen'] },
+  core:{ name:'🔥 Abdômen / Core', muscles:['abdomen'] }
+};
+// exercícios que agridem o joelho (agachamento profundo, impacto, unilateral instável)
+const KNEE_AVOID = ['Agachamento Livre','Agachamento no Smith','Afundo (Passada)','Agachamento Búlgaro','Step-up no Banco','Agachamento Sumô','Afundo Reverso','Búlgaro (foco glúteo)','Nórdico (Nordic Curl)','Agachamento na Parede (Wall Sit)'];
+
+function exDefaults(m){
+  if(['quadriceps','posterior','gluteo'].includes(m)) return {sets:3,reps:'12-15',rest:'60s'};
+  if(['peito','costas'].includes(m)) return {sets:3,reps:'10-12',rest:'60s'};
+  if(m==='panturrilha') return {sets:3,reps:'15-20',rest:'30s'};
+  if(m==='abdomen') return {sets:3,reps:'15',rest:'30s'};
+  return {sets:3,reps:'12-15',rest:'45s'}; // ombro, bíceps, tríceps
+}
+function orderedPool(m, kneeSafe){
+  let pool = (MUSCLE_ALTS[m]||[]).slice();
+  if(kneeSafe && ['quadriceps','posterior','gluteo'].includes(m)) pool = pool.filter(e=>!KNEE_AVOID.includes(e.name));
+  return pool;
+}
+
+let _bpSel = [];
+function openBodyPart(){
+  _bpSel = [];
+  const wrap = document.getElementById('bp-muscle-chips');
+  if(wrap){
+    wrap.innerHTML = Object.keys(MUSCLE_META).map(m=>
+      `<div class="bp-chip" data-m="${m}" onclick="toggleBpChip('${m}',this)" style="padding:8px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;font-size:12px;font-weight:700;color:var(--mid);cursor:pointer">${MUSCLE_META[m].lbl}</div>`
+    ).join('');
+  }
+  openSheet('bodypart-ov');
+}
+function toggleBpChip(m, el){
+  const i = _bpSel.indexOf(m);
+  if(i>=0){ _bpSel.splice(i,1); el.style.background='var(--s2)'; el.style.color='var(--mid)'; el.style.borderColor='var(--bdr)'; }
+  else { _bpSel.push(m); el.style.background='var(--gold)'; el.style.color='var(--gold-ink)'; el.style.borderColor='var(--gold)'; }
+}
+function generateFromChips(){
+  if(!_bpSel.length){ toast('Escolha ao menos um músculo'); return; }
+  generateWorkout(_bpSel.slice());
+}
+
+function generateWorkout(sel){
+  const kneeSafe = (document.getElementById('bp-knee') ? document.getElementById('bp-knee').checked : true);
+  let muscles, name;
+  if(typeof sel==='string' && BODY_PRESETS[sel]){ muscles = BODY_PRESETS[sel].muscles.slice(); name = BODY_PRESETS[sel].name; }
+  else if(Array.isArray(sel)){ muscles = sel.slice(); name = '🎯 Treino — '+muscles.map(m=>MUSCLE_META[m]?MUSCLE_META[m].lbl:m).join(', '); }
+  else return;
+
+  // alvo total de exercícios (~1h): 6–8 conforme nº de grupos
+  const TARGET = Math.min(8, Math.max(muscles.length, muscles.length<=2?6:7));
+  const pools = {}; muscles.forEach(m=>{ pools[m]=orderedPool(m, kneeSafe); });
+  const picks = [];
+  let gi=0, guard=0;
+  while(picks.length<TARGET && guard<200){
+    const m = muscles[gi%muscles.length];
+    if(pools[m] && pools[m].length){
+      const ex = pools[m].shift();
+      const d = exDefaults(m);
+      picks.push({ name:ex.name, sets:d.sets, reps:d.reps, rest:d.rest, load:'', notes:ex.detail, muscle:m });
+    }
+    gi++; guard++;
+    if(muscles.every(mm=>!pools[mm] || !pools[mm].length)) break;
+  }
+  if(!picks.length){ toast('Sem exercícios disponíveis'); return; }
+
+  const focus = muscles.map(m=>MUSCLE_META[m]?MUSCLE_META[m].lbl:m).join(' · ') + (kneeSafe?' · poupa joelho':'');
+  D.quickWorkout = { id: Date.now(), name, focus, exercises:picks, ts:Date.now(), quick:true };
+  save();
+  closeSheet('bodypart-ov');
+  renderQuickWorkout();
+  goPage('workout');
+  setTimeout(()=>{ const c=document.getElementById('quick-workout-section'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'}); }, 80);
+  toast('Treino montado 🔥');
+}
+
+function discardQuickWorkout(){
+  if(!confirm('Descartar este treino montado?')) return;
+  D.quickWorkout = null; save(); renderQuickWorkout();
+  toast('Treino descartado');
+}
+
+function renderQuickWorkout(){
+  const sec = document.getElementById('quick-workout-section');
+  if(!sec) return;
+  const qw = D.quickWorkout;
+  if(!qw){ sec.innerHTML=''; return; }
+  const total=(qw.exercises||[]).length;
+  const done=(qw.exercises||[]).filter((_,ei)=>(D.exChecked||{})['cu_'+qw.id+'_ex_'+ei]).length;
+  const progPct=total?Math.round(done/total*100):0;
+  const ckey='cu_'+qw.id;
+  const sfb=(D.sessionFeedback||{})['cu_'+qw.id+'_fb']||'';
+  const st=(D.customStart||{})[qw.id+'_'+TODAY];
+  sec.innerHTML = `
+  <div id="cs-card-${qw.id}" style="margin:0 14px 16px;background:var(--s1);border:1px solid var(--gold);border-radius:var(--r);overflow:hidden;box-shadow:0 0 0 1px rgba(201,169,110,.15)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,var(--gold-bg),var(--s2));border-bottom:1px solid var(--bdr)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:800">Treino de hoje · montado</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--text);letter-spacing:.5px">${qw.name}</div>
+        <div style="font-size:12px;color:var(--dim);margin-top:2px">${qw.focus} · ${total} exercícios</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="badge badge-gold" id="cu-cnt-${qw.id}" style="white-space:nowrap">${done}/${total}</span>
+        <button onclick="discardQuickWorkout()" style="background:transparent;border:1px solid var(--bdr2);border-radius:6px;color:var(--dim);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer">✕</button>
+      </div>
+    </div>
+    <div style="height:4px;background:var(--s2)"><div id="cu-spb-${qw.id}" style="height:100%;width:${progPct}%;background:var(--gold);transition:width .3s"></div></div>
+    ${(qw.exercises||[]).map((ex,ei)=>buildCustomExerciseHTML(qw, ex, ei)).join('')}
+    <div style="padding:12px 14px;border-top:1px solid var(--bdr)">
+      <textarea id="cu-sfb-${qw.id}" placeholder="${tr('session_fb_ph')}" style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:13px;padding:10px;min-height:54px;outline:none;resize:vertical;box-sizing:border-box">${sfb}</textarea>
+      <button onclick="logCustomSession(${qw.id})" class="btn btn-gold btn-full" style="padding:13px;margin-top:10px">${tr('log_session_btn')}</button>
+      <div id="cu-start-${qw.id}" style="margin-top:8px;text-align:center;font-size:12px;color:var(--mid)">${st?`🕐 ${lang==='pt'?'Iniciado às':'Started at'} <strong style="color:var(--text)">${fmt12(new Date(st))}</strong>`:''}</div>
+    </div>
+    <div class="ai-chat-wrap" style="margin:0 14px 14px">
+      <div class="ai-chat-hd"><div class="ai-chat-label">${tr('wo_ai_label')}</div><div class="ai-chat-mode">Online</div></div>
+      <div class="quick-chips">${['wo_qr1','wo_qr2','wo_qr3','wo_qr4'].map(k=>`<div class="qchip" onclick="woQuick(this,'${ckey}')">${tr(k)}</div>`).join('')}</div>
+      <div class="ai-chat-feed" id="wo-feed-${ckey}" style="max-height:250px"></div>
+      <div class="ai-chat-input-row">
+        <input class="ai-input" id="wo-input-${ckey}" type="text" placeholder="${lang==='pt'?'Pergunte ao seu personal…':'Ask your trainer…'}" onkeydown="if(event.key==='Enter')sendWoMsg('${ckey}')">
+        <button class="ai-send-btn" onclick="sendWoMsg('${ckey}')"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderCustomPlan(){
@@ -8040,7 +8221,7 @@ function substituteExercise(altIdx){
   closeSheet('alt-ov');
   toast('Exercício substituído por: '+a.name);
   if(_altContext.type === 'wo') buildWorkoutUI();
-  else if(_altContext.type === 'cu') renderCustomPlan();
+  else if(_altContext.type === 'cu'){ renderCustomPlan(); if(typeof renderQuickWorkout==='function') renderQuickWorkout(); }
   else renderSecaHoje();
 }
 
@@ -8051,7 +8232,7 @@ function revertExercise(){
   closeSheet('alt-ov');
   toast('Voltou ao exercício original ✓');
   if(_altContext.type === 'wo') buildWorkoutUI();
-  else if(_altContext.type === 'cu') renderCustomPlan();
+  else if(_altContext.type === 'cu'){ renderCustomPlan(); if(typeof renderQuickWorkout==='function') renderQuickWorkout(); }
   else renderSecaHoje();
 }
 
