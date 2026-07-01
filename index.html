@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-07-01T12:32:51Z">
+<meta name="app-version" content="2026-07-01T21:05:06Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -2042,6 +2042,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
     <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:8px">✨ Pedir pra IA</div>
     <textarea id="bp-ai-text" placeholder="Ex: quero malhar upper body hoje · perna leve poupando o joelho · peito e ombro em 40 min" style="width:100%;background:var(--s1);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:15px;padding:12px;min-height:62px;outline:none;resize:vertical;box-sizing:border-box;margin-bottom:8px"></textarea>
+    <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">
+      <div class="bp-ex-chip" onclick="bpExample('Quero malhar upper body hoje')" style="padding:7px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;font-size:12px;font-weight:600;color:var(--mid);cursor:pointer">💪 Upper body</div>
+      <div class="bp-ex-chip" onclick="bpExample('Treino de perna poupando o joelho')" style="padding:7px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;font-size:12px;font-weight:600;color:var(--mid);cursor:pointer">🦵 Perna</div>
+      <div class="bp-ex-chip" onclick="bpExample('Treino de empurrar: peito, ombro e tríceps')" style="padding:7px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;font-size:12px;font-weight:600;color:var(--mid);cursor:pointer">⬆️ Push</div>
+      <div class="bp-ex-chip" onclick="bpExample('Treino de puxar: costas e bíceps')" style="padding:7px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;font-size:12px;font-weight:600;color:var(--mid);cursor:pointer">⬇️ Pull</div>
+      <div class="bp-ex-chip" onclick="bpExample('Peito e ombro em 40 minutos')" style="padding:7px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;font-size:12px;font-weight:600;color:var(--mid);cursor:pointer">Peito + ombro</div>
+      <div class="bp-ex-chip" onclick="bpExample('Corpo inteiro rápido')" style="padding:7px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;font-size:12px;font-weight:600;color:var(--mid);cursor:pointer">🏋️ Corpo inteiro</div>
+    </div>
     <button id="bp-ai-btn" onclick="runAIWorkout()" class="btn btn-gold btn-full" style="padding:13px;margin-bottom:6px">✨ Montar com IA</button>
     <div id="bp-ai-status" style="font-size:11px;color:var(--dim);text-align:center;min-height:14px;margin-bottom:16px"></div>
 
@@ -6823,6 +6831,13 @@ function _kwToMuscles(txt){
   const map={peito:/peito|chest/, costas:/costas|dorsal|\bback/, ombro:/ombro|deltoid|shoulder/, biceps:/b[ií]ceps/, triceps:/tr[ií]ceps/, quadriceps:/quadr|coxa|agachament/, posterior:/posterior|isqui|femoral/, gluteo:/gl[uú]teo|bumbum/, panturrilha:/panturr|calf/, abdomen:/abd[oô]|core|barriga/};
   const found=Object.keys(map).filter(k=>map[k].test(t));
   return found.length?found:null;
+}
+
+// chip de exemplo: preenche o texto e já monta
+function bpExample(txt){
+  const el=document.getElementById('bp-ai-text');
+  if(el) el.value=txt;
+  runAIWorkout();
 }
 
 async function runAIWorkout(){
