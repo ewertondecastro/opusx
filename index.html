@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-07-01T21:11:16Z">
+<meta name="app-version" content="2026-07-01T21:30:37Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -5531,6 +5531,7 @@ function buildSessionHTML(key, session, idx) {
       _substituted: true,
       _origName: origEx.name,
     } : origEx;
+    window._exKeyName = window._exKeyName || {}; window._exKeyName[exKey] = ex.name;
     const exAllDone = Array.from({length:NSERIES},(_,s)=>!!checked['wos_'+exKey+'_s'+s]).every(Boolean);
     const exDone = !!checked[exKey] || exAllDone;
     const fbKey = key+'_'+i+'_fb';
@@ -5539,10 +5540,10 @@ function buildSessionHTML(key, session, idx) {
     const restSecs = parseRestSecs(ex.rest);
     const isTimed = isTimedEx(ex);
 
-    // Last session reference: prefer per-series history, fallback to woExLoad
+    // Last session reference: per-series history → woExLoad → carga por NOME (qualquer aba)
     const histKey = 'load_wo_'+exKey;
     const loadHistory = (D.loadHistory||{})[histKey]||[];
-    const lastSeries = loadHistory.length ? loadHistory[loadHistory.length-1]?.series : null;
+    const lastSeries = (loadHistory.length ? loadHistory[loadHistory.length-1]?.series : null) || lastLoadByName(ex.name);
     const legacyLast = ((D.woExLoad||{})[exKey]||[])[0];
 
     const lastBadge = (()=>{
@@ -5760,6 +5761,9 @@ function woSeriesDone(sk, exKey, si, total, withTimer) {
     });
     D.loadHistory[histKey].push({ date: TODAY, series });
     if(D.loadHistory[histKey].length > 10) D.loadHistory[histKey].shift();
+    // registra também por NOME do exercício → visível em todas as abas
+    const _nm = (window._exKeyName||{})[exKey];
+    if(_nm) recordLoadByName(_nm, series);
     save();
     setTimeout(()=>{
       D.woExpand[exKey] = false;
@@ -6552,6 +6556,27 @@ function renderAIPlan() {
     ${plan.sessions.map((session,si)=>buildSessionHTML('ai_'+si, session, si)).join('')}`;
 }
 
+// ── Histórico de carga POR NOME do exercício (compartilhado entre todas as abas) ──
+window._exKeyName = window._exKeyName || {};
+function exNameNorm(name){
+  return (name||'').toString()
+    .replace(/^[A-D]\d\)\s*/,'')                          // tira "A1) "
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')      // tira acentos
+    .toLowerCase()
+    .replace(/\([^)]*\)/g,' ')                            // tira "(...)"
+    .replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+function recordLoadByName(name, series){
+  const k = exNameNorm(name); if(!k) return;
+  if(!D.loadByName) D.loadByName = {};
+  D.loadByName[k] = { series: series, date: TODAY, ts: Date.now() };
+}
+function lastLoadByName(name){
+  const k = exNameNorm(name); if(!k) return null;
+  const r = (D.loadByName||{})[k];
+  return (r && r.series && r.series.length) ? r.series : null;
+}
+
 // Render rico de exercício do plano custom — séries/cargas + substitutos, igual ao Opus 15
 function buildCustomExerciseHTML(s, origEx, i){
   const checked = D.exChecked||{};
@@ -6559,6 +6584,7 @@ function buildCustomExerciseHTML(s, origEx, i){
   const subKey = 'cu_'+exKey;                 // type 'cu' → D.exSub['cu_'+exKey]
   const woSub = (D.exSub||{})[subKey];
   const ex = woSub ? { ...origEx, name:woSub.name, notes:(woSub.detail||origEx.notes||''), _substituted:true, _origName:origEx.name } : origEx;
+  window._exKeyName = window._exKeyName || {}; window._exKeyName[exKey] = ex.name;
 
   const isTimed  = isTimedEx(ex);
   const isCardio = /min/i.test(ex.reps||'');
@@ -6569,10 +6595,11 @@ function buildCustomExerciseHTML(s, origEx, i){
   const exAllDone = nSeries>0 && Array.from({length:nSeries},(_,sx)=>!!checked['wos_'+exKey+'_s'+sx]).every(Boolean);
   const exDone = !!checked[exKey] || exAllDone;
 
-  // referência da última sessão (carga/reps)
+  // referência da última sessão (carga/reps) — posição-específica OU, se não houver,
+  // a última carga usada nesse exercício em QUALQUER aba (por nome)
   const histKey = 'load_wo_'+exKey;
   const loadHistory = (D.loadHistory||{})[histKey]||[];
-  const lastSeries = loadHistory.length ? loadHistory[loadHistory.length-1]?.series : null;
+  const lastSeries = (loadHistory.length ? loadHistory[loadHistory.length-1]?.series : null) || lastLoadByName(ex.name);
   const lastBadge = (()=>{
     if(!lastSeries) return '';
     const parts = lastSeries.filter(Boolean).map((s2,si)=>`S${si+1}:${s2.reps?s2.reps+'×':''}${s2.load||'—'}`);
