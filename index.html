@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-07-01T21:30:37Z">
+<meta name="app-version" content="2026-08-07T00:09:47Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -2033,6 +2033,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div id="qa-btns" style="display:none;margin-top:14px" class="sheet-btns">
       <button class="btn btn-outline" onclick="closeSheet('quickadd-ov')" style="flex:1">Cancelar</button>
       <button class="btn btn-gold" onclick="saveQuickAdd()" style="flex:2;margin:0">Adicionar ao dia</button>
+    </div>
+  </div>
+</div>
+
+<!-- PERGUNTAR À IA SOBRE UM EXERCÍCIO -->
+<div class="overlay" id="askex-ov" onclick="if(event.target===this)closeSheet('askex-ov')">
+  <div class="sheet" style="max-height:88vh;display:flex;flex-direction:column">
+    <div class="sheet-handle"></div>
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">🤖 Personal IA · dúvida do exercício</div>
+    <div class="sheet-title" id="askex-title" style="margin-top:2px">Exercício</div>
+    <div class="quick-chips" id="askex-chips" style="margin-bottom:8px"></div>
+    <div class="ai-chat-feed" id="askex-feed" style="flex:1;min-height:120px;max-height:46vh;overflow-y:auto;margin-bottom:10px"></div>
+    <div class="ai-chat-input-row">
+      <input class="ai-input" id="askex-input" type="text" placeholder="Ex: como faço a execução? posso trocar?" onkeydown="if(event.key==='Enter')sendAskEx()">
+      <button class="ai-send-btn" onclick="sendAskEx()"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
     </div>
   </div>
 </div>
@@ -5532,6 +5547,8 @@ function buildSessionHTML(key, session, idx) {
       _origName: origEx.name,
     } : origEx;
     window._exKeyName = window._exKeyName || {}; window._exKeyName[exKey] = ex.name;
+    window._exMeta = window._exMeta || {};
+    window._exMeta[exKey] = { name:ex.name, sets:ex.sets, reps:ex.reps, notes:ex.notes||'', siblings:(exercises||[]).map(e=>e.name+' '+e.sets+'×'+e.reps) };
     const exAllDone = Array.from({length:NSERIES},(_,s)=>!!checked['wos_'+exKey+'_s'+s]).every(Boolean);
     const exDone = !!checked[exKey] || exAllDone;
     const fbKey = key+'_'+i+'_fb';
@@ -5625,6 +5642,7 @@ function buildSessionHTML(key, session, idx) {
             YT
           </a>
           <div class="ex-yt-btn" onclick="openAlternatives('${(ex._substituted?ex._origName:ex.name).replace(/'/g,'')}','wo','${exKey}')" style="background:var(--gold-bg);border-color:rgba(201,169,110,.25);color:var(--gold);cursor:pointer">ALT</div>
+          <div class="ex-yt-btn" onclick="askExercise('${exKey}')" style="background:rgba(82,137,201,.14);border-color:rgba(82,137,201,.3);color:var(--blue);cursor:pointer" title="Perguntar à IA sobre este exercício">🤖</div>
           <div class="ex-expand-btn" id="woexp-btn-${exKey}">${isExpanded?'−':'+'}</div>
         </div>
       </div>
@@ -5764,6 +5782,22 @@ function woSeriesDone(sk, exKey, si, total, withTimer) {
     // registra também por NOME do exercício → visível em todas as abas
     const _nm = (window._exKeyName||{})[exKey];
     if(_nm) recordLoadByName(_nm, series);
+    // marca o EXERCÍCIO como concluído (todas as séries feitas)
+    D.exChecked[exKey] = true;
+    const rowEl = document.getElementById('exrow-'+exKey);
+    if(rowEl){
+      rowEl.classList.add('done-ex');
+      const cb = rowEl.querySelector('.ex-checkbox');
+      if(cb) cb.classList.add('done');
+    }
+    // atualiza o contador/barra de progresso da sessão (custom/quick ou Opus15)
+    if(exKey.indexOf('cu_')===0){
+      const sid = Number(exKey.split('_')[1]);
+      if(typeof refreshCustomProgress==='function') refreshCustomProgress(sid);
+    } else {
+      const dk = exKey.split('_ex_')[0];
+      if(typeof updateSessionProgress==='function') updateSessionProgress(dk);
+    }
     save();
     setTimeout(()=>{
       D.woExpand[exKey] = false;
@@ -6577,6 +6611,71 @@ function lastLoadByName(name){
   return (r && r.series && r.series.length) ? r.series : null;
 }
 
+// texto com os exercícios do treino (para a IA saber do que o usuário fala)
+function workoutContextText(dayKey){
+  try{
+    if(dayKey && dayKey.indexOf('cu_')===0){
+      const sid=Number(dayKey.slice(3));
+      const s=(typeof findCuSession==='function')?findCuSession(sid):null;
+      if(s&&s.exercises) return s.exercises.map(e=>e.name+' ('+e.sets+'×'+e.reps+')').join('; ');
+    } else {
+      const plan=WORKOUT_PLAN[lang]||WORKOUT_PLAN.pt;
+      const s=plan&&plan[dayKey];
+      if(s&&s.exercises) return s.exercises.map(e=>e.name+' ('+e.sets+'×'+e.reps+')').join('; ');
+    }
+  }catch(e){}
+  return '';
+}
+
+// ── IA por exercício (dúvida durante as séries) ──
+let _askExCtx = null;
+function askExercise(exKey){
+  const m = (window._exMeta||{})[exKey];
+  _askExCtx = m || { name:'exercício', sets:'', reps:'', notes:'', siblings:[] };
+  const t=document.getElementById('askex-title');
+  if(t) t.textContent = _askExCtx.name + (_askExCtx.sets?` · ${_askExCtx.sets}×${_askExCtx.reps}`:'');
+  const feed=document.getElementById('askex-feed'); if(feed) feed.innerHTML='';
+  const inp=document.getElementById('askex-input'); if(inp) inp.value='';
+  const chips=document.getElementById('askex-chips');
+  if(chips){
+    const qs=['Como é a execução certa?','Tô sentindo no lugar errado','Posso trocar por outro?','Qual carga começar?'];
+    chips.innerHTML = qs.map(q=>`<div class="qchip" onclick="askExChip(this)">${q}</div>`).join('');
+  }
+  openSheet('askex-ov');
+  setTimeout(()=>{ const i=document.getElementById('askex-input'); if(i) i.focus(); },150);
+}
+function askExChip(el){ const i=document.getElementById('askex-input'); if(i){ i.value=el.textContent; sendAskEx(); } }
+async function sendAskEx(){
+  const inp=document.getElementById('askex-input'); if(!inp) return;
+  const msg=inp.value.trim(); if(!msg) return;
+  const feed='askex-feed';
+  const ex=_askExCtx||{};
+  if(!D.apiKey){
+    inp.value='';
+    appendAiMsg(feed,'user',msg);
+    appendAiMsg(feed,'bot','💡 '+_coachFallback(msg,'trainer')+'<br><br><span style="font-size:11px;color:var(--dim)">Ative a IA (✨ no topo) para respostas específicas deste exercício.</span>');
+    return;
+  }
+  inp.value='';
+  appendAiMsg(feed,'user',msg);
+  showTypingInFeed(feed,'askex-typing');
+  const ispt=lang==='pt';
+  const sys = `${TRAINER_SYSTEM(ispt)}
+
+EXERCÍCIO EM FOCO AGORA: ${ex.name} (${ex.sets}×${ex.reps}).${ex.notes?' Execução sugerida: '+ex.notes+'.':''}
+OUTROS EXERCÍCIOS DO TREINO DE HOJE: ${(ex.siblings||[]).join('; ')||'—'}.
+O usuário está no meio do treino. Responda curto e prático (2 a 5 frases) sobre ESTE exercício ou o treino de hoje. Se ele disser "esse exercício", é o em foco.`;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:500,system:sys,messages:[{role:'user',content:msg}]})});
+    const data=await res.json();
+    const d=document.getElementById('askex-typing'); if(d) d.remove();
+    appendAiMsg(feed,'bot',data.content?.[0]?.text||'Erro.');
+  }catch(e){
+    const d=document.getElementById('askex-typing'); if(d) d.remove();
+    appendAiMsg(feed,'bot',ispt?'Erro de conexão.':'Connection error.');
+  }
+}
+
 // Render rico de exercício do plano custom — séries/cargas + substitutos, igual ao Opus 15
 function buildCustomExerciseHTML(s, origEx, i){
   const checked = D.exChecked||{};
@@ -6585,6 +6684,8 @@ function buildCustomExerciseHTML(s, origEx, i){
   const woSub = (D.exSub||{})[subKey];
   const ex = woSub ? { ...origEx, name:woSub.name, notes:(woSub.detail||origEx.notes||''), _substituted:true, _origName:origEx.name } : origEx;
   window._exKeyName = window._exKeyName || {}; window._exKeyName[exKey] = ex.name;
+  window._exMeta = window._exMeta || {};
+  window._exMeta[exKey] = { name:ex.name, sets:ex.sets, reps:ex.reps, notes:ex.notes||'', siblings:(s.exercises||[]).map(e=>e.name+' '+e.sets+'×'+e.reps) };
 
   const isTimed  = isTimedEx(ex);
   const isCardio = /min/i.test(ex.reps||'');
@@ -6690,6 +6791,7 @@ function buildCustomExerciseHTML(s, origEx, i){
           <svg viewBox="0 0 24 24"><path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.2c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v2c0 2 .3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.2 21.5 12 21.5 12 21.5s4.2 0 6.8-.3c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-2C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l6.6 3.6-6.6 3.6z"/></svg>YT
         </a>
         ${hasMuscle?`<div class="ex-yt-btn" onclick="openAlternatives('${altName}','cu','${exKey}')" style="background:var(--gold-bg);border-color:rgba(201,169,110,.25);color:var(--gold);cursor:pointer">ALT</div>`:''}
+        <div class="ex-yt-btn" onclick="askExercise('${exKey}')" style="background:rgba(82,137,201,.14);border-color:rgba(82,137,201,.3);color:var(--blue);cursor:pointer" title="Perguntar à IA sobre este exercício">🤖</div>
         <div class="ex-expand-btn" id="woexp-btn-${exKey}">${isExpanded?'−':'+'}</div>
       </div>
     </div>
@@ -7775,9 +7877,11 @@ async function sendWoMsg(dayKey) {
   if(!D.coachChats) D.coachChats={trainer:[],nutritionist:[]};
   D.coachChats.trainer.push({role:'user',content:msg});
   const ispt=lang==='pt';
+  const _ctx = (typeof workoutContextText==='function') ? workoutContextText(dayKey) : '';
+  const _sys = _ctx ? (TRAINER_SYSTEM(ispt)+'\n\nEXERCÍCIOS DO TREINO DE HOJE: '+_ctx+'\nQuando o usuário citar "o exercício", um número ou um nome, use esta lista pra saber do que ele fala.') : TRAINER_SYSTEM(ispt);
   const msgs=[...D.coachChats.trainer.slice(-10).map(m=>({role:m.role==='bot'?'assistant':'user',content:m.content})),{role:'user',content:msg}];
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:600,system:TRAINER_SYSTEM(ispt),messages:msgs})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:600,system:_sys,messages:msgs})});
     const data=await res.json();
     const d=document.getElementById('wo-typing-'+dayKey);if(d)d.remove();
     const reply=data.content?.[0]?.text||'Erro.';
