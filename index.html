@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-07T01:15:25Z">
+<meta name="app-version" content="2026-08-07T01:44:07Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -821,6 +821,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px" id="wo-ey">PLANO SEMANAL</div>
       <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:1px" id="wo-title">TREINOS</div>
     </div>
+    <div id="readiness-card"></div>
     <div id="today-hero"></div>
     <div style="margin:0 14px 10px">
       <button onclick="openBodyPart()" class="btn btn-gold btn-full" style="padding:16px;font-size:14px">🎯 MONTAR TREINO DE HOJE</button>
@@ -5520,6 +5521,7 @@ function buildWorkoutUI() {
   // Treino montado por grupo (se houver)
   if(typeof renderQuickWorkout==='function') renderQuickWorkout();
   if(typeof renderTodayHero==='function') renderTodayHero();
+  if(typeof renderReadiness==='function') renderReadiness();
 }
 
 function switchWorkoutDay(key) {
@@ -6869,6 +6871,39 @@ function toggleVolumeWeek(){
   if(open) renderVolumeWeek();
 }
 
+// ☀️ Check-in de prontidão — ajusta a intensidade sugerida do dia
+function readinessToday(){ return (D.readiness||{})[TODAY]||null; }
+function renderReadiness(){
+  const el=document.getElementById('readiness-card'); if(!el) return;
+  const r=readinessToday();
+  if(!r){
+    const btn='flex:1;padding:12px 6px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;line-height:1.5';
+    el.innerHTML=`<div style="margin:0 14px 12px;padding:14px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r)">
+      <div style="font-size:12px;color:var(--mid);margin-bottom:10px">☀️ Como você está hoje? Ajusto a carga/intensidade do dia.</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="setReadiness('low')" style="${btn}">😴<br>Fraco</button>
+        <button onclick="setReadiness('ok')" style="${btn}">😐<br>Ok</button>
+        <button onclick="setReadiness('high')" style="${btn}">💪<br>Forte</button>
+      </div>
+    </div>`;
+  } else {
+    const lbl={low:'😴 Fraco — hoje mais leve',ok:'😐 Ok',high:'💪 Forte'}[r]||r;
+    el.innerHTML=`<div style="margin:0 14px 12px;padding:10px 14px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;color:var(--mid)">Prontidão hoje: <strong style="color:var(--text)">${lbl}</strong></div>
+      <button onclick="clearReadiness()" style="background:transparent;border:none;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer">✎ mudar</button>
+    </div>`;
+  }
+}
+function setReadiness(level){
+  if(!D.readiness) D.readiness={};
+  D.readiness[TODAY]=level; save();
+  renderReadiness();
+  if(typeof renderQuickWorkout==='function') renderQuickWorkout();
+  if(typeof renderCustomPlan==='function' && D.customPlan && D.customPlan.active) renderCustomPlan();
+  toast(level==='low'?'Anotado. Hoje a gente vai com calma. 🧘':level==='high'?'Boa! Bora com tudo. 🔥':'Anotado 👍');
+}
+function clearReadiness(){ if(D.readiness) delete D.readiness[TODAY]; save(); renderReadiness(); }
+
 // resumo do que o usuário treinou recentemente (para a IA montar com contexto)
 function recentTrainingText(){
   const parts=[];
@@ -7049,6 +7084,12 @@ function buildCustomExerciseHTML(s, origEx, i){
         if(eff.r==='easy'){ suggested=(L+2.5); note='da última vez tava fácil → tente '+suggested+' lb'; }
         else if(eff.r==='hard'){ suggested=Math.max(0,L-5); note='tava difícil → alivie pra '+suggested+' lb'; }
         else { suggested=L; note='tava na medida → mantenha '+L+' lb'; }
+      }
+      // ☀️ prontidão do dia sobrepõe: se está fraco, não sobe carga
+      const _rd = (typeof readinessToday==='function') ? readinessToday() : null;
+      if(_rd==='low' && !isNaN(L)){
+        if(eff && eff.r==='hard'){ suggested=Math.max(0,L-5); note='você marcou FRACO hoje → vá leve, '+suggested+' lb'; }
+        else { suggested=L; note='você marcou FRACO hoje → mantenha '+L+' lb, foco na técnica'; }
       }
       const pr = (D.prByName||{})[exNameNorm(ex.name)];
       const enc = encodeURIComponent(ex.name);
@@ -7294,7 +7335,9 @@ async function runAIWorkout(){
   if(status) status.textContent='✨ Montando seu treino…';
   try{
     const _hist = (typeof recentTrainingText==='function') ? recentTrainingText() : '';
-    const sys=`Você é um personal trainer de elite montando UM treino para HOJE. PERFIL DO USUÁRIO: ${userProfileText()}. ${_hist?('HISTÓRICO RECENTE: '+_hist+'. Não repita à toa o mesmo grupo do último treino; se fizer sentido repetir, tudo bem. Sobre carga: o usuário anda se sentindo FRACO — por padrão sugira REPETIR a última carga conhecida (não aumente), e só proponha subir se claramente fizer sentido.'):''} ${kneeSafe?'IMPORTANTE: poupe o joelho — evite agachamento livre profundo, afundo, búlgaro e qualquer impacto; prefira leg press, cadeira extensora, mesa flexora, hip thrust e máquinas.':''} Respeite as PRIORIDADES/FOCO do perfil acima (ex: postura, grupos que ele quer priorizar). Monte de 6 a 8 exercícios para cerca de 1 hora. Retorne SOMENTE um JSON válido, sem markdown, neste formato exato: {"title":"título curto","focus":"grupos separados por vírgula","exercises":[{"name":"nome do exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"uma dica curta de execução em português","muscle":"um de: peito,costas,ombro,biceps,triceps,quadriceps,posterior,gluteo,panturrilha,abdomen"}]}. Use nomes de exercícios comuns e reconhecíveis.`;
+    const _rd = (typeof readinessToday==='function') ? readinessToday() : null;
+    const _rdTxt = _rd==='low' ? 'HOJE ele marcou que está FRACO/cansado: reduza volume e carga, treino mais curto, foco em técnica e recuperação.' : _rd==='high' ? 'Hoje ele está bem disposto.' : '';
+    const sys=`Você é um personal trainer de elite montando UM treino para HOJE. PERFIL DO USUÁRIO: ${userProfileText()}. ${_rdTxt} ${_hist?('HISTÓRICO RECENTE: '+_hist+'. Não repita à toa o mesmo grupo do último treino; se fizer sentido repetir, tudo bem. Sobre carga: o usuário anda se sentindo FRACO — por padrão sugira REPETIR a última carga conhecida (não aumente), e só proponha subir se claramente fizer sentido.'):''} ${kneeSafe?'IMPORTANTE: poupe o joelho — evite agachamento livre profundo, afundo, búlgaro e qualquer impacto; prefira leg press, cadeira extensora, mesa flexora, hip thrust e máquinas.':''} Respeite as PRIORIDADES/FOCO do perfil acima (ex: postura, grupos que ele quer priorizar). Monte de 6 a 8 exercícios para cerca de 1 hora. Retorne SOMENTE um JSON válido, sem markdown, neste formato exato: {"title":"título curto","focus":"grupos separados por vírgula","exercises":[{"name":"nome do exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"uma dica curta de execução em português","muscle":"um de: peito,costas,ombro,biceps,triceps,quadriceps,posterior,gluteo,panturrilha,abdomen"}]}. Use nomes de exercícios comuns e reconhecíveis.`;
     const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:1400,system:sys,messages:[{role:'user',content:'Pedido: '+txt}]})});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const j=await res.json();
