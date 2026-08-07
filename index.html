@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-07T01:08:12Z">
+<meta name="app-version" content="2026-08-07T01:15:25Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -822,9 +822,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:1px" id="wo-title">TREINOS</div>
     </div>
     <div id="today-hero"></div>
-    <div style="margin:0 14px 14px">
+    <div style="margin:0 14px 10px">
       <button onclick="openBodyPart()" class="btn btn-gold btn-full" style="padding:16px;font-size:14px">🎯 MONTAR TREINO DE HOJE</button>
       <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px">Diga o que quer treinar — a IA olha seus últimos treinos e monta pra você.</div>
+    </div>
+    <div style="margin:0 14px 14px">
+      <button onclick="startPostureRoutine()" class="btn btn-outline btn-full" style="padding:12px;font-size:13px">🧍 Rotina de postura (anti-corcunda · 5–8 min)</button>
     </div>
     <div id="quick-workout-section"></div>
 
@@ -847,6 +850,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div id="workout-sessions"></div>
       <div id="aiplan-section" style="display:none"></div>
       <div id="custom-plan-section" style="display:none"></div>
+    </div>
+
+    <!-- 📊 Volume por músculo na semana (recolhível) -->
+    <div style="margin:14px 14px 8px">
+      <button onclick="toggleVolumeWeek()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px;background:var(--s1);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer">
+        <span>📊 Volume da semana</span>
+        <span id="volume-week-chev" style="color:var(--dim);font-size:12px">▸</span>
+      </button>
+      <div id="volume-week-body" style="display:none;margin-top:10px;padding:14px;background:var(--s1);border:1px solid var(--bdr);border-radius:10px"></div>
     </div>
   </div>
 </div>
@@ -5781,6 +5793,17 @@ function woSeriesDone(sk, exKey, si, total, withTimer) {
     if(svg) svg.style.display = D.exChecked[sk] ? 'block' : 'none';
   }
 
+  // ⏱️ Timer de descanso AUTOMÁTICO ao marcar a série (menos toques)
+  if(D.exChecked[sk] && !withTimer && si < total-1){
+    const ck = (exKey.indexOf('cu_')===0?'cu_':'wo_')+exKey+'_'+si;
+    const tn = document.getElementById('timer-num-'+ck);
+    const secs = tn ? (parseInt(tn.textContent)||90) : 90;
+    if(document.getElementById('timer-'+ck) && typeof startRestTimer==='function'){
+      startRestTimer(ck, secs);
+      try{ if(navigator.vibrate) navigator.vibrate(30); }catch(e){}
+    }
+  }
+
   // When ALL series are done → save history to loadHistory + auto-close after 400ms
   const allSeriesDone = D.exChecked[sk] && Array.from({length:total},(_,s2)=>{
     return !!D.exChecked['wos_'+exKey+'_s'+s2];
@@ -5798,6 +5821,8 @@ function woSeriesDone(sk, exKey, si, total, withTimer) {
     // registra também por NOME do exercício → visível em todas as abas
     const _nm = (window._exKeyName||{})[exKey];
     if(_nm) recordLoadByName(_nm, series);
+    // 🏆 Recorde (PR) + 📊 volume por músculo
+    if(_nm && typeof registerSetStats==='function') registerSetStats(_nm, series, total);
     // marca o EXERCÍCIO como concluído (todas as séries feitas)
     D.exChecked[exKey] = true;
     const rowEl = document.getElementById('exrow-'+exKey);
@@ -6766,6 +6791,84 @@ function lastLoadByName(name){
   return (r && r.series && r.series.length) ? r.series : null;
 }
 
+// 🏆 recorde (PR) + 📊 volume por músculo, ao fechar um exercício
+function registerSetStats(name, series, sets){
+  const loads = (series||[]).filter(Boolean).map(s=>parseFloat(String(s.load).replace(/[^0-9.]/g,''))).filter(n=>!isNaN(n)&&n>0);
+  if(loads.length){
+    const max=Math.max(...loads), k=exNameNorm(name);
+    if(!D.prByName) D.prByName={};
+    const prev=D.prByName[k];
+    if(!prev || max>prev.load){
+      D.prByName[k]={load:max, ts:Date.now(), name:name};
+      if(prev && typeof toast==='function') toast('🏆 Novo recorde: '+name.replace(/^[A-D]\d\)\s*/,'')+' '+max+' lb!');
+    }
+  }
+  const m = (typeof muscleOf==='function') ? muscleOf(name) : null;
+  if(m){
+    if(!D.volumeLog) D.volumeLog=[];
+    D.volumeLog.push({muscle:m, sets:sets||3, ts:Date.now()});
+    if(D.volumeLog.length>500) D.volumeLog=D.volumeLog.slice(-500);
+  }
+}
+
+// 🎚️ como foi a carga → guia a sugestão da próxima vez
+function rateEffort(nameEnc, r){
+  const name = decodeURIComponent(nameEnc);
+  const k = exNameNorm(name);
+  if(!D.effortByName) D.effortByName={};
+  D.effortByName[k] = { r:r, ts:Date.now() };
+  save();
+  toast(r==='easy'?'Anotado: fácil — subo um pouco na próxima':r==='hard'?'Anotado: difícil — alivio na próxima':'Anotado 👍');
+}
+
+// 🧍 rotina de postura (anti-corcunda) — casa/academia
+function startPostureRoutine(){
+  const ex=[
+    {name:'Face Pull na Polia',sets:3,reps:'15',rest:'45s',load:'',notes:'Puxe na altura do rosto, cotovelos altos, abra pros lados. O melhor exercício pra postura.',muscle:'ombro'},
+    {name:'Band Pull-Apart (elástico)',sets:3,reps:'20',rest:'30s',load:'',notes:'Braços à frente, abra o elástico apertando as escápulas. Dá pra fazer em casa.',muscle:'costas'},
+    {name:'Remada Baixa (Cabo)',sets:3,reps:'15',rest:'45s',load:'',notes:'Puxe até o umbigo, aperte as escápulas, peito aberto.',muscle:'costas'},
+    {name:'Deslizamento na Parede (Wall Slide)',sets:3,reps:'12',rest:'30s',load:'',notes:'Costas e braços na parede, deslize pra cima sem descolar. Mobilidade de ombro.',muscle:'ombro'},
+    {name:'Superman no chão',sets:3,reps:'12',rest:'30s',load:'',notes:'De barriga pra baixo, levante braços e pernas. Fortalece a cadeia posterior.',muscle:'costas'},
+    {name:'Encolhimento (Trapézio)',sets:3,reps:'15',rest:'45s',load:'',notes:'Eleve os ombros em direção às orelhas, segure 1s. Trapézio que você quer.',muscle:'ombro'},
+    {name:'Alongamento de Peito na Porta',sets:2,reps:'30s',rest:'20s',load:'',notes:'Antebraço na batente da porta, gire o corpo. Abre o peito encurtado pela postura.',muscle:'peito'},
+  ];
+  D.quickWorkout={ id:Date.now(), name:'🧍 Rotina de Postura', focus:'Costas · ombro posterior · trapézio · anti-corcunda', exercises:ex, ts:Date.now(), quick:true, posture:true };
+  save();
+  renderQuickWorkout(); goPage('workout');
+  setTimeout(()=>{ const c=document.getElementById('quick-workout-section'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'}); },80);
+  toast('Rotina de postura pronta 🧍');
+}
+
+// 📊 volume por músculo nos últimos 7 dias
+const _VOL_ORDER=['costas','ombro','biceps','triceps','peito','quadriceps','posterior','gluteo','panturrilha','abdomen'];
+const _VOL_LABEL={costas:'Costas',ombro:'Ombro',biceps:'Bíceps',triceps:'Tríceps',peito:'Peito',quadriceps:'Quadríceps',posterior:'Posterior',gluteo:'Glúteo',panturrilha:'Panturrilha',abdomen:'Abdômen'};
+const _VOL_FOCO=['costas','ombro','biceps','triceps']; // grupos-foco dele
+function renderVolumeWeek(){
+  const el=document.getElementById('volume-week-body'); if(!el) return;
+  const since=Date.now()-7*86400000;
+  const by={};
+  (D.volumeLog||[]).filter(v=>v.ts>=since).forEach(v=>{ by[v.muscle]=(by[v.muscle]||0)+(v.sets||0); });
+  const entries=_VOL_ORDER.filter(m=>by[m]).map(m=>({m,sets:by[m]}));
+  if(!entries.length){ el.innerHTML='<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">Sem séries registradas nos últimos 7 dias. Marque as séries dos treinos pra ver aqui.</div>'; return; }
+  const max=Math.max(12,...entries.map(e=>e.sets));
+  el.innerHTML = entries.map(e=>{
+    const foco=_VOL_FOCO.includes(e.m);
+    const low=foco && e.sets<10;
+    const col = low?'var(--red)':(e.sets>=10?'var(--green)':'var(--gold)');
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">
+      <div style="width:80px;font-size:12px;color:${foco?'var(--gold)':'var(--mid)'};font-weight:${foco?'700':'500'}">${_VOL_LABEL[e.m]}</div>
+      <div style="flex:1;height:10px;background:var(--s2);border-radius:5px;overflow:hidden"><div style="height:100%;width:${Math.round(e.sets/max*100)}%;background:${col}"></div></div>
+      <div style="width:56px;text-align:right;font-size:12px;color:var(--text);font-weight:700">${e.sets} séries</div>
+    </div>`;
+  }).join('') + `<div style="font-size:10px;color:var(--dim);margin-top:6px;line-height:1.5">Alvo p/ crescer: ~10–16 séries por grupo/semana. Em <span style="color:var(--gold)">dourado</span> seus grupos-foco (costas, ombro, braço). <span style="color:var(--red)">Vermelho</span> = está baixo.</div>`;
+}
+function toggleVolumeWeek(){
+  const b=document.getElementById('volume-week-body'); const c=document.getElementById('volume-week-chev');
+  if(!b) return; const open=b.style.display==='none';
+  b.style.display=open?'':'none'; if(c) c.textContent=open?'▾':'▸';
+  if(open) renderVolumeWeek();
+}
+
 // resumo do que o usuário treinou recentemente (para a IA montar com contexto)
 function recentTrainingText(){
   const parts=[];
@@ -6933,19 +7036,32 @@ function buildCustomExerciseHTML(s, origEx, i){
     }).join('');
     const noteTxt = ex.notes || (ex.load ? 'Carga sugerida: '+ex.load : '');
     const noteLbl = ex.notes ? (lang==='pt'?'EXECUÇÃO':'EXECUTION') : (lang==='pt'?'NOTA':'NOTE');
-    // Sugestão de carga: usa o histórico do app inteiro (por nome). Conservador (repetir).
+    // Sugestão de carga: histórico do app inteiro (por nome) + como você avaliou o esforço.
     const suggestBox = (()=>{
-      if(!isTimed && lastSeries){
-        const loads = lastSeries.filter(Boolean).map(s2=>s2.load).filter(Boolean);
-        if(loads.length){
-          const lastLoad = loads[loads.length-1];
-          return `<div style="padding:10px 14px;border-top:1px solid var(--bdr);background:rgba(201,169,110,.06)">
-            <div style="font-size:12px;color:var(--mid)">Última vez você usou <strong style="color:var(--text)">${loads.join(' / ')} lb</strong>.</div>
-            <div style="font-size:13px;color:var(--gold);font-weight:700;margin-top:2px">💡 Comece com ${lastLoad} lb hoje ${'—'} repita, sem forçar.</div>
-          </div>`;
-        }
+      if(isTimed || !lastSeries) return '';
+      const loads = lastSeries.filter(Boolean).map(s2=>s2.load).filter(Boolean);
+      if(!loads.length) return '';
+      const lastLoad = loads[loads.length-1];
+      const L = parseFloat(String(lastLoad).replace(/[^0-9.]/g,''));
+      const eff = (D.effortByName||{})[exNameNorm(ex.name)];
+      let suggested = lastLoad, note = 'repita a carga — sem forçar';
+      if(eff && !isNaN(L)){
+        if(eff.r==='easy'){ suggested=(L+2.5); note='da última vez tava fácil → tente '+suggested+' lb'; }
+        else if(eff.r==='hard'){ suggested=Math.max(0,L-5); note='tava difícil → alivie pra '+suggested+' lb'; }
+        else { suggested=L; note='tava na medida → mantenha '+L+' lb'; }
       }
-      return '';
+      const pr = (D.prByName||{})[exNameNorm(ex.name)];
+      const enc = encodeURIComponent(ex.name);
+      return `<div style="padding:10px 14px;border-top:1px solid var(--bdr);background:rgba(201,169,110,.06)">
+        <div style="font-size:12px;color:var(--mid)">Última vez: <strong style="color:var(--text)">${loads.join(' / ')} lb</strong>${pr?` · 🏆 recorde ${pr.load} lb`:''}.</div>
+        <div style="font-size:13px;color:var(--gold);font-weight:700;margin-top:2px">💡 Sugestão hoje: ${suggested} lb — ${note}.</div>
+        <div style="font-size:10px;color:var(--dim);margin-top:8px;margin-bottom:4px">Como foi a carga hoje?</div>
+        <div style="display:flex;gap:6px">
+          <button onclick="rateEffort('${enc}','easy')" style="flex:1;padding:7px;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;color:var(--mid);font-size:11px;font-weight:700;cursor:pointer">😅 Fácil</button>
+          <button onclick="rateEffort('${enc}','ok')" style="flex:1;padding:7px;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;color:var(--mid);font-size:11px;font-weight:700;cursor:pointer">👍 Na medida</button>
+          <button onclick="rateEffort('${enc}','hard')" style="flex:1;padding:7px;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;color:var(--mid);font-size:11px;font-weight:700;cursor:pointer">🥵 Difícil</button>
+        </div>
+      </div>`;
     })();
     body = `<div style="background:var(--s1);border-top:1px solid var(--bdr)">${seriesRows}</div>
       ${suggestBox}
@@ -8361,8 +8477,8 @@ function muscleOf(name){
   if(/tr[ií]ceps|testa|mergulho|dips/.test(n)) return 'triceps';
   if(/rosca|b[ií]ceps/.test(n)) return 'biceps';
   if(/supino|crucifixo|peck|voador|peito|flex[aã]o de bra/.test(n)) return 'peito';
-  if(/puxad|remada|pulldown|barra fixa|pull-?up|dorsal/.test(n)) return 'costas';
-  if(/eleva[cç][aã]o lateral|eleva[cç][aã]o frontal|desenvolvimento|arnold|facepull|encolhimento|ombro|deltoide/.test(n)) return 'ombro';
+  if(/puxad|remada|pulldown|barra fixa|pull-?up|pull-?apart|dorsal|superman/.test(n)) return 'costas';
+  if(/eleva[cç][aã]o lateral|eleva[cç][aã]o frontal|desenvolvimento|arnold|face ?pull|encolhimento|deslizamento|wall slide|ombro|deltoide/.test(n)) return 'ombro';
   if(/flexora|stiff|posterior|terra romeno|isquio|good morning/.test(n)) return 'posterior';
   if(/abdutora|adutora|gl[uú]teo|p[eé]lvica|hip thrust|coice|sum[oô]/.test(n)) return 'gluteo';
   if(/extensora|agachamento|leg press|hack|afundo|quadr[ií]ceps|b[uú]lgaro|step-?up/.test(n)) return 'quadriceps';
