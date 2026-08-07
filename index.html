@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-07T01:44:07Z">
+<meta name="app-version" content="2026-08-07T10:08:00Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -621,6 +621,25 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 </div>
 <style>@keyframes aiPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:.88}}</style>
 
+<!-- COACH IA — botão flutuante (treino + nutrição) -->
+<button id="coach-fab" onclick="openCoach()" style="position:fixed;right:16px;bottom:82px;z-index:9000;width:56px;height:56px;border-radius:50%;background:var(--gold);color:var(--gold-ink);border:none;box-shadow:0 4px 16px rgba(201,169,110,.45);font-size:24px;cursor:pointer;display:none;align-items:center;justify-content:center" title="Coach IA — treino e nutrição">💬</button>
+
+<!-- COACH IA — folha de chat geral -->
+<div class="overlay" id="coach-ov" onclick="if(event.target===this)closeSheet('coach-ov')">
+  <div class="sheet" style="max-height:90vh;display:flex;flex-direction:column">
+    <div class="sheet-handle"></div>
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">💬 Coach IA</div>
+    <div class="sheet-title" style="margin-top:2px">Treino & Nutrição</div>
+    <div class="sheet-desc">Pergunte o que quiser — ele sabe seu perfil, foco e metas.</div>
+    <div class="quick-chips" id="coach-chips" style="margin-bottom:8px"></div>
+    <div class="ai-chat-feed" id="coach-feed" style="flex:1;min-height:160px;max-height:50vh;overflow-y:auto;margin-bottom:10px"></div>
+    <div class="ai-chat-input-row">
+      <input class="ai-input" id="coach-input" type="text" placeholder="Ex: o que comer hoje? como crescer ombro?" onkeydown="if(event.key==='Enter')sendCoachMsg()">
+      <button class="ai-send-btn" onclick="sendCoachMsg()"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ HOME — LAUNCHER ═══════════ -->
 <div class="page on" id="pg-home">
 
@@ -828,7 +847,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px">Diga o que quer treinar — a IA olha seus últimos treinos e monta pra você.</div>
     </div>
     <div style="margin:0 14px 14px">
-      <button onclick="startPostureRoutine()" class="btn btn-outline btn-full" style="padding:12px;font-size:13px">🧍 Rotina de postura (anti-corcunda · 5–8 min)</button>
+      <button onclick="startPostureRoutine()" class="btn btn-outline btn-full" style="padding:12px;font-size:13px">🧍 Postura rápida (anti-corcunda · 5 exercícios, ~8 min)</button>
     </div>
     <div id="quick-workout-section"></div>
 
@@ -4900,6 +4919,7 @@ function applyCoachProto(h){
 // HOME
 // ══════════════════════════════════
 function initHome() {
+  const fab=document.getElementById('coach-fab'); if(fab) fab.style.display='flex';
   const h = new Date().getHours();
   const g = h<12?tr('greet_morning'):h<17?tr('greet_after'):tr('greet_evening');
   setEl('h-name', g+', <span style="color:var(--gold)">'+D.name.toUpperCase()+'</span>');
@@ -6825,16 +6845,15 @@ function rateEffort(nameEnc, r){
 
 // 🧍 rotina de postura (anti-corcunda) — casa/academia
 function startPostureRoutine(){
+  // Curta de verdade: 5 exercícios × 2 séries, pausa mínima ≈ 8 min
   const ex=[
-    {name:'Face Pull na Polia',sets:3,reps:'15',rest:'45s',load:'',notes:'Puxe na altura do rosto, cotovelos altos, abra pros lados. O melhor exercício pra postura.',muscle:'ombro'},
-    {name:'Band Pull-Apart (elástico)',sets:3,reps:'20',rest:'30s',load:'',notes:'Braços à frente, abra o elástico apertando as escápulas. Dá pra fazer em casa.',muscle:'costas'},
-    {name:'Remada Baixa (Cabo)',sets:3,reps:'15',rest:'45s',load:'',notes:'Puxe até o umbigo, aperte as escápulas, peito aberto.',muscle:'costas'},
-    {name:'Deslizamento na Parede (Wall Slide)',sets:3,reps:'12',rest:'30s',load:'',notes:'Costas e braços na parede, deslize pra cima sem descolar. Mobilidade de ombro.',muscle:'ombro'},
-    {name:'Superman no chão',sets:3,reps:'12',rest:'30s',load:'',notes:'De barriga pra baixo, levante braços e pernas. Fortalece a cadeia posterior.',muscle:'costas'},
-    {name:'Encolhimento (Trapézio)',sets:3,reps:'15',rest:'45s',load:'',notes:'Eleve os ombros em direção às orelhas, segure 1s. Trapézio que você quer.',muscle:'ombro'},
-    {name:'Alongamento de Peito na Porta',sets:2,reps:'30s',rest:'20s',load:'',notes:'Antebraço na batente da porta, gire o corpo. Abre o peito encurtado pela postura.',muscle:'peito'},
+    {name:'Band Pull-Apart (elástico)',sets:2,reps:'20',rest:'20s',load:'',notes:'Braços à frente, abra o elástico apertando as escápulas. Ativa o meio das costas.',muscle:'costas'},
+    {name:'Face Pull na Polia',sets:2,reps:'15',rest:'20s',load:'',notes:'Puxe na altura do rosto, cotovelos altos, abra pros lados. O melhor pra postura.',muscle:'ombro'},
+    {name:'Deslizamento na Parede (Wall Slide)',sets:2,reps:'12',rest:'20s',load:'',notes:'Costas e braços na parede, deslize pra cima sem descolar. Mobilidade de ombro.',muscle:'ombro'},
+    {name:'Superman no chão',sets:2,reps:'12',rest:'20s',load:'',notes:'De barriga pra baixo, levante braços e pernas 1s. Fortalece a cadeia posterior.',muscle:'costas'},
+    {name:'Alongamento de Peito na Porta',sets:2,reps:'30s',rest:'0s',load:'',notes:'Antebraço na batente, gire o corpo. Abre o peito encurtado pela postura.',muscle:'peito'},
   ];
-  D.quickWorkout={ id:Date.now(), name:'🧍 Rotina de Postura', focus:'Costas · ombro posterior · trapézio · anti-corcunda', exercises:ex, ts:Date.now(), quick:true, posture:true };
+  D.quickWorkout={ id:Date.now(), name:'🧍 Postura (rápida)', focus:'Anti-corcunda · costas e ombro · ~8 min', exercises:ex, ts:Date.now(), quick:true, posture:true };
   save();
   renderQuickWorkout(); goPage('workout');
   setTimeout(()=>{ const c=document.getElementById('quick-workout-section'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'}); },80);
@@ -8099,6 +8118,78 @@ const NUT_SYSTEM = (ispt) => `Você é um nutricionista esportivo de elite. Tom:
 PERFIL DO USUÁRIO: ${userProfileText()}
 Metodologia: Dieta Opus 15 / Seca Barriga. Jejum intermitente. 3 refeições. Rotação de alimentos. Sem ultraprocessados.
 Refeições liberadas: café preto à vontade, gelatina diet, folhas verdes à vontade. Se faltar informação no perfil, pergunte. Responda em ${ispt?'português brasileiro':'English'}.`;
+
+// contexto de nutrição pro coach (metas + consumo de hoje)
+function nutritionContextText(){
+  try{
+    const t = (typeof estTargets==='function') ? estTargets() : null;
+    const c = (typeof consumedToday==='function') ? consumedToday() : null;
+    let s='';
+    if(t) s+=`Metas diárias: ~${t.cal} kcal e ~${t.protein}g de proteína. `;
+    if(c) s+=`Hoje já registrou ${c.kcal} kcal e ${c.prot}g de proteína. `;
+    if(D.weightLbs) s+=`Peso atual ${D.weightLbs} lb`+(D.julyGoal?`, meta ${D.julyGoal.target} lb`:'')+'. ';
+    return s;
+  }catch(e){ return ''; }
+}
+
+// Coach IA combinado — treino + nutrição, perguntas gerais
+const COACH_SYSTEM = (ispt) => `Você é o COACH pessoal do usuário: especialista tanto em TREINO quanto em NUTRIÇÃO. Responda perguntas gerais das duas áreas de forma direta e prática, sem enrolação.
+PERFIL DO USUÁRIO: ${userProfileText()}
+NUTRIÇÃO: ${nutritionContextText()}
+Respeite as limitações (ex: joelho) e o foco/postura do perfil. Se faltar informação, pergunte. Responda em ${ispt?'português brasileiro':'English'}.`;
+
+function openCoach(){
+  const feed=document.getElementById('coach-feed');
+  if(feed && !feed.dataset.init){
+    // reidrata histórico salvo
+    const hist=(D.coachChats&&D.coachChats.general)||[];
+    feed.innerHTML = hist.map(m=>`<div class="ai-msg ${m.role==='bot'?'ai':'user'}">${m.content}</div>`).join('');
+    feed.dataset.init='1';
+    if(!hist.length){
+      feed.innerHTML = `<div class="ai-msg ai">👋 Sou seu coach de treino e nutrição. Pergunte o que quiser — execução de exercício, o que comer, proteína, jejum, dor, o que priorizar… Sei seu perfil e suas metas.</div>`;
+    }
+  }
+  const chips=document.getElementById('coach-chips');
+  if(chips){
+    const qs=['Como acelerar a queima de gordura?','O que comer no pós-treino?','Como bater 200g de proteína?','Melhor exercício pra postura?','Posso treinar sentindo dor?'];
+    chips.innerHTML = qs.map(q=>`<div class="qchip" onclick="coachChip(this)">${q}</div>`).join('');
+  }
+  openSheet('coach-ov');
+  setTimeout(()=>{ const i=document.getElementById('coach-input'); if(i) i.focus(); },150);
+}
+function coachChip(el){ const i=document.getElementById('coach-input'); if(i){ i.value=el.textContent; sendCoachMsg(); } }
+async function sendCoachMsg(){
+  const inp=document.getElementById('coach-input'); if(!inp) return;
+  const msg=inp.value.trim(); if(!msg) return;
+  const feed='coach-feed';
+  if(!D.apiKey){
+    inp.value='';
+    appendAiMsg(feed,'user',msg);
+    appendAiMsg(feed,'bot','💡 '+_coachFallback(msg,'trainer')+'<br><br><span style="font-size:11px;color:var(--dim)">Ative a IA (✨ no topo) para respostas personalizadas de treino e nutrição.</span>');
+    return;
+  }
+  inp.value='';
+  appendAiMsg(feed,'user',msg);
+  showTypingInFeed(feed,'coach-typing');
+  if(!D.coachChats) D.coachChats={};
+  if(!D.coachChats.general) D.coachChats.general=[];
+  D.coachChats.general.push({role:'user',content:msg});
+  const ispt=lang==='pt';
+  const msgs=[...D.coachChats.general.slice(-10).map(m=>({role:m.role==='bot'?'assistant':'user',content:m.content}))];
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:700,system:COACH_SYSTEM(ispt),messages:msgs})});
+    const data=await res.json();
+    const d=document.getElementById('coach-typing'); if(d) d.remove();
+    const reply=data.content?.[0]?.text||'Erro.';
+    appendAiMsg(feed,'bot',reply);
+    D.coachChats.general.push({role:'bot',content:reply});
+    if(D.coachChats.general.length>40) D.coachChats.general=D.coachChats.general.slice(-40);
+    save();
+  }catch(e){
+    const d=document.getElementById('coach-typing'); if(d) d.remove();
+    appendAiMsg(feed,'bot',ispt?'Erro de conexão.':'Connection error.');
+  }
+}
 
 function initTrainerChat() {
   const chats = D.coachChats||{};
