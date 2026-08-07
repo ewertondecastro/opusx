@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-07T00:38:17Z">
+<meta name="app-version" content="2026-08-07T01:08:12Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -6644,26 +6644,105 @@ function _getAIPlanKey() {
   return 'default';
 }
 
+const AI_GOALS = [
+  {k:'hipertrofia', l:'Hipertrofia', d:'Músculo e volume (8–12 reps)'},
+  {k:'forca',       l:'Força',       d:'Cargas altas, menos reps (4–6)'},
+  {k:'resistencia', l:'Resistência', d:'Mais reps, pausa curta (15–20)'},
+  {k:'estamina',    l:'Estamina',    d:'Condicionamento + cardio'},
+  {k:'emagrecimento', l:'Emagrecimento', d:'Gasto alto, circuitos'},
+];
+
 function renderAIPlan() {
   const sec = document.getElementById('aiplan-section');
   if(!sec) return;
-  const pk = _getAIPlanKey();
-  const plan = _AI_PLAN_DATA[pk];
-  const level = D.userProfile?.level || 'inter';
-  const levelLabel = {beginner:'Iniciante',inter:'Intermediário',adv:'Avançado'}[level]||'Intermediário';
-
+  const cur = D.aiPlanGoal||'';
   sec.innerHTML = `
-    <div style="margin:0 14px 12px;padding:12px 14px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r)">
-      <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:4px">Plano gerado para</div>
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:${plan.color}">${plan.label}</span>
-          <span style="font-size:12px;color:var(--mid);margin-left:8px">· ${levelLabel}</span>
-        </div>
-        <button onclick="toast('Edite seu objetivo no Perfil para mudar o plano')" style="background:transparent;border:none;color:var(--dim);font-size:11px;cursor:pointer">✎ Trocar objetivo →</button>
+    <div style="margin:0 14px 12px;padding:14px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r)">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:4px">✨ Gerar plano por objetivo</div>
+      <div style="font-size:12px;color:var(--dim);margin-bottom:12px">Escolha o objetivo. A IA monta a semana inteira usando seu perfil e seu foco, e instala aqui no "Meu Plano".</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+        ${AI_GOALS.map(g=>`<button onclick="generateWeeklyPlan('${g.k}')" style="text-align:left;padding:13px 14px;background:${cur===g.k?'var(--gold-bg)':'var(--s2)'};border:1px solid ${cur===g.k?'rgba(201,169,110,.5)':'var(--bdr)'};border-radius:10px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer">${g.l}<div style="font-size:11px;color:var(--dim);font-weight:500;margin-top:2px">${g.d}</div></button>`).join('')}
       </div>
-    </div>
-    ${plan.sessions.map((session,si)=>buildSessionHTML('ai_'+si, session, si)).join('')}`;
+      <div id="aiplan-status" style="font-size:12px;color:var(--gold);text-align:center;min-height:16px"></div>
+      <div style="margin-top:10px;padding-top:12px;border-top:1px solid var(--bdr)">
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:4px">🎯 Meu foco (a IA usa isto em tudo)</div>
+        <div style="font-size:12px;color:var(--mid);line-height:1.5" id="focus-text">${D.trainingFocus||'—'}</div>
+        <button onclick="editFocus()" style="margin-top:8px;background:transparent;border:1px solid var(--bdr);border-radius:6px;color:var(--gold);font-size:11px;font-weight:700;padding:7px 12px;cursor:pointer">✎ Editar meu foco</button>
+      </div>
+    </div>`;
+}
+
+function editFocus(){
+  const v = prompt('Seu foco de treino — o que priorizar, limitações, estética, postura:', D.trainingFocus||'');
+  if(v==null) return;
+  D.trainingFocus = (v||'').trim();
+  save();
+  toast('Foco atualizado ✓');
+  if(typeof renderAIPlan==='function') renderAIPlan();
+}
+
+async function generateWeeklyPlan(goal){
+  const LBL = {hipertrofia:'Hipertrofia',forca:'Força',resistencia:'Resistência',estamina:'Estamina',emagrecimento:'Emagrecimento'};
+  D.aiPlanGoal = goal; save();
+  const setStatus = t => { const e=document.getElementById('aiplan-status'); if(e) e.textContent=t; };
+
+  // Fallback sem IA: usa os planos internos por objetivo
+  if(!D.apiKey){
+    const map={hipertrofia:'hyper',forca:'strength',emagrecimento:'fat',resistencia:'default',estamina:'default'};
+    const data=_AI_PLAN_DATA[map[goal]||'default']||_AI_PLAN_DATA.default;
+    const sessions=(data.sessions||[]).map(s=>({name:s.title,focus:s.focus||'',exercises:(s.exercises||[]).map(e=>({name:e.name,sets:parseInt(e.sets)||3,reps:String(e.reps||'10-12'),rest:String(e.rest||'60s'),load:'',notes:e.notes||''}))}));
+    installWeeklyPlan(sessions, null, '✨ '+(LBL[goal]||goal));
+    setStatus('Plano criado (offline). Ative a IA pra planos sob medida.');
+    return;
+  }
+
+  setStatus('✨ Montando seu plano semanal…');
+  try{
+    const sys=`Você é um personal trainer de elite. Monte um PLANO SEMANAL para o objetivo "${LBL[goal]||goal}". PERFIL DO USUÁRIO: ${userProfileText()}. Poupe o joelho (sem agachamento profundo/impacto; prefira máquinas, leg press, mesa flexora, hip thrust). Respeite as PRIORIDADES/FOCO do perfil (postura, grupos a priorizar, progressão conservadora). Crie de 3 a 4 SESSÕES coerentes com o objetivo e um cronograma de 7 dias. Retorne SOMENTE JSON válido, sem markdown: {"plan_name":"nome curto","sessions":[{"name":"nome da sessão","focus":"grupos","exercises":[{"name":"exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"dica curta de execução","muscle":"peito|costas|ombro|biceps|triceps|quadriceps|posterior|gluteo|panturrilha|abdomen"}]}],"schedule":{"Mon":0,"Tue":"rest","Wed":1,"Thu":"rest","Fri":2,"Sat":"rest","Sun":"rest"}}. No schedule, cada dia recebe o ÍNDICE da sessão (0,1,2,...) ou "rest".`;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:2500,system:sys,messages:[{role:'user',content:'Gere o plano de '+(LBL[goal]||goal)+'.'}]})});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const j=await res.json();
+    const raw=j.content[0].text.trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'');
+    const parsed=JSON.parse(raw);
+    const sessions=(parsed.sessions||[]).filter(s=>s&&s.name).map(s=>({name:String(s.name),focus:String(s.focus||''),exercises:(s.exercises||[]).filter(e=>e&&e.name).map(e=>({name:String(e.name),sets:parseInt(e.sets)||3,reps:String(e.reps||'10-12'),rest:String(e.rest||'60s'),load:'',notes:String(e.notes||'')}))}));
+    if(!sessions.length) throw new Error('vazio');
+    installWeeklyPlan(sessions, parsed.schedule, parsed.plan_name||LBL[goal]);
+  }catch(e){
+    console.warn('[weekly-plan]',e);
+    setStatus('Não consegui gerar. Tente de novo ou escolha outro objetivo.');
+  }
+}
+
+function installWeeklyPlan(sessions, schedule, planName){
+  if(!sessions||!sessions.length){ toast('Plano vazio'); return; }
+  D.customPlan = D.customPlan || { active:false, sessions:[] };
+  // remove um plano-IA anterior; preserva Queima 60 e suas sessões
+  D.customPlan.sessions = (D.customPlan.sessions||[]).filter(s=>s.preset!=='aiplan');
+  const base = Date.now();
+  const installed = sessions.map((s,i)=>({ ...s, preset:'aiplan', id: base+i }));
+  D.customPlan.sessions = installed.concat(D.customPlan.sessions);
+  // cronograma
+  const sch = {};
+  if(schedule){
+    DAY_ORDER.forEach(day=>{
+      const v = schedule[day];
+      if(v==='rest'||v==null) sch[day]='rest';
+      else { const si=parseInt(v); sch[day]= installed[si]?installed[si].id:'rest'; }
+    });
+  } else {
+    const spread=['Mon','Wed','Fri','Sat','Tue','Thu'];
+    installed.forEach((s,i)=>{ if(spread[i]) sch[spread[i]]=s.id; });
+    DAY_ORDER.forEach(d=>{ if(!sch[d]) sch[d]='rest'; });
+  }
+  D.customPlan.schedule = sch;
+  D.customPlan.active = true;
+  D.cuOpen = {}; // recolhe tudo; a sessão de hoje reabre sozinha
+  save();
+  switchPlanMode('custom');
+  if(typeof togglePlanArea==='function') togglePlanArea(true);
+  renderCustomPlan();
+  if(typeof renderTodayHero==='function') renderTodayHero();
+  toast((planName||'Plano')+' criado no Meu Plano 🔥');
 }
 
 // ── Histórico de carga POR NOME do exercício (compartilhado entre todas as abas) ──
