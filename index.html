@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-07T10:08:00Z">
+<meta name="app-version" content="2026-08-10T01:42:55Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -624,6 +624,23 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <!-- COACH IA — botão flutuante (treino + nutrição) -->
 <button id="coach-fab" onclick="openCoach()" style="position:fixed;right:16px;bottom:82px;z-index:9000;width:56px;height:56px;border-radius:50%;background:var(--gold);color:var(--gold-ink);border:none;box-shadow:0 4px 16px rgba(201,169,110,.45);font-size:24px;cursor:pointer;display:none;align-items:center;justify-content:center" title="Coach IA — treino e nutrição">💬</button>
 
+<!-- REGISTRAR CARDIO -->
+<div class="overlay" id="cardio-ov" onclick="if(event.target===this)closeSheet('cardio-ov')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">REGISTRAR CARDIO</div>
+    <div class="sheet-desc">Baixo impacto, Zona 2 (dá pra conversar com esforço).</div>
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:8px">TIPO</div>
+    <div id="cardio-type-chips" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px"></div>
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">MINUTOS</div>
+    <input class="sheet-input" id="cardio-mins" type="number" inputmode="numeric" value="15" style="margin-bottom:14px">
+    <div class="sheet-btns">
+      <button class="btn btn-outline" onclick="closeSheet('cardio-ov')" style="flex:1">Cancelar</button>
+      <button class="btn btn-gold" onclick="saveCardioLog()" style="flex:2;margin:0">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- COACH IA — folha de chat geral -->
 <div class="overlay" id="coach-ov" onclick="if(event.target===this)closeSheet('coach-ov')">
   <div class="sheet" style="max-height:90vh;display:flex;flex-direction:column">
@@ -841,6 +858,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:1px" id="wo-title">TREINOS</div>
     </div>
     <div id="readiness-card"></div>
+    <div id="cardio-today"></div>
     <div id="today-hero"></div>
     <div style="margin:0 14px 10px">
       <button onclick="openBodyPart()" class="btn btn-gold btn-full" style="padding:16px;font-size:14px">🎯 MONTAR TREINO DE HOJE</button>
@@ -2536,6 +2554,7 @@ let D = {
   weightUnit: 'lbs',
   nutDay: 0,
   coachChats: { trainer: [], nutritionist: [] },
+  cardioGoal: 15, cardioLog: [],
   trainingFocus: 'Quer braços, ombros e trapézio maiores. Estética: melhorar o peito (aspecto caído/aberto pros lados) e reduzir os flancos. Postura: está ficando corcunda/ombros pra frente — PRIORIZAR muito costas, deltóide posterior, trapézio, remadas e face pull; equilibrar todo empurrar com puxar. Sente-se fraco ultimamente: progressão de carga conservadora.',
 };
 const TODAY = new Date().toDateString();
@@ -5542,6 +5561,7 @@ function buildWorkoutUI() {
   if(typeof renderQuickWorkout==='function') renderQuickWorkout();
   if(typeof renderTodayHero==='function') renderTodayHero();
   if(typeof renderReadiness==='function') renderReadiness();
+  if(typeof renderCardioToday==='function') renderCardioToday();
 }
 
 function switchWorkoutDay(key) {
@@ -6922,6 +6942,98 @@ function setReadiness(level){
   toast(level==='low'?'Anotado. Hoje a gente vai com calma. 🧘':level==='high'?'Boa! Bora com tudo. 🔥':'Anotado 👍');
 }
 function clearReadiness(){ if(D.readiness) delete D.readiness[TODAY]; save(); renderReadiness(); }
+
+// ══════════════════════════════════
+// 🚴 CARDIO DIÁRIO
+// ══════════════════════════════════
+const CARDIO_TYPES=['🚶 Esteira inclinada','🚴 Bike','🚣 Remo','🌀 Elíptico','🏃 Outro'];
+let _cardioType = CARDIO_TYPES[0];
+function cardioGoal(){ return D.cardioGoal||15; }
+function cardioTodayMins(){ return (D.cardioLog||[]).filter(c=>c.date===TODAY).reduce((a,c)=>a+(c.mins||0),0); }
+function cardioStreak(){
+  const goal=cardioGoal(); const by={};
+  (D.cardioLog||[]).forEach(c=>{ by[c.date]=(by[c.date]||0)+(c.mins||0); });
+  let streak=0, d=new Date();
+  for(let i=0;i<400;i++){
+    const key=d.toDateString(); const met=(by[key]||0)>=goal;
+    if(met) streak++;
+    else if(i>0) break; // dia passado sem bater → para
+    d.setDate(d.getDate()-1);
+  }
+  return streak;
+}
+function renderCardioToday(){
+  const el=document.getElementById('cardio-today'); if(!el) return;
+  const goal=cardioGoal(), mins=cardioTodayMins();
+  const pct=Math.min(100,Math.round(mins/goal*100)), streak=cardioStreak(), met=mins>=goal;
+  el.innerHTML=`<div style="margin:0 14px 12px;padding:14px;background:${met?'rgba(82,168,120,.08)':'var(--s1)'};border:1px solid ${met?'rgba(82,168,120,.35)':'var(--bdr)'};border-radius:var(--r)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:${met?'var(--green)':'var(--gold)'};font-weight:800">🚴 Cardio de hoje${met?' · feito ✓':''}</div>
+      ${streak>0?`<div style="font-size:12px;color:var(--gold);font-weight:700">🔥 ${streak} ${streak>1?'dias':'dia'}</div>`:''}
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--text);line-height:1">${mins} <span style="font-size:15px;color:var(--mid)">/ ${goal} min</span> <span onclick="editCardioGoal()" style="font-size:12px;color:var(--gold);cursor:pointer;margin-left:4px">✎</span></div>
+    <div style="height:8px;background:var(--s2);border-radius:5px;overflow:hidden;margin:8px 0"><div style="height:100%;width:${pct}%;background:${met?'var(--green)':'var(--gold)'};transition:width .3s"></div></div>
+    <div id="cardio-timer-line" style="font-size:12px;color:var(--gold);text-align:center;min-height:16px;margin-bottom:6px"></div>
+    <div style="display:flex;gap:6px">
+      <button onclick="startCardioTimer()" style="flex:1;padding:11px;background:var(--gold);color:var(--gold-ink);border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">▶ Cronômetro ${goal} min</button>
+      <button onclick="openCardioLog()" style="flex:1;padding:11px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer">✎ Registrar minutos</button>
+    </div>
+    <div style="font-size:10px;color:var(--dim);margin-top:8px">Baixo impacto pro joelho: bike, remo, elíptico ou esteira inclinada. Zona 2, depois da musculação.</div>
+  </div>`;
+}
+function logCardio(type, mins){
+  mins=parseInt(mins)||0; if(mins<=0) return;
+  if(!D.cardioLog) D.cardioLog=[];
+  D.cardioLog.push({date:TODAY, type:type||'Cardio', mins:mins, ts:Date.now()});
+  if(D.cardioLog.length>400) D.cardioLog=D.cardioLog.slice(-400);
+  save();
+  renderCardioToday();
+}
+function editCardioGoal(){
+  const v=prompt('Meta de cardio por dia (minutos):', String(cardioGoal()));
+  if(v==null) return; const n=parseInt(v); if(isNaN(n)||n<=0){ toast('Valor inválido'); return; }
+  D.cardioGoal=n; save(); renderCardioToday(); toast('Meta de cardio: '+n+' min/dia ✓');
+}
+function openCardioLog(){
+  _cardioType=CARDIO_TYPES[0];
+  const wrap=document.getElementById('cardio-type-chips');
+  if(wrap){
+    wrap.innerHTML=CARDIO_TYPES.map((t,i)=>`<div class="cardio-chip" data-i="${i}" onclick="selCardioType(${i},this)" style="padding:8px 12px;background:${i===0?'var(--gold)':'var(--s2)'};border:1px solid ${i===0?'var(--gold)':'var(--bdr)'};border-radius:20px;font-size:12px;font-weight:700;color:${i===0?'var(--gold-ink)':'var(--mid)'};cursor:pointer">${t}</div>`).join('');
+  }
+  const mi=document.getElementById('cardio-mins'); if(mi) mi.value=Math.max(1,cardioGoal());
+  openSheet('cardio-ov');
+}
+function selCardioType(i,el){
+  _cardioType=CARDIO_TYPES[i];
+  document.querySelectorAll('#cardio-type-chips .cardio-chip').forEach(c=>{ const on=c===el; c.style.background=on?'var(--gold)':'var(--s2)'; c.style.color=on?'var(--gold-ink)':'var(--mid)'; c.style.borderColor=on?'var(--gold)':'var(--bdr)'; });
+}
+function saveCardioLog(){
+  const mins=parseInt((document.getElementById('cardio-mins')||{}).value)||0;
+  if(mins<=0){ toast('Informe os minutos'); return; }
+  logCardio(_cardioType, mins);
+  closeSheet('cardio-ov');
+  toast(mins+' min de cardio registrados ✓');
+}
+let _cardioTimer=null, _cardioLeft=0;
+function startCardioTimer(){
+  const line=document.getElementById('cardio-timer-line');
+  if(_cardioTimer){ clearInterval(_cardioTimer); _cardioTimer=null; if(line) line.textContent=''; toast('Cronômetro parado'); return; }
+  const goal=cardioGoal(); _cardioLeft=goal*60;
+  const tick=()=>{
+    if(_cardioLeft<=0){
+      clearInterval(_cardioTimer); _cardioTimer=null;
+      if(line) line.textContent='';
+      logCardio('Cardio', goal);
+      try{ if(navigator.vibrate) navigator.vibrate([120,60,120]); }catch(e){}
+      toast('Cardio de '+goal+' min concluído 🎉');
+      return;
+    }
+    const m=Math.floor(_cardioLeft/60), s=_cardioLeft%60;
+    if(line) line.textContent='⏱️ '+m+':'+(s<10?'0':'')+s+' — toque de novo pra parar';
+    _cardioLeft--;
+  };
+  tick(); _cardioTimer=setInterval(tick,1000);
+}
 
 // resumo do que o usuário treinou recentemente (para a IA montar com contexto)
 function recentTrainingText(){
