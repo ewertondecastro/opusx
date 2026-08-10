@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-10T02:00:43Z">
+<meta name="app-version" content="2026-08-10T09:48:41Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -6793,7 +6793,7 @@ async function generateWeeklyPlan(goal){
 
   setStatus('✨ Montando seu plano semanal…');
   try{
-    const sys=`Você é um personal trainer de elite. Monte um PLANO SEMANAL para o objetivo "${LBL[goal]||goal}". PERFIL DO USUÁRIO: ${userProfileText()}. Poupe o joelho (sem agachamento profundo/impacto; prefira máquinas, leg press, mesa flexora, hip thrust). Respeite as PRIORIDADES/FOCO do perfil (postura, grupos a priorizar, progressão conservadora). Crie de 3 a 4 SESSÕES coerentes com o objetivo e um cronograma de 7 dias. Retorne SOMENTE JSON válido, sem markdown: {"plan_name":"nome curto","sessions":[{"name":"nome da sessão","focus":"grupos","exercises":[{"name":"exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"dica curta de execução","muscle":"peito|costas|ombro|biceps|triceps|quadriceps|posterior|gluteo|panturrilha|abdomen"}]}],"schedule":{"Mon":0,"Tue":"rest","Wed":1,"Thu":"rest","Fri":2,"Sat":"rest","Sun":"rest"}}. No schedule, cada dia recebe o ÍNDICE da sessão (0,1,2,...) ou "rest".`;
+    const sys=`Você é um personal trainer de elite. Monte um PLANO SEMANAL para o objetivo "${LBL[goal]||goal}". PERFIL DO USUÁRIO: ${userProfileText()}. Poupe o joelho (sem agachamento profundo/impacto; prefira máquinas, leg press, mesa flexora, hip thrust). Respeite as PRIORIDADES/FOCO do perfil (postura, grupos a priorizar, progressão conservadora). RESTRIÇÃO: cada sessão cabe em 1 HORA — ~45 min de força (5-6 exercícios) + terminar SEMPRE com um cardio de 15 min de baixo impacto (reps "15 min"). Crie de 3 a 4 SESSÕES coerentes com o objetivo e um cronograma de 7 dias. Retorne SOMENTE JSON válido, sem markdown: {"plan_name":"nome curto","sessions":[{"name":"nome da sessão","focus":"grupos","exercises":[{"name":"exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"dica curta de execução","muscle":"peito|costas|ombro|biceps|triceps|quadriceps|posterior|gluteo|panturrilha|abdomen"}]}],"schedule":{"Mon":0,"Tue":"rest","Wed":1,"Thu":"rest","Fri":2,"Sat":"rest","Sun":"rest"}}. No schedule, cada dia recebe o ÍNDICE da sessão (0,1,2,...) ou "rest".`;
     const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:2500,system:sys,messages:[{role:'user',content:'Gere o plano de '+(LBL[goal]||goal)+'.'}]})});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const j=await res.json();
@@ -7323,6 +7323,21 @@ function cuToggleEx(exKey, el, rowId, sid){
   const row = document.getElementById(rowId);
   if(row) row.classList.toggle('done-ex', D.exChecked[exKey]);
   if(D.exChecked[exKey]) cuMarkStart(sid);
+  // se for um exercício de cardio marcado como feito → conta na meta de cardio (1x)
+  if(D.exChecked[exKey]){
+    const s2 = (typeof findCuSession==='function') ? findCuSession(sid) : null;
+    const idx = parseInt(exKey.split('_ex_')[1]);
+    const cex = s2 && s2.exercises && s2.exercises[idx];
+    if(cex && /min/i.test(cex.reps||'')){
+      const gk = 'cardio_'+exKey+'_'+TODAY;
+      if(!D.cardioLoggedKeys) D.cardioLoggedKeys={};
+      if(!D.cardioLoggedKeys[gk]){
+        const mm = parseInt((String(cex.reps).match(/(\d+)\s*min/i)||[])[1]) || 15;
+        D.cardioLoggedKeys[gk]=true;
+        if(typeof logCardio==='function') logCardio('Cardio (treino)', mm);
+      }
+    }
+  }
   save();
   refreshCustomProgress(sid);
 }
@@ -7399,6 +7414,11 @@ function orderedPool(m, kneeSafe){
   if(kneeSafe && ['quadriceps','posterior','gluteo'].includes(m)) pool = pool.filter(e=>!KNEE_AVOID.includes(e.name));
   return pool;
 }
+// cardio final de 15 min (baixo impacto) — mantém o treino dentro de 1h
+function _cardioFinisher(){
+  const min = (typeof cardioGoal==='function') ? cardioGoal() : 15;
+  return { name:'🏁 Cardio final (baixo impacto)', sets:1, reps:min+' min', rest:'—', load:'Zona 2 · bike/remo/elíptico/esteira', notes:'Fecha o treino em 1h. Zona 2 (dá pra conversar). Ao marcar como feito, já conta na sua meta de cardio.', muscle:'' };
+}
 
 let _bpSel = [];
 function openBodyPart(){
@@ -7428,8 +7448,8 @@ function generateWorkout(sel){
   else if(Array.isArray(sel)){ muscles = sel.slice(); name = '🎯 Treino — '+muscles.map(m=>MUSCLE_META[m]?MUSCLE_META[m].lbl:m).join(', '); }
   else return;
 
-  // alvo total de exercícios (~1h): 6–8 conforme nº de grupos
-  const TARGET = Math.min(8, Math.max(muscles.length, muscles.length<=2?6:7));
+  // força ~45 min (5–6 exercícios) pra sobrar 15 min de cardio dentro de 1h
+  const TARGET = Math.min(6, Math.max(muscles.length, muscles.length<=2?5:6));
   const pools = {}; muscles.forEach(m=>{ pools[m]=orderedPool(m, kneeSafe); });
   const picks = [];
   let gi=0, guard=0;
@@ -7444,8 +7464,10 @@ function generateWorkout(sel){
     if(muscles.every(mm=>!pools[mm] || !pools[mm].length)) break;
   }
   if(!picks.length){ toast('Sem exercícios disponíveis'); return; }
+  // cardio final de 15 min — fecha o treino em 1h e conta na meta de cardio
+  picks.push(_cardioFinisher());
 
-  const focus = muscles.map(m=>MUSCLE_META[m]?MUSCLE_META[m].lbl:m).join(' · ') + (kneeSafe?' · poupa joelho':'');
+  const focus = muscles.map(m=>MUSCLE_META[m]?MUSCLE_META[m].lbl:m).join(' · ') + (kneeSafe?' · poupa joelho':'') + ' · +15min cardio · 1h';
   D.quickWorkout = { id: Date.now(), name, focus, exercises:picks, ts:Date.now(), quick:true };
   save();
   closeSheet('bodypart-ov');
@@ -7496,7 +7518,7 @@ async function runAIWorkout(){
     const _hist = (typeof recentTrainingText==='function') ? recentTrainingText() : '';
     const _rd = (typeof readinessToday==='function') ? readinessToday() : null;
     const _rdTxt = _rd==='low' ? 'HOJE ele marcou que está FRACO/cansado: reduza volume e carga, treino mais curto, foco em técnica e recuperação.' : _rd==='high' ? 'Hoje ele está bem disposto.' : '';
-    const sys=`Você é um personal trainer de elite montando UM treino para HOJE. PERFIL DO USUÁRIO: ${userProfileText()}. ${_rdTxt} ${_hist?('HISTÓRICO RECENTE: '+_hist+'. Não repita à toa o mesmo grupo do último treino; se fizer sentido repetir, tudo bem. Sobre carga: o usuário anda se sentindo FRACO — por padrão sugira REPETIR a última carga conhecida (não aumente), e só proponha subir se claramente fizer sentido.'):''} ${kneeSafe?'IMPORTANTE: poupe o joelho — evite agachamento livre profundo, afundo, búlgaro e qualquer impacto; prefira leg press, cadeira extensora, mesa flexora, hip thrust e máquinas.':''} Respeite as PRIORIDADES/FOCO do perfil acima (ex: postura, grupos que ele quer priorizar). Monte de 6 a 8 exercícios para cerca de 1 hora. Retorne SOMENTE um JSON válido, sem markdown, neste formato exato: {"title":"título curto","focus":"grupos separados por vírgula","exercises":[{"name":"nome do exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"uma dica curta de execução em português","muscle":"um de: peito,costas,ombro,biceps,triceps,quadriceps,posterior,gluteo,panturrilha,abdomen"}]}. Use nomes de exercícios comuns e reconhecíveis.`;
+    const sys=`Você é um personal trainer de elite montando UM treino para HOJE. PERFIL DO USUÁRIO: ${userProfileText()}. ${_rdTxt} ${_hist?('HISTÓRICO RECENTE: '+_hist+'. Não repita à toa o mesmo grupo do último treino; se fizer sentido repetir, tudo bem. Sobre carga: o usuário anda se sentindo FRACO — por padrão sugira REPETIR a última carga conhecida (não aumente), e só proponha subir se claramente fizer sentido.'):''} ${kneeSafe?'IMPORTANTE: poupe o joelho — evite agachamento livre profundo, afundo, búlgaro e qualquer impacto; prefira leg press, cadeira extensora, mesa flexora, hip thrust e máquinas.':''} Respeite as PRIORIDADES/FOCO do perfil acima (ex: postura, grupos que ele quer priorizar). RESTRIÇÃO DE TEMPO: o treino TODO cabe em 1 HORA — faça 5 a 6 exercícios de FORÇA (~45 min) e SEMPRE inclua como ÚLTIMO exercício um cardio de 15 min de baixo impacto (bike/remo/elíptico/esteira), com reps "15 min". Retorne SOMENTE um JSON válido, sem markdown, neste formato exato: {"title":"título curto","focus":"grupos separados por vírgula","exercises":[{"name":"nome do exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"uma dica curta de execução em português","muscle":"um de: peito,costas,ombro,biceps,triceps,quadriceps,posterior,gluteo,panturrilha,abdomen"}]}. Use nomes de exercícios comuns e reconhecíveis.`;
     const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:1400,system:sys,messages:[{role:'user',content:'Pedido: '+txt}]})});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const j=await res.json();
