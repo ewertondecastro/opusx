@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-10T12:28:49Z">
+<meta name="app-version" content="2026-08-24T09:59:29Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -864,8 +864,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div id="cardio-today"></div>
     <div id="today-hero"></div>
     <div style="margin:0 14px 10px">
-      <button onclick="openBodyPart()" class="btn btn-gold btn-full" style="padding:16px;font-size:14px">🎯 MONTAR TREINO DE HOJE</button>
-      <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px">Diga o que quer treinar — a IA olha seus últimos treinos e monta pra você.</div>
+      <button onclick="openBodyPart(true)" class="btn btn-gold btn-full" style="padding:16px;font-size:14px">🤖 CRIAR TREINO COM IA</button>
+      <div style="font-size:11px;color:var(--dim);text-align:center;margin-top:6px">Fale ou escreva o que você quer — ela cria o roteiro na hora.</div>
     </div>
     <div style="margin:0 14px 14px">
       <button onclick="startPostureRoutine()" class="btn btn-outline btn-full" style="padding:12px;font-size:13px">🧍 Postura rápida (anti-corcunda · 5 exercícios, ~8 min)</button>
@@ -2122,11 +2122,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <div class="overlay" id="bodypart-ov" onclick="if(event.target===this)closeSheet('bodypart-ov')">
   <div class="sheet" style="max-height:90vh;overflow-y:auto">
     <div class="sheet-handle"></div>
-    <div class="sheet-title">MONTAR TREINO DE HOJE</div>
-    <div class="sheet-desc">Peça pra IA ou escolha o que malhar — sai pronto com cargas e substitutos.</div>
+    <div class="sheet-title">CRIAR TREINO COM IA</div>
+    <div class="sheet-desc">Diga o que você quer e a IA cria o roteiro na hora. 🎤 No teclado, toque no microfone pra <strong>falar</strong> em vez de digitar.</div>
 
-    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:8px">✨ Pedir pra IA</div>
-    <textarea id="bp-ai-text" placeholder="Ex: quero malhar upper body hoje · perna leve poupando o joelho · peito e ombro em 40 min" style="width:100%;background:var(--s1);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:15px;padding:12px;min-height:62px;outline:none;resize:vertical;box-sizing:border-box;margin-bottom:8px"></textarea>
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:8px">✨ Diga o que você quer</div>
+    <textarea id="bp-ai-text" placeholder="Ex: quero focar em ombro e braço hoje, sem forçar o joelho, uns 45 minutos" style="width:100%;background:var(--s1);border:1px solid var(--bdr);border-radius:10px;color:var(--text);font-size:15px;padding:12px;min-height:62px;outline:none;resize:vertical;box-sizing:border-box;margin-bottom:8px"></textarea>
     <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">
       <div class="bp-ex-chip" onclick="bpExample('Quero malhar upper body hoje')" style="padding:7px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;font-size:12px;font-weight:600;color:var(--mid);cursor:pointer">💪 Upper body</div>
       <div class="bp-ex-chip" onclick="bpExample('Treino de perna poupando o joelho')" style="padding:7px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:20px;font-size:12px;font-weight:600;color:var(--mid);cursor:pointer">🦵 Perna</div>
@@ -7425,7 +7425,7 @@ function _cardioFinisher(){
 }
 
 let _bpSel = [];
-function openBodyPart(){
+function openBodyPart(focusAI){
   _bpSel = [];
   const wrap = document.getElementById('bp-muscle-chips');
   if(wrap){
@@ -7434,6 +7434,8 @@ function openBodyPart(){
     ).join('');
   }
   openSheet('bodypart-ov');
+  // abre o teclado no campo da IA — dá pra tocar no microfone 🎤 do teclado e falar
+  if(focusAI){ setTimeout(()=>{ const t=document.getElementById('bp-ai-text'); if(t) t.focus(); }, 250); }
 }
 function toggleBpChip(m, el){
   const i = _bpSel.indexOf(m);
