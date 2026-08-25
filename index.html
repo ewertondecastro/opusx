@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-24T09:59:29Z">
+<meta name="app-version" content="2026-08-25T23:37:05Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -4966,6 +4966,16 @@ function renderHomeCardio(){
 
 function initHome() {
   const fab=document.getElementById('coach-fab'); if(fab) fab.style.display='flex';
+  // ao tocar num campo de número (série, peso, minutos…), seleciona tudo pra digitar direto
+  if(!window._selectAllHook){
+    window._selectAllHook = true;
+    document.addEventListener('focusin', function(e){
+      const el = e.target;
+      if(el && el.tagName==='INPUT' && (el.type==='number' || /decimal|numeric/.test(el.getAttribute('inputmode')||''))){
+        setTimeout(function(){ try{ el.select(); }catch(_){} }, 0);
+      }
+    });
+  }
   if(typeof renderHomeCardio==='function') renderHomeCardio();
   const h = new Date().getHours();
   const g = h<12?tr('greet_morning'):h<17?tr('greet_after'):tr('greet_evening');
@@ -8316,7 +8326,7 @@ function openCoach(){
   if(feed && !feed.dataset.init){
     // reidrata histórico salvo
     const hist=(D.coachChats&&D.coachChats.general)||[];
-    feed.innerHTML = hist.map(m=>`<div class="ai-msg ${m.role==='bot'?'ai':'user'}">${m.content}</div>`).join('');
+    feed.innerHTML = hist.map(m=>`<div class="ai-msg ${m.role==='bot'?'ai':'user'}"><div class="ai-bubble">${(typeof mdToHtml==='function'?mdToHtml(m.content):m.content)}</div></div>`).join('');
     feed.dataset.init='1';
     if(!hist.length){
       feed.innerHTML = `<div class="ai-msg ai">👋 Sou seu coach de treino e nutrição. Pergunte o que quiser — execução de exercício, o que comer, proteína, jejum, dor, o que priorizar… Sei seu perfil e suas metas.</div>`;
@@ -8392,12 +8402,33 @@ function renderQuickChips(elId, keys, sendFn) {
   wrap.innerHTML = keys.map(k=>`<div class="qchip" onclick="${sendFn}(this)">${tr(k)}</div>`).join('');
 }
 
+// converte markdown simples da IA em HTML com o estilo do app
+function mdToHtml(t){
+  if(t==null) return '';
+  let s = String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // títulos
+  s = s.replace(/^###\s+(.+)$/gm,'<div style="font-weight:800;color:var(--gold);margin:9px 0 2px;font-size:13px;letter-spacing:.3px;text-transform:uppercase">$1</div>');
+  s = s.replace(/^##\s+(.+)$/gm,'<div style="font-family:\'Bebas Neue\',sans-serif;color:var(--text);margin:11px 0 3px;font-size:19px;letter-spacing:.5px">$1</div>');
+  s = s.replace(/^#\s+(.+)$/gm,'<div style="font-family:\'Bebas Neue\',sans-serif;color:var(--gold);margin:8px 0 4px;font-size:23px;letter-spacing:.5px">$1</div>');
+  // negrito / itálico
+  s = s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  s = s.replace(/(^|[^*\w])\*([^*\n]+?)\*(?=[^*\w]|$)/g,'$1<em>$2</em>');
+  // listas com marcador
+  s = s.replace(/^\s*[-*•]\s+(.+)$/gm,'<div style="padding-left:15px;position:relative;margin:3px 0"><span style="position:absolute;left:0;color:var(--gold)">•</span>$1</div>');
+  // listas numeradas
+  s = s.replace(/^\s*(\d+)\.\s+(.+)$/gm,'<div style="padding-left:20px;position:relative;margin:3px 0"><span style="position:absolute;left:0;color:var(--gold);font-weight:700">$1.</span>$2</div>');
+  // linha divisória
+  s = s.replace(/^\s*---+\s*$/gm,'<div style="height:1px;background:var(--bdr);margin:10px 0"></div>');
+  // quebras de linha (sem duplicar em volta dos blocos)
+  s = s.replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');
+  s = s.replace(/<\/div>\s*<br>/g,'</div>').replace(/<br>\s*(<div)/g,'$1');
+  return s;
+}
 function appendAiMsg(feedId, role, text) {
   const feed = document.getElementById(feedId); if(!feed) return;
   const time = new Date().toLocaleTimeString(lang==='pt'?'pt-BR':'en-US',{hour:'2-digit',minute:'2-digit'});
   const div = document.createElement('div'); div.className='ai-msg '+role;
-  const html = text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
-  div.innerHTML = `<div class="ai-bubble">${html}</div><div class="ai-msg-time">${time}</div>`;
+  div.innerHTML = `<div class="ai-bubble">${mdToHtml(text)}</div><div class="ai-msg-time">${time}</div>`;
   feed.appendChild(div);
   setTimeout(()=>feed.scrollTop=feed.scrollHeight,50);
 }
