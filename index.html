@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-25T23:37:05Z">
+<meta name="app-version" content="2026-08-26T00:23:06Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -8319,7 +8319,9 @@ function nutritionContextText(){
 const COACH_SYSTEM = (ispt) => `Você é o COACH pessoal do usuário: especialista tanto em TREINO quanto em NUTRIÇÃO. Responda perguntas gerais das duas áreas de forma direta e prática, sem enrolação.
 PERFIL DO USUÁRIO: ${userProfileText()}
 NUTRIÇÃO: ${nutritionContextText()}
-Respeite as limitações (ex: joelho) e o foco/postura do perfil. Se faltar informação, pergunte. Responda em ${ispt?'português brasileiro':'English'}.`;
+Respeite as limitações (ex: joelho) e o foco/postura do perfil. Se faltar informação, pergunte.
+REGRA ESPECIAL: se o usuário pedir para você CRIAR/MONTAR um treino ou roteiro de exercícios, NÃO responda em texto — responda SOMENTE com um objeto JSON válido (nada antes ou depois), assim: {"action":"workout","title":"título curto","focus":"grupos","exercises":[{"name":"exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"dica curta","muscle":"peito|costas|ombro|biceps|triceps|quadriceps|posterior|gluteo|panturrilha|abdomen"}]}. O treino inteiro cabe em 1h: 5 a 6 exercícios de força + um cardio de 15 min de baixo impacto como último item (reps "15 min"). Poupe o joelho. Para QUALQUER outra coisa (dúvidas, nutrição, dieta, conselhos), responda normalmente em texto.
+Responda em ${ispt?'português brasileiro':'English'}.`;
 
 function openCoach(){
   const feed=document.getElementById('coach-feed');
@@ -8364,14 +8366,57 @@ async function sendCoachMsg(){
     const data=await res.json();
     const d=document.getElementById('coach-typing'); if(d) d.remove();
     const reply=data.content?.[0]?.text||'Erro.';
-    appendAiMsg(feed,'bot',reply);
-    D.coachChats.general.push({role:'bot',content:reply});
+    // Se o Coach devolveu um treino em JSON → monta cards clicáveis
+    const rawJson = reply.trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'');
+    let madeWorkout=false;
+    if(rawJson.charAt(0)==='{' && /"action"\s*:\s*"workout"/.test(rawJson)){
+      try{
+        const p=JSON.parse(rawJson);
+        if(p && p.action==='workout' && Array.isArray(p.exercises) && p.exercises.length){
+          madeWorkout = installCoachWorkout(p);
+        }
+      }catch(_){}
+    }
+    if(!madeWorkout){
+      appendAiMsg(feed,'bot',reply);
+      D.coachChats.general.push({role:'bot',content:reply});
+    }
     if(D.coachChats.general.length>40) D.coachChats.general=D.coachChats.general.slice(-40);
     save();
   }catch(e){
     const d=document.getElementById('coach-typing'); if(d) d.remove();
     appendAiMsg(feed,'bot',ispt?'Erro de conexão.':'Connection error.');
   }
+}
+
+// monta um treino clicável a partir do JSON que o Coach devolveu
+function installCoachWorkout(p){
+  const exs=(p.exercises||[]).filter(e=>e&&e.name).map(e=>({name:String(e.name),sets:parseInt(e.sets)||3,reps:String(e.reps||'10-12'),rest:String(e.rest||'60s'),load:'',notes:String(e.notes||'')}));
+  if(!exs.length) return false;
+  // garante o cardio final (regra de 1h) se a IA não incluiu
+  if(!/min/i.test(exs[exs.length-1].reps||'') && typeof _cardioFinisher==='function') exs.push(_cardioFinisher());
+  D.quickWorkout={ id:Date.now(), name:(p.title||'🤖 Treino do Coach'), focus:(p.focus||'Personalizado'), exercises:exs, ts:Date.now(), quick:true, ai:true };
+  save();
+  if(typeof renderQuickWorkout==='function') renderQuickWorkout();
+  // cartão no chat com resumo + botão pra abrir
+  const el=document.getElementById('coach-feed');
+  if(el){
+    const summary=exs.map((e,i)=>`${i+1}. <strong>${e.name}</strong> — ${e.sets}×${e.reps}`).join('<br>');
+    const div=document.createElement('div'); div.className='ai-msg ai';
+    div.innerHTML=`<div class="ai-bubble"><div style="font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:20px;margin-bottom:2px">${(p.title||'TREINO').toUpperCase()}</div><div style="font-size:12px;color:var(--dim);margin-bottom:8px">${p.focus||''} · ${exs.length} exercícios</div><div style="font-size:13px;line-height:1.8">${summary}</div><button onclick="openCoachWorkout()" class="btn btn-gold btn-full" style="padding:12px;margin-top:12px">▶ Abrir treino clicável</button></div>`;
+    el.appendChild(div); setTimeout(()=>el.scrollTop=el.scrollHeight,50);
+  }
+  // guarda no histórico como texto pra reidratar depois
+  if(!D.coachChats) D.coachChats={}; if(!D.coachChats.general) D.coachChats.general=[];
+  D.coachChats.general.push({role:'bot',content:'Montei o treino **'+(p.title||'Treino')+'** ('+exs.length+' exercícios). Abra na aba Treino, no card do topo.'});
+  save();
+  return true;
+}
+function openCoachWorkout(){
+  closeSheet('coach-ov');
+  goPage('workout');
+  if(typeof renderQuickWorkout==='function') renderQuickWorkout();
+  setTimeout(()=>{ const c=document.getElementById('quick-workout-section'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'}); }, 140);
 }
 
 function initTrainerChat() {
