@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-26T00:25:37Z">
+<meta name="app-version" content="2026-08-26T00:36:30Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -706,6 +706,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
   <!-- Cardio status bar -->
   <div id="h-cardio-bar"></div>
+
+  <!-- Backup / segurança dos dados -->
+  <div id="h-backup-bar"></div>
 
 
   <!-- Spotify -->
@@ -2790,11 +2793,12 @@ async function saveGistToken(){
 function clearGistToken(){
   setGistToken(''); setGistId(''); setSyncStatus('idle');
   const f = document.getElementById('gist-field'); if(f) f.value='';
+  if(typeof renderBackupStatus==='function') renderBackupStatus();
   toast('Sync desligado');
 }
 
 function renderAll(){
-  try { renderProfilePage(); renderTodayWorkout(); renderWater(); renderWeek(); renderFastHistory(); renderWeightPage(); renderWorkoutHistory(); buildWorkoutUI(); refreshAIBadge(); } catch(e){}
+  try { renderProfilePage(); renderTodayWorkout(); renderWater(); renderWeek(); renderFastHistory(); renderWeightPage(); renderWorkoutHistory(); buildWorkoutUI(); refreshAIBadge(); if(typeof renderBackupStatus==='function') renderBackupStatus(); } catch(e){}
 }
 
 // ══════════════════════════════════
@@ -4940,6 +4944,39 @@ function applyCoachProto(h){
 // ══════════════════════════════════
 // HOME
 // ══════════════════════════════════
+// pede ao navegador pra NÃO apagar os dados (evição do iOS/Safari)
+async function ensurePersistentStorage(){
+  try{
+    if(navigator.storage && navigator.storage.persist){
+      let ok=false;
+      if(navigator.storage.persisted) ok = await navigator.storage.persisted();
+      if(!ok) await navigator.storage.persist();
+    }
+  }catch(e){}
+}
+
+// status de backup na Home: avisa quando está desligado
+function renderBackupStatus(){
+  const el=document.getElementById('h-backup-bar'); if(!el) return;
+  const on = (typeof getGistToken==='function') ? !!getGistToken() : false;
+  if(on){
+    el.innerHTML = `<div onclick="openSheet('api-ov')" style="margin:10px 14px 0;background:var(--s1);border:1px solid rgba(82,168,120,.3);border-radius:var(--r);padding:11px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">
+      <div style="font-size:18px">🔒</div>
+      <div style="flex:1"><div style="font-size:12px;color:var(--green);font-weight:800">Backup na nuvem ligado</div><div style="font-size:11px;color:var(--dim)">Seus dados sincronizam sozinhos.</div></div>
+    </div>`;
+  } else {
+    el.innerHTML = `<div onclick="openBackupHelp()" style="margin:10px 14px 0;background:rgba(224,82,82,.09);border:1px solid rgba(224,82,82,.4);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">
+      <div style="font-size:18px">⚠️</div>
+      <div style="flex:1"><div style="font-size:12px;color:var(--red,#E05252);font-weight:800">Backup desligado</div><div style="font-size:11px;color:var(--mid)">Seus dados estão só neste aparelho. Toque para proteger.</div></div>
+      <div style="color:var(--gold);font-weight:700;font-size:18px">›</div>
+    </div>`;
+  }
+}
+function openBackupHelp(){
+  openSheet('api-ov');
+  setTimeout(()=>{ const g=document.getElementById('gist-field'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'}); }, 220);
+}
+
 function renderHomeCardio(){
   const el=document.getElementById('h-cardio-bar'); if(!el) return;
   const goal=(typeof cardioGoal==='function')?cardioGoal():(D.cardioGoal||15);
@@ -4977,6 +5014,8 @@ function initHome() {
     });
   }
   if(typeof renderHomeCardio==='function') renderHomeCardio();
+  if(typeof renderBackupStatus==='function') renderBackupStatus();
+  if(!window._persistAsked){ window._persistAsked=true; if(typeof ensurePersistentStorage==='function') ensurePersistentStorage(); }
   const h = new Date().getHours();
   const g = h<12?tr('greet_morning'):h<17?tr('greet_after'):tr('greet_evening');
   setEl('h-name', g+', <span style="color:var(--gold)">'+D.name.toUpperCase()+'</span>');
