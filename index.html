@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-08-26T00:23:06Z">
+<meta name="app-version" content="2026-08-26T00:25:37Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -8320,7 +8320,9 @@ const COACH_SYSTEM = (ispt) => `Você é o COACH pessoal do usuário: especialis
 PERFIL DO USUÁRIO: ${userProfileText()}
 NUTRIÇÃO: ${nutritionContextText()}
 Respeite as limitações (ex: joelho) e o foco/postura do perfil. Se faltar informação, pergunte.
-REGRA ESPECIAL: se o usuário pedir para você CRIAR/MONTAR um treino ou roteiro de exercícios, NÃO responda em texto — responda SOMENTE com um objeto JSON válido (nada antes ou depois), assim: {"action":"workout","title":"título curto","focus":"grupos","exercises":[{"name":"exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"dica curta","muscle":"peito|costas|ombro|biceps|triceps|quadriceps|posterior|gluteo|panturrilha|abdomen"}]}. O treino inteiro cabe em 1h: 5 a 6 exercícios de força + um cardio de 15 min de baixo impacto como último item (reps "15 min"). Poupe o joelho. Para QUALQUER outra coisa (dúvidas, nutrição, dieta, conselhos), responda normalmente em texto.
+REGRA ESPECIAL A (treino): se o usuário pedir para você CRIAR/MONTAR um treino ou roteiro de exercícios, NÃO responda em texto — responda SOMENTE com um objeto JSON válido (nada antes ou depois), assim: {"action":"workout","title":"título curto","focus":"grupos","exercises":[{"name":"exercício em português","sets":number,"reps":"faixa ex 10-12","rest":"ex 60s","notes":"dica curta","muscle":"peito|costas|ombro|biceps|triceps|quadriceps|posterior|gluteo|panturrilha|abdomen"}]}. O treino inteiro cabe em 1h: 5 a 6 exercícios de força + um cardio de 15 min de baixo impacto como último item (reps "15 min"). Poupe o joelho.
+REGRA ESPECIAL B (refeição): se o usuário pedir para você MONTAR/REGISTRAR/LANÇAR uma refeição ou um dia de dieta (ex: "monta minha refeição", "o que comer e já lança"), responda SOMENTE com JSON válido: {"action":"meal","title":"nome da refeição","items":[{"name":"alimento com porção em português","kcal":number,"prot":number}]}. Respeite as metas de caloria/proteína e priorize proteína.
+Para QUALQUER outra coisa (dúvidas, conselhos, explicações sobre treino ou nutrição), responda normalmente em texto.
 Responda em ${ispt?'português brasileiro':'English'}.`;
 
 function openCoach(){
@@ -8368,16 +8370,15 @@ async function sendCoachMsg(){
     const reply=data.content?.[0]?.text||'Erro.';
     // Se o Coach devolveu um treino em JSON → monta cards clicáveis
     const rawJson = reply.trim().replace(/^```[a-z]*\n?/,'').replace(/\n?```$/,'');
-    let madeWorkout=false;
-    if(rawJson.charAt(0)==='{' && /"action"\s*:\s*"workout"/.test(rawJson)){
+    let handled=false;
+    if(rawJson.charAt(0)==='{' && /"action"\s*:\s*"(workout|meal)"/.test(rawJson)){
       try{
         const p=JSON.parse(rawJson);
-        if(p && p.action==='workout' && Array.isArray(p.exercises) && p.exercises.length){
-          madeWorkout = installCoachWorkout(p);
-        }
+        if(p && p.action==='workout' && Array.isArray(p.exercises) && p.exercises.length) handled = installCoachWorkout(p);
+        else if(p && p.action==='meal' && Array.isArray(p.items) && p.items.length) handled = installCoachMeal(p);
       }catch(_){}
     }
-    if(!madeWorkout){
+    if(!handled){
       appendAiMsg(feed,'bot',reply);
       D.coachChats.general.push({role:'bot',content:reply});
     }
@@ -8417,6 +8418,31 @@ function openCoachWorkout(){
   goPage('workout');
   if(typeof renderQuickWorkout==='function') renderQuickWorkout();
   setTimeout(()=>{ const c=document.getElementById('quick-workout-section'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'}); }, 140);
+}
+
+// lança uma refeição do Coach no diário de hoje (kcal + proteína)
+function installCoachMeal(p){
+  const items=(p.items||[]).filter(f=>f&&f.name).map(f=>({name:String(f.name),kcal:parseInt(f.kcal)||0,prot:parseInt(f.prot)||0}));
+  if(!items.length) return false;
+  if(!D.extraFoods) D.extraFoods={};
+  if(!D.extraFoods[TODAY]) D.extraFoods[TODAY]=[];
+  const now=new Date(); const time=now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  items.forEach(f=>{ D.extraFoods[TODAY].push({name:f.name,kcal:f.kcal,prot:f.prot,ts:Date.now(),time,coach:true}); });
+  save();
+  if(typeof renderExtraFoods==='function') renderExtraFoods();
+  if(typeof renderJulyGoal==='function') renderJulyGoal();
+  const totK=items.reduce((a,f)=>a+f.kcal,0), totP=items.reduce((a,f)=>a+f.prot,0);
+  const el=document.getElementById('coach-feed');
+  if(el){
+    const rows=items.map(f=>`<strong>${f.name}</strong> — <span style="color:var(--gold)">${f.kcal} kcal</span> · ${f.prot}g P`).join('<br>');
+    const div=document.createElement('div'); div.className='ai-msg ai';
+    div.innerHTML=`<div class="ai-bubble"><div style="font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:20px;margin-bottom:4px">${(p.title||'REFEIÇÃO').toUpperCase()}</div><div style="font-size:13px;line-height:1.8">${rows}</div><div style="font-size:13px;margin-top:8px;font-weight:700">Total: <span style="color:var(--gold)">${totK} kcal</span> · ${totP}g proteína</div><div style="font-size:12px;color:var(--green);margin-top:6px;font-weight:700">✓ Lançado no seu dia</div></div>`;
+    el.appendChild(div); setTimeout(()=>el.scrollTop=el.scrollHeight,50);
+  }
+  if(!D.coachChats) D.coachChats={}; if(!D.coachChats.general) D.coachChats.general=[];
+  D.coachChats.general.push({role:'bot',content:'Lancei **'+(p.title||'refeição')+'** no seu dia: '+totK+' kcal, '+totP+'g proteína.'});
+  save();
+  return true;
 }
 
 function initTrainerChat() {
