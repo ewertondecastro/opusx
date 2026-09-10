@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-10T14:07:55Z">
+<meta name="app-version" content="2026-09-10T14:12:43Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -829,6 +829,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px" id="wo-ey">PLANO SEMANAL</div>
       <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:1px" id="wo-title">TREINOS</div>
     </div>
+    <div id="recovery-card"></div>
     <div id="readiness-card"></div>
     <div id="cardio-today"></div>
     <div id="today-hero"></div>
@@ -5726,6 +5727,7 @@ function buildWorkoutUI() {
   if(typeof renderTodayHero==='function') renderTodayHero();
   if(typeof renderReadiness==='function') renderReadiness();
   if(typeof renderCardioToday==='function') renderCardioToday();
+  if(typeof renderRecovery==='function') renderRecovery();
 }
 
 function switchWorkoutDay(key) {
@@ -5865,6 +5867,7 @@ function buildSessionHTML(key, session, idx) {
         <div class="ex-checkbox${exDone?' done':''}" onclick="event.stopPropagation();toggleExCheck('${exKey}',this,'exrow-${exKey}')">
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
+        ${exThumb(ex.name)}
         <div class="ex-info">
           <div class="ex-name">${ex.name}${ex._substituted?` <span style="color:var(--gold);font-size:10px;font-weight:700;letter-spacing:.5px">↔ SUB</span>`:''}</div>
           <div class="ex-detail">${ex.sets}×${ex.reps} · ${ex.rest}${!isTimed?' · <span style="color:var(--gold)">'+ex.load+'</span>':''}</div>
@@ -7078,6 +7081,32 @@ function toggleVolumeWeek(){
   if(open) renderVolumeWeek();
 }
 
+// 🔋 Recuperação / músculos frescos (Fitbod-style)
+const RECOV_MUSCLES=[{k:'peito',l:'Peito'},{k:'costas',l:'Costas'},{k:'ombro',l:'Ombro'},{k:'biceps',l:'Bíceps'},{k:'triceps',l:'Tríceps'},{k:'quadriceps',l:'Quadríceps'},{k:'posterior',l:'Posterior'},{k:'gluteo',l:'Glúteo'},{k:'abdomen',l:'Abdômen'}];
+function renderRecovery(){
+  const el=document.getElementById('recovery-card'); if(!el) return;
+  const lastTs={};
+  (D.volumeLog||[]).forEach(v=>{ if(!lastTs[v.muscle] || v.ts>lastTs[v.muscle]) lastTs[v.muscle]=v.ts; });
+  const now=Date.now();
+  const rows=RECOV_MUSCLES.map(m=>{
+    const t=lastTs[m.k]; const hrs=t?(now-t)/3600000:999;
+    let col; if(hrs>=48) col='var(--green)'; else if(hrs>=24) col='var(--gold)'; else col='#B5786A';
+    return {...m,col,fresh:hrs>=48};
+  });
+  const fresh=rows.filter(r=>r.fresh).length;
+  const pills=rows.map(r=>`<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:16px;margin:0 6px 6px 0">
+    <span style="width:8px;height:8px;border-radius:50%;background:${r.col};display:inline-block"></span>
+    <span style="font-size:12px;color:var(--text)">${r.l}</span></div>`).join('');
+  el.innerHTML=`<div style="margin:0 14px 12px;background:var(--s1);border:1px solid var(--bdr);border-radius:16px;padding:16px">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:var(--green);line-height:1;font-style:italic">${fresh}</div>
+      <div><div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:800">Músculos frescos</div><div style="font-size:11px;color:var(--dim)">prontos pra treinar hoje</div></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap">${pills}</div>
+    <div style="font-size:10px;color:var(--dim);margin-top:4px">Verde = fresco (48h+) · dourado = recuperando · terracota = treinado recente</div>
+  </div>`;
+}
+
 // ☀️ Check-in de prontidão — ajusta a intensidade sugerida do dia
 function readinessToday(){ return (D.readiness||{})[TODAY]||null; }
 function renderReadiness(){
@@ -7284,6 +7313,21 @@ O usuário está no meio do treino. Responda curto e prático (2 a 5 frases) sob
   }
 }
 
+// miniatura do exercício (tile colorido por grupo muscular) — estilo Fitbod, sem fotos
+function exThumb(name){
+  const m = (typeof muscleOf==='function') ? muscleOf(name) : null;
+  const isCardio = /caminhada|bike|remo|el[íi]ptico|intervalado|corrida|\bcardio\b|esteira|panturrilha/i.test(name||'');
+  let col = '#C9A96E';
+  if(['costas','biceps','gluteo','posterior'].includes(m)) col='#B5786A';
+  else if(['quadriceps','panturrilha'].includes(m)) col='#6E9E9E';
+  const cardioIcon='<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/>';
+  const liftIcon='<path d="M6.5 6.5h11M6.5 17.5h11M3 12h18M7 3l1 4M16 3l1 4M7 21l1-4M16 21l1-4"/>';
+  const icon = (/caminhada|bike|remo|el[íi]ptico|intervalado|corrida|\bcardio\b|esteira/i.test(name||'')) ? cardioIcon : liftIcon;
+  return `<div style="width:46px;height:46px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg, ${col}30, ${col}0d);border:1px solid ${col}45">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
+  </div>`;
+}
+
 // Render rico de exercício do plano custom — séries/cargas + substitutos, igual ao Opus 15
 function buildCustomExerciseHTML(s, origEx, i){
   const checked = D.exChecked||{};
@@ -7423,6 +7467,7 @@ function buildCustomExerciseHTML(s, origEx, i){
       <div class="ex-checkbox${exDone?' done':''}" onclick="event.stopPropagation();cuToggleEx('${exKey}',this,'exrow-${exKey}',${s.id})">
         <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
+      ${exThumb(ex.name)}
       <div class="ex-info">
         <div class="ex-name">${ex.name}${ex._substituted?` <span style="color:var(--gold);font-size:10px;font-weight:700;letter-spacing:.5px">↔ SUB</span>`:''}</div>
         <div class="ex-detail">${ex.sets}×${ex.reps}${ex.rest?' · '+ex.rest:''}${(!isTimed&&!isCardio&&ex.load)?' · <span style="color:var(--gold)">'+ex.load+'</span>':''}</div>
