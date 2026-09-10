@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-08T14:10:00Z">
+<meta name="app-version" content="2026-09-10T14:04:55Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -680,7 +680,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div style="display:none"><span id="h-weight"></span><span id="h-streak"></span><span id="h-fasts"></span><span id="h-water-stat"></span></div>
 
   <!-- Fast status bar -->
-  <div style="margin:10px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="goPage('fast')">
+  <div id="h-fast-bar-wrap" style="margin:10px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="goPage('fast')">
     <div class="fmr" style="width:52px;height:52px;flex-shrink:0">
       <svg viewBox="0 0 52 52" width="52" height="52" style="transform:rotate(-90deg)">
         <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="4"/>
@@ -4472,40 +4472,76 @@ function obSetDiet(diet, el){
 }
 
 function applyTrainingMode(){
-  const noWo = !!D.noTraining;
-  const noFast = D.useFasting === false;
-  const noNut = D.useNutrition === false;
-  const navWo = document.getElementById('nav-workout');
-  if(navWo) navWo.style.display = noWo ? 'none' : '';
-  ['st-treino','st-cardio'].forEach(id=>{
-    const el = document.getElementById(id); if(el) el.style.display = noWo ? 'none' : '';
-  });
-  const navFast = document.getElementById('nav-fast');
-  if(navFast) navFast.style.display = noFast ? 'none' : '';
-  const stFast = document.getElementById('st-jejum');
-  if(stFast) stFast.style.display = noFast ? 'none' : '';
-  const navNut = document.getElementById('nav-nutrition');
-  if(navNut) navNut.style.display = noNut ? 'none' : '';
-  const stNut = document.getElementById('st-nutri');
-  if(stNut) stNut.style.display = noNut ? 'none' : '';
+  const trainOn = !D.noTraining;
+  const fastOn  = D.useFasting !== false;
+  const nutOn   = D.useNutrition !== false;
+  const set = (id,show)=>{ const e=document.getElementById(id); if(e) e.style.display = show ? '' : 'none'; };
+  // Abas
+  set('nav-workout', trainOn);
+  set('nav-seca', trainOn);        // Opus 15 é treino
+  set('nav-fast', fastOn);
+  set('nav-nutrition', nutOn);
+  // Seções da Home
+  set('h-today-workout', trainOn);
+  set('h-muscle-targets', trainOn);
+  set('h-cardio-bar', trainOn);
+  set('h-fast-bar-wrap', fastOn);
+  // Abas de stats do Opus 15 (compat)
+  set('st-treino', trainOn); set('st-cardio', trainOn);
+  set('st-jejum', fastOn); set('st-nutri', nutOn);
 }
 
-function setTrainingMode(train){
-  D.noTraining = !train;
+// liga/desliga um módulo mantendo pelo menos um ativo
+function toggleModule(k){
+  const s = { treino:!D.noTraining, jejum:D.useFasting!==false, dieta:D.useNutrition!==false };
+  const next = { ...s, [k]: !s[k] };
+  if(!next.treino && !next.jejum && !next.dieta){ toast('Deixe pelo menos um módulo ligado'); return; }
+  applyModuleState(next);
+}
+function setModulePreset(p){
+  const map = {
+    all:    {treino:true,  jejum:true,  dieta:true },
+    treino: {treino:true,  jejum:false, dieta:false},
+    jejum:  {treino:false, jejum:true,  dieta:false},
+    dieta:  {treino:false, jejum:false, dieta:true },
+  };
+  if(map[p]) applyModuleState(map[p]);
+}
+function applyModuleState(s){
+  D.noTraining   = !s.treino;
+  D.useFasting   = s.jejum;
+  D.useNutrition = s.dieta;
   save();
   applyTrainingMode();
   renderTrainingToggle();
-  toast(train ? 'Treino ativado' : 'Modo só Jejum + Dieta');
+  // se a página aberta pertence a um módulo desligado, volta pra Home
+  const curPage = (document.querySelector('.page.on')||{}).id;
+  const pageMod = {'pg-workout':'treino','pg-seca':'treino','pg-fast':'jejum','pg-nutrition':'dieta'};
+  const need = pageMod[curPage];
+  if(need && !s[need] && typeof goPage==='function') goPage('home');
+  else if(curPage==='pg-home' && typeof initHome==='function') initHome();
+  toast('Modo do app atualizado ✓');
 }
 
 function renderTrainingToggle(){
   const wrap = document.getElementById('training-toggle');
   if(!wrap) return;
-  const train = !D.noTraining;
-  wrap.innerHTML = [[true,'🏋️ Treino + Jejum + Dieta'],[false,'🍽️ Só Jejum + Dieta']].map(([v,lbl])=>{
-    const on = v===train;
-    return `<div onclick="setTrainingMode(${v})" style="flex:1;text-align:center;cursor:pointer;padding:12px 8px;border-radius:8px;border:1.5px solid ${on?'var(--gold)':'var(--bdr)'};background:${on?'var(--gold-bg)':'var(--s2)'};font-size:12px;font-weight:700;color:${on?'var(--gold)':'var(--mid)'}">${lbl}</div>`;
-  }).join('');
+  wrap.style.display = 'block';
+  const mods = [
+    {k:'treino', on:!D.noTraining,          icon:'🏋️', label:'Treino'},
+    {k:'jejum',  on:D.useFasting!==false,   icon:'⏱️', label:'Jejum'},
+    {k:'dieta',  on:D.useNutrition!==false, icon:'🥗', label:'Dieta'},
+  ];
+  const chips = mods.map(m=>`<div onclick="toggleModule('${m.k}')" style="flex:1;text-align:center;cursor:pointer;padding:14px 8px;border-radius:12px;border:1.5px solid ${m.on?'var(--gold)':'var(--bdr)'};background:${m.on?'var(--gold-bg)':'var(--s2)'}">
+      <div style="font-size:22px;margin-bottom:4px;opacity:${m.on?1:.45}">${m.icon}</div>
+      <div style="font-size:13px;font-weight:700;color:${m.on?'var(--gold)':'var(--mid)'}">${m.label}</div>
+      <div style="font-size:9px;margin-top:3px;letter-spacing:1px;color:${m.on?'var(--gold)':'var(--dim)'}">${m.on?'LIGADO':'DESLIGADO'}</div>
+    </div>`).join('');
+  const presets = [['🏋️⏱️🥗 Tudo','all'],['Só Treino','treino'],['Só Jejum','jejum'],['Só Dieta','dieta']]
+    .map(([lbl,p])=>`<div onclick="setModulePreset('${p}')" style="flex:1;text-align:center;cursor:pointer;padding:9px 4px;border-radius:8px;background:var(--s2);border:1px solid var(--bdr);font-size:11px;font-weight:700;color:var(--mid)">${lbl}</div>`).join('');
+  wrap.innerHTML = `<div style="display:flex;gap:8px">${chips}</div>
+    <div style="display:flex;gap:6px;margin-top:10px">${presets}</div>
+    <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.5">Ligue só o que você usa. As abas e a Home se ajustam ao seu foco.</div>`;
 }
 
 function obEquipPreset(preset){
