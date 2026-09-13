@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-10T14:12:43Z">
+<meta name="app-version" content="2026-09-13T23:44:18Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -81,10 +81,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── HEADER ── */
-.page-hd{padding:56px 20px 20px;border-bottom:1px solid var(--bdr)}
+.page-hd{padding:0 20px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,var(--s1) 0%,transparent 100%)}
 .page-eyebrow{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:6px}
 .page-title{font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--text);letter-spacing:1px;line-height:1}
 .page-sub{font-size:15px;color:var(--mid);margin-top:6px}
+
+/* ── Números-métrica: itálico assinatura (consistência com Home/Treino) ── */
+.stat-val,.fast-time-display,.fm-val,.fh-dur,.hist-val,.profile-stat-val,
+.meal-block-kcal,.food-kcal,.report-metric-val,.rest-timer-num,
+.ring-big-num,.hrl-val,.fast-mini-t,.streak-big{font-style:italic;font-feature-settings:'tnum'}
 
 /* ── CARDS ── */
 .card{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:18px;margin:0 14px 12px;box-shadow:var(--sh)}
@@ -251,7 +256,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
    WORKOUT
 ══════════════════════════════════ */
 .workout-page{padding:56px 0 0}
-.workout-hd{padding:0 20px 20px;border-bottom:1px solid var(--bdr)}
+.workout-hd{padding:0 20px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,var(--s1) 0%,transparent 100%)}
 .day-tabs{display:flex;gap:6px;overflow-x:auto;padding:14px;scrollbar-width:none}
 .day-tabs::-webkit-scrollbar{display:none}
 .day-tab{flex-shrink:0;padding:10px 16px;border-radius:6px;border:1px solid var(--bdr);background:var(--s1);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim);cursor:pointer;transition:all .2s}
@@ -311,7 +316,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
    NUTRITION
 ══════════════════════════════════ */
 .nutrition-page{padding:56px 0 0}
-.nutrition-hd{padding:0 20px 20px;border-bottom:1px solid var(--bdr)}
+.nutrition-hd{padding:0 20px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,var(--s1) 0%,transparent 100%)}
 
 .day-nav{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--bdr)}
 .day-nav-btn{padding:8px 14px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px;color:var(--mid);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s}
@@ -1376,7 +1381,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <!-- ═══════════ PROFILE PAGE ═══════════ -->
 <div class="page" id="pg-profile">
   <div style="padding:56px 0 0">
-    <div style="padding:0 20px 20px;border-bottom:1px solid var(--bdr)">
+    <div style="padding:0 20px 20px;border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,var(--s1) 0%,transparent 100%)">
       <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px">OPUS X</div>
       <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:1px">MEU PERFIL</div>
     </div>
