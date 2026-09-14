@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T07:56:42Z">
+<meta name="app-version" content="2026-09-14T08:06:06Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -877,6 +877,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <button onclick="goPage('seca')" class="btn btn-outline" style="flex:1;padding:12px;font-size:12px">⭐ Opus 15 (15 min)</button>
     </div>
     <div id="quick-workout-section"></div>
+
+    <!-- Objetivo atual (atalho pra trocar) -->
+    <div id="wo-goal-strip" style="margin:0 14px 8px"></div>
 
     <!-- MEU PLANO SEMANAL (recolhível) -->
     <div style="margin:0 14px 8px">
@@ -4772,6 +4775,16 @@ function openGoalEdit(){
   renderGoalPick();
   openSheet('goal-ov');
 }
+function renderWoGoalStrip(){
+  const el=document.getElementById('wo-goal-strip'); if(!el) return;
+  const goals=(D.userProfile||{}).goals;
+  const txt=(typeof goalLabelList==='function')?goalLabelList(goals):(goals&&goals.length?goals.join(', '):'—');
+  el.innerHTML=`<div onclick="openGoalEdit()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--s1);border:1px solid var(--bdr);border-radius:10px;cursor:pointer">
+    <span style="font-size:16px">🎯</span>
+    <div style="flex:1;min-width:0"><span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);font-weight:700">Objetivo</span> <span style="font-size:13px;color:var(--text);font-weight:600">${txt}</span></div>
+    <span style="font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.5px">TROCAR ›</span>
+  </div>`;
+}
 function renderGoalPick(){
   const el=document.getElementById('goal-pick-grid'); if(!el) return;
   el.innerHTML=GOAL_OPTIONS.map(o=>{
@@ -4801,6 +4814,8 @@ function saveGoal(rebuild){
   }
   closeSheet('goal-ov');
   if(typeof renderProfilePage==='function') renderProfilePage();
+  if(typeof renderWoGoalStrip==='function') renderWoGoalStrip();
+  if(rebuild && typeof renderCustomPlan==='function'){ try{ renderCustomPlan(); }catch(e){} }
 }
 
 function obFinish() {
@@ -5119,6 +5134,7 @@ function goPage(id) {
   if (id==='nutrition') { renderNutDay(); renderFoodGuide(); }
   if (id==='home' && typeof initHome==='function') { initHome(); }
   if (id==='workout') {
+    if(typeof renderWoGoalStrip==='function') renderWoGoalStrip();
     // Auto-gravar horário de início ao abrir o treino
     if(!D.woSessionStart) D.woSessionStart = {};
     const _wdKey = TODAY;
@@ -6353,6 +6369,7 @@ function getTodayKey() {
 }
 
 function buildWorkoutUI() {
+  if(typeof renderWoGoalStrip==='function') renderWoGoalStrip();
   const plan = WORKOUT_PLAN[lang] || WORKOUT_PLAN.pt;
   const tabsEl = document.getElementById('day-tabs');
   const sessionsEl = document.getElementById('workout-sessions');
