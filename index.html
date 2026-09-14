@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T01:11:44Z">
+<meta name="app-version" content="2026-09-14T01:15:03Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -787,6 +787,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <button onclick="openManualFast()" style="background:transparent;border:none;color:var(--gold);font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer;padding:8px 0;opacity:.85">📅 REGISTRAR JEJUM DE DIA ANTERIOR</button>
   </div>
 
+  <!-- Checklist de Biohacking (diário) -->
+  <div id="biohack-card"></div>
+
   <div class="card" id="fast-coach-card" style="border-color:rgba(201,169,110,.3)">
     <div class="card-hd"><div class="card-title" style="color:var(--gold)">🧭 COACH DE JEJUM</div></div>
     <div id="fast-coach-body"></div>
@@ -962,6 +965,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         <button class="ai-send-btn" id="nut-send-btn" onclick="sendNutMsg()"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
       </div>
     </div>
+
+    <!-- Guia de alimentos (Academia do Jejum) -->
+    <div id="food-guide"></div>
 
     <!-- Shopping list tab -->
     <div class="card">
@@ -4897,6 +4903,7 @@ async function _runAppInit() {
   snapNutDayToToday();
   renderNutDay();
   renderShoppingList();
+  renderFoodGuide();
   initTrainerChat();
   initNutChat();
   renderFastHistory();
@@ -4938,7 +4945,8 @@ function goPage(id) {
   if (id==='history') { renderWeightPage(); renderWorkoutHistory(); renderFastHistory2(); renderNutHistory(); }
   if (id==='seca') { renderSecaHoje(); buildSecaTreino(); renderSecaDiet(); }
   if (id==='profile') { renderProfilePage(); }
-  if (id==='fast') { renderFastCoach(); renderFastLibrary(); renderFastChips(); }
+  if (id==='fast') { renderFastCoach(); renderBiohack(); renderFastLibrary(); renderFastChips(); }
+  if (id==='nutrition') { renderNutDay(); renderFoodGuide(); }
   if (id==='workout') {
     // Auto-gravar horário de início ao abrir o treino
     if(!D.woSessionStart) D.woSessionStart = {};
@@ -5049,6 +5057,50 @@ function applyCoachProto(h){
 // HOME
 // ══════════════════════════════════
 // ── HOME PREMIUM (Fase 1 do revamp) ──────────────────────────────
+// ── RITUAL DE BIOHACKING (checklist diário, Academia do Jejum) ──
+function renderBiohack(){
+  const el=document.getElementById('biohack-card'); if(!el) return;
+  if(!D.biohack || D.biohack.date!==TODAY) D.biohack={date:TODAY, manha:{}, noite:{}};
+  const b=D.biohack;
+  const doneM=Object.values(b.manha).filter(Boolean).length, doneN=Object.values(b.noite).filter(Boolean).length;
+  const rows=(period,items)=>items.map((it,i)=>{
+    const on=!!b[period][i];
+    return `<div onclick="toggleBiohack('${period}',${i})" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--bdr);cursor:pointer">
+      <div style="width:24px;height:24px;border-radius:7px;border:2px solid ${on?'var(--gold)':'var(--bdr2)'};background:${on?'var(--gold)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${on?'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="var(--gold-ink)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':''}</div>
+      <div style="flex:1;font-size:14px;color:${on?'var(--dim)':'var(--text)'};line-height:1.4${on?';text-decoration:line-through':''}">${it}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML=`
+  <div class="card">
+    <div class="card-hd"><div class="card-title">☀️ RITUAL DE BIOHACKING</div><div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);font-style:italic">${doneM+doneN}<span style="font-size:13px;color:var(--dim);font-style:normal">/${AJ_BIOHACK.manha.length+AJ_BIOHACK.noite.length}</span></div></div>
+    <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:2px">🌅 Manhã</div>
+    ${rows('manha',AJ_BIOHACK.manha)}
+    <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:800;margin:16px 0 2px">🌙 Noite</div>
+    ${rows('noite',AJ_BIOHACK.noite)}
+  </div>`;
+}
+function toggleBiohack(period,i){
+  if(!D.biohack || D.biohack.date!==TODAY) D.biohack={date:TODAY,manha:{},noite:{}};
+  D.biohack[period][i]=!D.biohack[period][i]; save(); renderBiohack();
+}
+
+// ── GUIA DE ALIMENTOS (Academia do Jejum) ──
+function renderFoodGuide(){
+  const el=document.getElementById('food-guide'); if(!el) return;
+  const open=!!D.foodGuideOpen;
+  const sec=(title,items,color)=>`<div style="margin-top:14px"><div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:${color};font-weight:800;margin-bottom:8px">${title}</div>${items.map(it=>`<div style="display:flex;gap:8px;font-size:14px;color:var(--mid);line-height:1.5;margin-bottom:6px"><span style="color:${color}">•</span><span>${it}</span></div>`).join('')}</div>`;
+  el.innerHTML=`<div class="card">
+    <div class="card-hd" style="cursor:pointer;margin-bottom:${open?'8px':'0'}" onclick="D.foodGuideOpen=!D.foodGuideOpen;save();renderFoodGuide()">
+      <div class="card-title">🥗 GUIA DE ALIMENTOS</div>
+      <div style="color:var(--dim);font-size:13px">${open?'▾':'▸'}</div>
+    </div>
+    ${open?`<div style="font-size:12px;color:var(--mid)">O que priorizar e evitar na janela alimentar, no método da Academia do Jejum.</div>
+      ${sec('✅ Priorize',AJ_FOODS.favor,'var(--green)')}
+      ${sec('🚫 Evite',AJ_FOODS.evitar,'var(--red)')}
+      ${sec('🍽️ Como dividir o prato',AJ_FOODS.prato,'var(--gold)')}`:''}
+  </div>`;
+}
+
 // ── BIBLIOTECA DE PROTOCOLOS (Academia do Jejum) ──
 let _fastLibCat = 'objetivo';
 const AJ_CATS = [
