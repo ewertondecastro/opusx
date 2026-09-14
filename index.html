@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T07:44:12Z">
+<meta name="app-version" content="2026-09-14T07:51:49Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1406,8 +1406,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div style="font-size:64px;margin-bottom:24px">💪</div>
     <div class="ob-logo" style="margin-bottom:8px">TUDO<span> PRONTO</span></div>
     <div id="ob-done-name" style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--gold);letter-spacing:.5px;margin-bottom:16px"></div>
-    <div style="font-size:15px;color:var(--mid);line-height:1.7;max-width:300px;margin-bottom:40px">Seu perfil está configurado. A IA já conhece você. Hora de trabalhar.</div>
-    <button onclick="obFinish()" class="ob-next" style="width:100%;max-width:300px">ENTRAR NO APP →</button>
+    <div style="font-size:15px;color:var(--mid);line-height:1.7;max-width:320px;margin-bottom:28px">Vou montar pra você:</div>
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:300px;width:100%;margin-bottom:36px;text-align:left">
+      <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text)"><span style="font-size:18px">⏳</span> Seu protocolo de jejum ideal</div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text)"><span style="font-size:18px">🏋️</span> Seu plano de treino da semana</div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text)"><span style="font-size:18px">🍽️</span> Suas metas de calorias e proteína</div>
+    </div>
+    <button onclick="obFinish()" class="ob-next" style="width:100%;max-width:300px;flex:none">MONTAR E ENTRAR →</button>
   </div>
 
 </div>
@@ -4663,6 +4668,47 @@ function obSetUnit(type, unit, el) {
   }
 }
 
+// Ativa protocolo de jejum, metas e plano de treino a partir do perfil do onboarding
+function buildAutoSchedule(nSessions, days){
+  const pick={
+    2:['Mon','Thu'], 3:['Mon','Wed','Fri'], 4:['Mon','Tue','Thu','Fri'],
+    5:['Mon','Tue','Wed','Fri','Sat'], 6:['Mon','Tue','Wed','Thu','Fri','Sat'],
+    7:['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+  }[days] || ['Mon','Wed','Fri'];
+  const sched={}; DAY_ORDER.forEach(d=>sched[d]='rest');
+  pick.forEach((d,i)=>{ sched[d]= nSessions>0 ? (i%nSessions) : 'rest'; });
+  return sched;
+}
+function installWeeklyPlanSilent(sessions, schedMap){
+  if(!sessions||!sessions.length) return;
+  D.customPlan = D.customPlan || {active:false, sessions:[]};
+  D.customPlan.sessions = (D.customPlan.sessions||[]).filter(s=>s.preset!=='aiplan');
+  const base=Date.now();
+  const installed=sessions.map((s,i)=>({...s, preset:'aiplan', id:base+i}));
+  D.customPlan.sessions = installed.concat(D.customPlan.sessions);
+  const sch={};
+  DAY_ORDER.forEach(day=>{ const v=schedMap[day]; if(v==='rest'||v==null) sch[day]='rest'; else { const si=parseInt(v); sch[day]=installed[si]?installed[si].id:'rest'; } });
+  D.customPlan.schedule=sch; D.customPlan.active=true; D.cuOpen={};
+}
+function autoSetupFromProfile(){
+  const p=D.userProfile||{};
+  // Metas de calorias/proteína (se ainda não definidas manualmente)
+  try{ const t=estTargets(); if(!D.calGoal) D.calGoal=t.cal; if(!D.proteinGoal) D.proteinGoal=t.protein; }catch(e){}
+  // Protocolo de jejum sugerido pelo objetivo
+  if(D.useFasting!==false){ try{ const s=suggestFastProtocol(); if(s&&s.h){ D.fastH=s.h; if(typeof buildZones==='function') buildZones(); } }catch(e){} }
+  // Plano de treino semanal (só se treino ligado e ainda sem plano ativo)
+  if(!D.noTraining && !(D.customPlan&&D.customPlan.active)){
+    try{
+      const goals=Array.isArray(p.goals)?p.goals:[];
+      const key = goals.includes('hyper')?'hyper' : goals.includes('strength')?'strength' : goals.includes('glutes')?'glutes' : goals.includes('fat')?'fat' : 'default';
+      const data=_AI_PLAN_DATA[key]||_AI_PLAN_DATA.default;
+      const sessions=(data.sessions||[]).map(s=>({name:s.title,focus:s.focus||'',exercises:(s.exercises||[]).map(e=>({name:e.name,sets:parseInt(e.sets)||3,reps:String(e.reps||'10-12'),rest:String(e.rest||'60s'),load:'',notes:e.notes||''}))}));
+      const days=parseInt(p.days)||3;
+      installWeeklyPlanSilent(sessions, buildAutoSchedule(sessions.length, days));
+    }catch(e){ console.warn('[autosetup]',e); }
+  }
+}
+
 function obFinish() {
   // Save to D
   const wu = obProfile.weightUnit;
@@ -4690,6 +4736,8 @@ function obFinish() {
     D.weightLog = D.weightLog.filter(w=>w.date!==TODAY);
     D.weightLog.push({date:TODAY,lbs:wLbs,ts:Date.now()});
   }
+  // Ativa jejum + metas + plano de treino a partir do que foi respondido
+  autoSetupFromProfile();
   save();
   document.getElementById('ob-overlay').classList.remove('show');
   applyTrainingMode();
