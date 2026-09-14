@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T01:15:03Z">
+<meta name="app-version" content="2026-09-14T01:17:30Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -811,6 +811,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
   <!-- Biblioteca de protocolos -->
   <div id="fast-library"></div>
+
+  <!-- Tabela Evolutiva -->
+  <div id="evolution-card"></div>
 
   <div class="card">
     <div class="card-hd"><div class="card-title" id="proto-eye">PROTOCOLO</div></div>
@@ -4945,7 +4948,7 @@ function goPage(id) {
   if (id==='history') { renderWeightPage(); renderWorkoutHistory(); renderFastHistory2(); renderNutHistory(); }
   if (id==='seca') { renderSecaHoje(); buildSecaTreino(); renderSecaDiet(); }
   if (id==='profile') { renderProfilePage(); }
-  if (id==='fast') { renderFastCoach(); renderBiohack(); renderFastLibrary(); renderFastChips(); }
+  if (id==='fast') { renderFastCoach(); renderBiohack(); renderFastLibrary(); renderFastChips(); renderEvolution(); }
   if (id==='nutrition') { renderNutDay(); renderFoodGuide(); }
   if (id==='workout') {
     // Auto-gravar horário de início ao abrir o treino
@@ -5082,6 +5085,68 @@ function renderBiohack(){
 function toggleBiohack(period,i){
   if(!D.biohack || D.biohack.date!==TODAY) D.biohack={date:TODAY,manha:{},noite:{}};
   D.biohack[period][i]=!D.biohack[period][i]; save(); renderBiohack();
+}
+
+// ── TABELA EVOLUTIVA (Academia do Jejum) ──
+const SLEEP_Q = ['','😴 Ruim','😐 Ok','🙂 Bom','😃 Ótimo'];
+function logSleepH(v){
+  const h=parseFloat(String(v).replace(',','.'));
+  D.sleepLog=D.sleepLog||{};
+  D.sleepLog[TODAY]=D.sleepLog[TODAY]||{};
+  D.sleepLog[TODAY].h=(isNaN(h)||h<=0)?undefined:h;
+  save();
+}
+function setSleepQ(q){
+  D.sleepLog=D.sleepLog||{};
+  D.sleepLog[TODAY]=D.sleepLog[TODAY]||{};
+  D.sleepLog[TODAY].q=q; save(); renderEvolution();
+}
+function renderEvolution(){
+  const el=document.getElementById('evolution-card'); if(!el) return;
+  const sleep=D.sleepLog||{};
+  const todayS=sleep[TODAY]||{};
+  // consolida por data
+  const map={};
+  (D.fastHistory||[]).forEach(f=>{ const d=f.date; if(!d)return; if(!map[d])map[d]={date:d,ts:f.ts||new Date(d).getTime()}; if(!(map[d].fast>=0)||(f.elapsed||0)>map[d].fast){ map[d].fast=f.elapsed||0; map[d].lastMeal=f.ts; } });
+  (D.weightLog||[]).forEach(w=>{ if(!map[w.date])map[w.date]={date:w.date,ts:w.ts||new Date(w.date).getTime()}; map[w.date].weight=w.lbs; });
+  Object.keys(sleep).forEach(d=>{ if(!map[d])map[d]={date:d,ts:new Date(d).getTime()}; map[d].sleepH=sleep[d].h; map[d].sleepQ=sleep[d].q; });
+  const rows=Object.values(map).sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,14);
+  const fmtDate=d=>{ const dt=new Date(d); return isNaN(dt)?'—':dt.toLocaleDateString(lang==='pt'?'pt-BR':'en-US',{day:'2-digit',month:'2-digit'}); };
+  const cell=v=>`<td style="padding:9px 10px;font-size:13px;color:var(--text);white-space:nowrap;border-bottom:1px solid var(--bdr)">${v}</td>`;
+  const body = rows.length ? rows.map(r=>{
+    const meal=r.lastMeal?fmt12(new Date(r.lastMeal)):'—';
+    const jej=(r.fast>=0)?Math.round(r.fast/60)+'h':'—';
+    const sono=r.sleepH?(r.sleepH+'h'+(r.sleepQ?' '+SLEEP_Q[r.sleepQ].split(' ')[0]:'')):'—';
+    const peso=r.weight?dispW(r.weight)+(D.weightUnit==='kg'?'':''):'—';
+    return `<tr>${cell(fmtDate(r.date))}${cell(meal)}${cell('<span style="color:var(--gold);font-weight:700;font-style:italic;font-family:\'Bebas Neue\',sans-serif;font-size:16px">'+jej+'</span>')}${cell(sono)}${cell(peso)}</tr>`;
+  }).join('') : `<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--dim);font-size:13px">Ainda sem registros. Complete um jejum, pese-se e registre seu sono.</td></tr>`;
+  const q=todayS.q||0;
+  const qchips=[1,2,3,4].map(n=>`<button onclick="setSleepQ(${n})" style="flex:1;padding:8px 4px;border-radius:7px;border:1px solid ${q===n?'var(--gold)':'var(--bdr)'};background:${q===n?'var(--gold)':'var(--s2)'};color:${q===n?'var(--gold-ink)':'var(--mid)'};font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">${SLEEP_Q[n]}</button>`).join('');
+  el.innerHTML=`
+  <div class="card">
+    <div class="card-hd"><div class="card-title">📈 TABELA EVOLUTIVA</div></div>
+    <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:8px">🌙 Sono de hoje</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
+        <input type="number" inputmode="decimal" step=".5" value="${todayS.h||''}" placeholder="horas" oninput="logSleepH(this.value)" style="width:90px;background:var(--s1);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:22px;padding:8px 12px;outline:none;text-align:center">
+        <span style="font-size:12px;color:var(--dim)">horas dormidas</span>
+      </div>
+      <div style="display:flex;gap:6px">${qchips}</div>
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;border-collapse:collapse;min-width:420px">
+        <thead><tr style="text-align:left">
+          <th style="padding:8px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700;border-bottom:1px solid var(--bdr2)">Data</th>
+          <th style="padding:8px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700;border-bottom:1px solid var(--bdr2)">Últ. refeição</th>
+          <th style="padding:8px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700;border-bottom:1px solid var(--bdr2)">Jejum</th>
+          <th style="padding:8px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700;border-bottom:1px solid var(--bdr2)">Sono</th>
+          <th style="padding:8px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700;border-bottom:1px solid var(--bdr2)">Peso</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+    <div style="font-size:10px;color:var(--dim);margin-top:10px;line-height:1.5">Consolida automaticamente seus jejuns, pesos e o sono que você registrar. Água e biohacking do dia ficam nos cards acima.</div>
+  </div>`;
 }
 
 // ── GUIA DE ALIMENTOS (Academia do Jejum) ──
