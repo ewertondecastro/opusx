@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T07:15:12Z">
+<meta name="app-version" content="2026-09-14T07:18:18Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -671,6 +671,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div style="font-family:'Bebas Neue',sans-serif;font-size:44px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:4px" id="h-name">BOM DIA, <span style="color:var(--gold)">EWERTON</span></div>
     <div style="font-size:15px;color:var(--mid)" id="h-sub">Consistência bate perfeição.</div>
   </div>
+
+  <!-- Meu Dia (briefing proativo) -->
+  <div id="h-mydia" style="padding:0 14px;margin-top:14px"></div>
+  <!-- Resumo semanal (nudge) -->
+  <div id="h-weekly" style="padding:0 14px;margin-top:10px"></div>
 
   <!-- Treino de hoje (hero) -->
   <div id="h-today-workout" style="padding:0 14px;margin-top:14px"></div>
@@ -5289,6 +5294,64 @@ const MG_GROUPS = {
   legs: { label:'Pernas',   color:'#6E9E9E', muscles:['quadriceps','posterior','gluteo','panturrilha'], target:18 },
 };
 
+// ── MEU DIA — briefing proativo com ajuste inteligente ──
+function renderMyDay(){
+  const el=document.getElementById('h-mydia'); if(!el) return;
+  const r=(typeof readinessToday==='function')?readinessToday():null;
+  const sl=(D.sleepLog||{})[TODAY]||{};
+  const badSleep=(sl.h&&sl.h<6)||(sl.q&&sl.q<=1);
+  let focus;
+  if(badSleep) focus='Você dormiu pouco. Hoje: treino mais leve, foco na técnica e capriche na hidratação.';
+  else if(r==='low') focus='Prontidão baixa hoje. Mantenha as cargas, não force recordes — consistência vale mais.';
+  else if(r==='high') focus='Você está forte hoje. Ótimo dia pra tentar progredir a carga com segurança.';
+  else if(!r) focus='Marque sua prontidão na aba Treino pra eu ajustar a intensidade do dia.';
+  else focus='Dia equilibrado. Siga o plano e quebre o jejum com proteína e verduras.';
+
+  const cust=(typeof getCustomTodaySession==='function')?getCustomTodaySession():undefined;
+  let trainState='montar', trainOk=false;
+  if(cust==='rest'){ trainState='descanso'; trainOk=true; }
+  else if(cust&&cust.exercises){ const tot=cust.exercises.length; const dn=cust.exercises.filter((_,i)=>(D.exChecked||{})['cu_'+cust.id+'_ex_'+i]).length; trainState=dn+'/'+tot; trainOk=tot>0&&dn>=tot; }
+
+  const fastOn=!!D.fastStart;
+  const fastState=fastOn?(Math.floor((Date.now()-D.fastStart)/3600000)+'h/'+(D.fastH||16)+'h'):'iniciar';
+  const oz=(typeof WATER_OZ_EACH!=='undefined')?WATER_OZ_EACH:8;
+  const drank=Math.round((D.water||0)*oz), wg=(typeof waterGoalOz==='function')?waterGoalOz():100;
+
+  const chip=(icon,label,val,ok,go)=>`<div onclick="${go}" style="flex:1;min-width:0;background:var(--s2);border:1px solid ${ok?'rgba(82,168,120,.35)':'var(--bdr)'};border-radius:12px;padding:11px 6px;text-align:center;cursor:pointer">
+    <div style="font-size:17px;margin-bottom:2px">${icon}</div>
+    <div style="font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);font-weight:700">${label}</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:17px;color:${ok?'var(--green)':'var(--text)'};font-style:italic;line-height:1.1;margin-top:2px">${val}</div>
+  </div>`;
+  el.innerHTML=`<div style="background:linear-gradient(150deg,var(--gold-bg),var(--s1));border:1px solid rgba(201,169,110,.3);border-radius:18px;padding:16px 16px 14px">
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:6px">☀️ Meu dia</div>
+    <div style="font-size:14px;color:var(--text);line-height:1.5;margin-bottom:14px">${focus}</div>
+    <div style="display:flex;gap:8px">
+      ${chip('🏋️','Treino',trainState,trainOk,"goPage('workout')")}
+      ${chip('⏳','Jejum',fastState,fastOn,"goPage('fast')")}
+      ${chip('💧','Água',drank+'/'+wg,drank>=wg,"goPage('fast')")}
+    </div>
+  </div>`;
+}
+function renderWeeklyNudge(){
+  const el=document.getElementById('h-weekly'); if(!el) return;
+  el.innerHTML='';
+  if(!D.apiKey) return; // resumo usa IA
+  const last=D.lastWeeklyReportAt||0;
+  const due = (Date.now()-last) > 7*86400000;
+  const hasData = (D.fastHistory||[]).length>0 || (D.workoutHistory||[]).length>0 || (D.weightLog||[]).length>0;
+  if(!due || !hasData) return;
+  el.innerHTML=`<div onclick="openWeeklySummary()" style="background:var(--s1);border:1px solid rgba(201,169,110,.35);border-radius:14px;padding:13px 15px;display:flex;align-items:center;gap:12px;cursor:pointer">
+    <div style="font-size:20px">📊</div>
+    <div style="flex:1"><div style="font-size:13px;color:var(--gold);font-weight:800">Seu resumo semanal está pronto</div><div style="font-size:11px;color:var(--dim)">Toque para ver o balanço dos últimos 7 dias.</div></div>
+    <div style="color:var(--gold);font-size:18px;font-weight:700">›</div>
+  </div>`;
+}
+function openWeeklySummary(){
+  D.lastWeeklyReportAt=Date.now(); save();
+  renderWeeklyNudge();
+  if(typeof generateReport==='function') generateReport('week');
+}
+
 function renderHomeToday(){
   const el=document.getElementById('h-today-workout'); if(!el) return;
   // Ocultado pelo usuário para hoje → mostra só uma barra fina para reexibir
@@ -5500,6 +5563,8 @@ function initHome() {
       }
     });
   }
+  if(typeof renderMyDay==='function') renderMyDay();
+  if(typeof renderWeeklyNudge==='function') renderWeeklyNudge();
   if(typeof renderHomeToday==='function') renderHomeToday();
   if(typeof renderMuscleTargets==='function') renderMuscleTargets();
   if(typeof renderStatCards==='function') renderStatCards();
