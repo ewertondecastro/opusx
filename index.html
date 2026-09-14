@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T08:06:06Z">
+<meta name="app-version" content="2026-09-14T12:51:32Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1988,6 +1988,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-desc"><span id="fastinfo-sub"></span></div>
     <div id="fastinfo-body" style="margin-bottom:18px"></div>
     <button class="btn btn-gold btn-full" onclick="closeSheet('fastinfo-ov')">Entendi</button>
+  </div>
+</div>
+
+<!-- BATER A PROTEÍNA (ideias de alimentos) -->
+<div class="overlay" id="protein-ideas-ov" onclick="if(event.target===this)closeSheet('protein-ideas-ov')">
+  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">BATER A PROTEÍNA</div>
+    <div id="protein-ideas-body"></div>
+    <button class="btn btn-outline btn-full" onclick="closeSheet('protein-ideas-ov')" style="margin-top:14px">Fechar</button>
   </div>
 </div>
 
@@ -5458,6 +5468,51 @@ const MG_GROUPS = {
   legs: { label:'Pernas',   color:'#6E9E9E', muscles:['quadriceps','posterior','gluteo','panturrilha'], target:18 },
 };
 
+// ── BATER A PROTEÍNA — ideias rápidas + registro em 1 toque ──
+const PROTEIN_FOODS = [
+  {name:'Whey (1 scoop)', prot:24, kcal:120, icon:'🥤'},
+  {name:'2 ovos', prot:12, kcal:140, icon:'🥚'},
+  {name:'Peito de frango (150g)', prot:45, kcal:240, icon:'🍗'},
+  {name:'Atum em água (1 lata)', prot:26, kcal:120, icon:'🐟'},
+  {name:'Iogurte grego (200g)', prot:20, kcal:130, icon:'🥛'},
+  {name:'Queijo cottage (150g)', prot:17, kcal:145, icon:'🧀'},
+  {name:'Carne magra (150g)', prot:39, kcal:250, icon:'🥩'},
+  {name:'Peixe branco (150g)', prot:32, kcal:160, icon:'🐟'},
+  {name:'3 claras de ovo', prot:11, kcal:51, icon:'🥚'},
+];
+function logFoodDirect(name, kcal, prot){
+  if(!D.extraFoods) D.extraFoods={};
+  if(!D.extraFoods[TODAY]) D.extraFoods[TODAY]=[];
+  const now=new Date();
+  D.extraFoods[TODAY].push({name, kcal:kcal||0, prot:prot||0, ts:Date.now(), time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
+  save();
+  if(typeof renderExtraFoods==='function') renderExtraFoods();
+  if(typeof renderNutTarget==='function') renderNutTarget();
+  if(typeof renderProteinIdeas==='function') renderProteinIdeas();
+  toast(name+' registrado ✓');
+}
+function openProteinIdeas(){ renderProteinIdeas(); openSheet('protein-ideas-ov'); }
+function renderProteinIdeas(){
+  const el=document.getElementById('protein-ideas-body'); if(!el) return;
+  const t=(typeof estTargets==='function')?estTargets():{cal:2000,protein:180};
+  const c=(typeof consumedToday==='function')?consumedToday():{kcal:0,prot:0};
+  const protLeft=Math.max(0, t.protein-c.prot);
+  const kcalLeft=Math.max(0, t.cal-c.kcal);
+  const head = protLeft>0
+    ? `<div style="font-size:14px;color:var(--mid);line-height:1.6;margin-bottom:14px">Faltam <strong style="color:var(--green)">${protLeft}g de proteína</strong> hoje${kcalLeft>0?` · ~${kcalLeft} kcal livres`:''}. Toque pra registrar:</div>`
+    : `<div style="font-size:14px;color:var(--green);font-weight:700;line-height:1.6;margin-bottom:14px">✓ Meta de proteína batida! Se quiser, ainda dá pra registrar algo:</div>`;
+  const rows = PROTEIN_FOODS.map(f=>{
+    const n = protLeft>0 ? Math.max(1, Math.round(protLeft/f.prot)) : 1;
+    const hint = protLeft>0 ? `${n}× fecha a meta (${n*f.prot}g · ${n*f.kcal} kcal)` : `${f.prot}g · ${f.kcal} kcal`;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--bdr)">
+      <div style="font-size:22px;flex-shrink:0">${f.icon}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:15px;color:var(--text);font-weight:700">${f.name}</div><div style="font-size:12px;color:var(--dim)">${hint}</div></div>
+      <button onclick="logFoodDirect('${f.name.replace(/'/g,'')}',${f.kcal},${f.prot})" style="flex-shrink:0;background:var(--gold-bg);border:1px solid rgba(201,169,110,.35);border-radius:8px;color:var(--gold);font-size:13px;font-weight:800;padding:8px 12px;cursor:pointer">+1</button>
+    </div>`;
+  }).join('');
+  el.innerHTML = head + rows + `<div style="font-size:10px;color:var(--dim);margin-top:12px;line-height:1.5">Valores aproximados por porção. Cada +1 registra uma porção no seu dia.</div>`;
+}
+
 // ── ALVO DIÁRIO DE NUTRIÇÃO (Home) ──
 function renderNutTarget(){
   const el=document.getElementById('h-nutrition'); if(!el) return;
@@ -5483,7 +5538,9 @@ function renderNutTarget(){
           <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--green);font-style:italic;line-height:1">${Math.round(c.prot)}<span style="font-size:12px;color:var(--dim);font-style:normal">/${t.protein}g</span></span>
         </div>
         ${bar(protPct,'var(--green)')}
-        <div style="font-size:11px;color:var(--mid);margin-top:5px">${protLeft>0?'faltam '+protLeft+'g':'meta batida ✓'}</div>
+        ${protLeft>0
+          ? `<div onclick="openProteinIdeas()" style="font-size:11px;color:var(--gold);font-weight:700;margin-top:5px;cursor:pointer">💡 faltam ${protLeft}g — como bater ›</div>`
+          : `<div style="font-size:11px;color:var(--green);margin-top:5px">meta batida ✓</div>`}
       </div>
       <div style="flex:1">
         <div style="display:flex;align-items:baseline;justify-content:space-between">
