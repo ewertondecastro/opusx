@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T00:54:47Z">
+<meta name="app-version" content="2026-09-14T01:11:44Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -791,6 +791,23 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="card-hd"><div class="card-title" style="color:var(--gold)">🧭 COACH DE JEJUM</div></div>
     <div id="fast-coach-body"></div>
   </div>
+
+  <!-- Coach de Jejum IA (chat) -->
+  <div class="ai-chat-wrap">
+    <div class="ai-chat-hd">
+      <div class="ai-chat-label">💬 COACH DE JEJUM IA</div>
+      <div class="ai-chat-mode">Online</div>
+    </div>
+    <div class="quick-chips" id="fast-qchips"></div>
+    <div class="ai-chat-feed" id="fast-chat-feed"></div>
+    <div class="ai-chat-input-row">
+      <input class="ai-input" id="fast-input" type="text" placeholder="Pergunte sobre jejum, dieta, treino…" onkeydown="if(event.key==='Enter')sendFastMsg()">
+      <button class="ai-send-btn" id="fast-send-btn" onclick="sendFastMsg()"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    </div>
+  </div>
+
+  <!-- Biblioteca de protocolos -->
+  <div id="fast-library"></div>
 
   <div class="card">
     <div class="card-hd"><div class="card-title" id="proto-eye">PROTOCOLO</div></div>
@@ -1932,6 +1949,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-desc"><span id="fastinfo-sub"></span></div>
     <div id="fastinfo-body" style="margin-bottom:18px"></div>
     <button class="btn btn-gold btn-full" onclick="closeSheet('fastinfo-ov')">Entendi</button>
+  </div>
+</div>
+
+<!-- PROTOCOL DETAIL SHEET (Biblioteca) -->
+<div class="overlay" id="protocol-ov" onclick="if(event.target===this)closeSheet('protocol-ov')">
+  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <div id="protocol-body"></div>
+    <button class="btn btn-outline btn-full" onclick="closeSheet('protocol-ov')" style="margin-top:14px">Fechar</button>
   </div>
 </div>
 
@@ -4912,7 +4938,7 @@ function goPage(id) {
   if (id==='history') { renderWeightPage(); renderWorkoutHistory(); renderFastHistory2(); renderNutHistory(); }
   if (id==='seca') { renderSecaHoje(); buildSecaTreino(); renderSecaDiet(); }
   if (id==='profile') { renderProfilePage(); }
-  if (id==='fast') { renderFastCoach(); }
+  if (id==='fast') { renderFastCoach(); renderFastLibrary(); renderFastChips(); }
   if (id==='workout') {
     // Auto-gravar horário de início ao abrir o treino
     if(!D.woSessionStart) D.woSessionStart = {};
@@ -4947,6 +4973,49 @@ function suggestFastProtocol(){
   return { h, why };
 }
 
+// ═══════════ ACADEMIA DO JEJUM — conteúdo destilado (síntese própria) ═══════════
+// Educativo, não substitui orientação médica.
+const AJ_PROTOCOLS = [
+  {key:'emagrecimento-homens',title:'Emagrecimento Homens',cat:'objetivo',icon:'🔥',summary:'Jejum para homens que querem perder gordura usando as reservas do corpo como energia e controlando a fome.',schedule:'Base no 16/8. Varie entre 12h, 14h e 16h para o corpo não se adaptar; 1 dia mais livre.',tips:['Quebre o jejum com verduras e proteína, carbo por último','Treine de 3 a 4 vezes por semana, mesmo que 15 min','Beba cerca de 35 ml de água por quilo de peso','Varie as horas de jejum para não estagnar','Depois de emagrecer, foque em ganhar massa'],favor:['Ovos e carnes magras','Verduras e legumes','Abacate e azeite','Peixes','Leguminosas'],avoid:['Carboidratos no início da refeição','Ultraprocessados','Excesso de calorias']},
+  {key:'emagrecimento-mulheres',title:'Emagrecimento Mulheres',cat:'objetivo',icon:'🔥',summary:'Jejum para mulheres perderem gordura com déficit calórico leve, proteína em todas as refeições e boa hidratação.',schedule:'Comece em 12h e progrida até 16h em 1 dia; alterne 12h, 13h e 14h nos demais.',tips:['Inclua uma dose de proteína em cada refeição','Comece a refeição por proteína, verduras e legumes','Mastigue bem e mantenha a água em dia','Combine com caminhada ou musculação','Fique atenta ao sono nos dias de jejum mais longo'],favor:['Ovos','Whey com bebida vegetal','Folhas verdes','Frango grelhado','Chia e sementes'],avoid:['Excesso de calorias','Cortar água','Carboidrato refinado no início']},
+  {key:'massa-homens',title:'Ganho de Massa Muscular Homens',cat:'objetivo',icon:'💪',summary:'Jejum para hipertrofia masculina: preserva o estímulo do treino sem exagerar no jejum, com proteína e carbo suficientes.',schedule:'Alterne 16/8 em dias sem treino com dias de 12h. Faça 16h no máximo 3x por semana.',tips:['Não exagere: 20 a 22h de jejum atrapalha a massa','Treine força 4x por semana','Faça 3 refeições sólidas e 1 líquida pós-treino','Durma de 7 a 8 horas','Creatina de 3 a 5 g por dia ajuda'],favor:['Ovos e carnes','Frango e peixe','Batata-doce e quinoa','Arroz integral e aveia','Abacate e castanhas'],avoid:['Jejuns longos demais','Só verduras sem proteína','Ultraprocessados']},
+  {key:'massa-mulheres',title:'Ganho de Massa Muscular Mulheres',cat:'objetivo',icon:'💪',summary:'Jejum para mulheres construírem músculo de forma natural, com superávit calórico e refeições frequentes.',schedule:'Jejum de 12 a 16h (média 14 a 16h) para caber 4 a 5 refeições. Em casos avançados até 18h.',tips:['Mantenha superávit calórico leve','Faça 4 a 5 refeições com intervalo de 2 a 3h','Concentre carbo nas 2 refeições pós-treino','Comece a refeição por proteína e fibra','Aminoácidos essenciais se treinar em jejum'],favor:['Proteína em toda refeição','Carboidratos complexos','Gorduras boas','Fibras','Ovos e peixes'],avoid:['Déficit calórico extremo','Picos de glicose','Cortar gordura']},
+  {key:'massa-emagrecimento-homens',title:'Massa e Emagrecimento Homens',cat:'objetivo',icon:'⚖️',summary:'Perder gordura e ganhar músculo ao mesmo tempo em homens, com proteína em todas as refeições e treino de força.',schedule:'16/8 em 3 dias não consecutivos por semana; nos outros dias alimentação equilibrada.',tips:['Proteína de qualidade em cada refeição, não só whey','Varie e periodize os treinos','Durma 8 horas para melhores resultados','Use água mineral ou filtrada','Café algumas horas após acordar, sem exagero'],favor:['Ovos','Bife de frango ou carne','Whey isolado','Verduras e legumes','Gorduras boas'],avoid:['Quebrar jejum só com carbo','Rotina de treino sempre igual','Depender só de suplemento']},
+  {key:'massa-emagrecimento-mulheres',title:'Massa e Perda de Gordura Mulheres',cat:'objetivo',icon:'⚖️',summary:'Equilíbrio entre perder gordura e ganhar músculo em mulheres, com flexibilidade e proteína em todas as refeições.',schedule:'Jejuns de 14 a 17h, 3 a 4 refeições por dia, com 3 dias de 16h na semana. Treino entre as refeições.',tips:['Evite déficit extremo (nada de 20 a 22h)','Proteína e fibra antes do carboidrato','Posicione o treino entre as refeições','Cardio em jejum tem impacto mínimo','Durma pelo menos 7 a 8 horas'],favor:['Proteína em toda refeição','Comida de verdade','Fibras','Gorduras boas','Carboidrato equilibrado'],avoid:['Déficit calórico extremo','Perder sono','Foco só em cardio']},
+  {key:'tireoide',title:'Tireoide',cat:'saude',icon:'🦋',summary:'Apoio à função da tireoide por estilo de vida, com jejum moderado, nutrientes chave e alimentação variada.',schedule:'Jejum de 12 a 16h por dia, chegando perto de 16h em pelo menos 3 dias. Ex: 12h, 14h e 16h alternados.',tips:['Priorize vitamina C, selênio, zinco e tirosina','Prefira sal integral ao refinado','Coma alimentos coloridos e volumosos','Evite dietas muito restritivas','Faça exames e exercícios regulares'],favor:['Brócolis, couve e repolho','Castanha-do-pará e gema','Sementes de abóbora','Peixes ricos em ômega-3','Vegetais coloridos'],avoid:['Industrializados','Excesso de sódio','Dietas muito restritivas']},
+  {key:'sop',title:'Síndrome dos Ovários Policísticos (SOP)',cat:'mulher',icon:'🌸',summary:'Jejum para melhorar a sensibilidade à insulina na SOP, controlando glicose e priorizando carbo de baixo índice.',schedule:'16/8 como base, 3x por semana em 16h. Varie entre 14h, 15h, 17h e até 18h nos outros dias.',tips:['Mantenha insulina de jejum baixa, faça exames','Quebre o jejum com proteína e gordura, quase zero carbo','Carbo só no fim da refeição e de baixo índice','40 min musculação e 20 min cardio, 4 a 5x','Durma cerca de 8 horas'],favor:['Ovos e abacate','Verduras fibrosas','Frutas de baixo índice','Raízes e tubérculos','Arroz integral e feijão'],avoid:['Carboidratos refinados','Picos de glicose','Açúcar']},
+  {key:'endometriose',title:'Endometriose',cat:'mulher',icon:'🌺',summary:'Jejum progressivo e dieta anti-inflamatória para reduzir inflamação e apoiar o equilíbrio hormonal.',schedule:'Suba aos poucos: 12h, 14h, 16h, até 18h nos dias de pico, voltando a 14h e 16h.',tips:['Foque em alimentação anti-inflamatória','Use cúrcuma e gengibre','Beba água e chás de ervas','Ajuste o jejum conforme o corpo responde','Evite processados e açúcar'],favor:['Vegetais verdes escuros','Peixes ricos em ômega-3','Abacate e azeite','Chia e linhaça','Frutas vermelhas'],avoid:['Alimentos processados','Açúcar','Carboidratos refinados']},
+  {key:'diabetes-tipo-2',title:'Diabetes Tipo 2',cat:'saude',icon:'🩸',summary:'Jejum e alimentação low carb para melhorar o controle da glicose e buscar remissão do diabetes tipo 2.',schedule:'Comece em 12h e evolua até 16h. Alterne 12h, 14h, 15h e 16h, com 16h 3x na semana.',tips:['Não comece a refeição por carboidrato','Prefira comida de verdade e low carb com bom senso','Frutas só com proteína ou gordura','Combine musculação e aeróbico','Evite picos de glicose'],favor:['Ovos e carnes','Verduras e legumes','Azeite e abacate','Frutas de baixo índice','Proteínas magras'],avoid:['Carboidratos refinados','Industrializados','Frutas isoladas','Bebidas açucaradas']},
+  {key:'doencas-autoimunes',title:'Doenças Autoimunes',cat:'saude',icon:'🛡️',summary:'Jejum e estilo de vida saudável para reduzir inflamação e melhorar a qualidade de vida.',schedule:'Jejum de 16h pelo menos 3x por semana. Ex: comer das 12h às 20h.',tips:['Priorize comida de verdade, evite processados','Beba cerca de 2,5 litros de água por dia','Durma de 7 a 8 horas','Pratique mindfulness e gratidão','Mastigue de 20 a 30 vezes cada garfada'],favor:['Alimentos integrais','Vegetais variados','Proteínas magras','Gorduras boas','Água e chás'],avoid:['Ultraprocessados','Excesso de estresse','Sono ruim']},
+  {key:'lipedema',title:'Lipedema',cat:'saude',icon:'🦵',summary:'Jejum anti-inflamatório e exercício de baixo impacto para reduzir a gordura inflamada típica do lipedema.',schedule:'16/8 cerca de 3x por semana. Ex: jejum das 20h ao meio-dia.',tips:['Quebre o jejum com proteína magra e fibras','Prefira exercícios de baixo impacto','Combine musculação e cardio moderado','Garanta 8 horas de sono','Evite alimentos agressores e óleos refinados'],favor:['Proteínas magras','Legumes e verduras','Abacate e azeite','Ômega-3','Cúrcuma'],avoid:['Carboidratos refinados','Óleos refinados','Alimentos inflamatórios']},
+  {key:'pos-bariatrica',title:'Pós Bariátrica',cat:'saude',icon:'🍽️',summary:'Jejum suave após a bariátrica, com refeições pequenas, proteína de fácil digestão e atenção à mastigação.',schedule:'Suba devagar: 12h, 13h, 14h, 15h e até 16/8 em 3 dias. 3 a 4 refeições pequenas na janela.',tips:['Mastigue de 25 a 30 vezes cada alimento','Comece com whey, ovos ou colágeno de fácil digestão','Proteína em todas as refeições, sem exagero','Beba água espaçada, nunca de uma vez','Exercício ao menos 4x por semana'],favor:['Whey, vegan ou colágeno','Ovos','Bebida vegetal sem açúcar','Abacate e azeite','Vegetais bem cozidos'],avoid:['Comer rápido demais','Excesso de fibras de uma vez','Grande volume de água junto']},
+  {key:'menopausa',title:'Menopausa',cat:'mulher',icon:'🌼',summary:'Jejum progressivo com um dia mais longo para apoiar o ambiente anti-inflamatório e hormonal na menopausa.',schedule:'Suba de 12h a 16h nos primeiros dias, um dia de 24h, seguido de refeição leve e volta a 12h.',tips:['Aumente o jejum aos poucos conforme a tolerância','No dia longo, hidrate-se com chás sem açúcar','Recupere com refeição leve e equilibrada','Inclua atividade física leve','Acompanhe como o corpo responde'],favor:['Proteínas magras','Vegetais','Gorduras saudáveis','Água, chás e infusões','Ômega-3 e magnésio'],avoid:['Forçar jejum além da tolerância','Açúcar','Desidratação']},
+  {key:'pre-menopausa',title:'Pré Menopausa',cat:'mulher',icon:'🌷',summary:'Jejum gradual para estabilizar o metabolismo e melhorar a sensibilidade à insulina na pré menopausa.',schedule:'Suba de 12h a 16h ao longo da semana, alternando 14h e 16h, e volte a 12h para reavaliar.',tips:['Familiarize-se com o jejum antes de aumentar','Uma pitada de sal marinho na água repõe eletrólitos','Use um diário alimentar na janela','Pratique técnicas de relaxamento','Foque em alimentos ricos em nutrientes'],favor:['Proteínas magras','Vegetais','Gorduras saudáveis','Água e chás sem açúcar','Magnésio e ômega-3'],avoid:['Forçar jejum longo demais','Estresse crônico','Desidratação']},
+  {key:'lactantes',title:'Lactantes',cat:'mulher',icon:'🤱',summary:'Jejum moderado na amamentação, sem passar de 14 a 16h, para não afetar a produção de leite nem a massa muscular.',schedule:'Comece em 12h (20h-8h), avance a 14h (18h-8h) e, se confortável, até 14 a 16h no máximo. Nada de jejum longo.',tips:['Nunca faça jejuns prolongados nesta fase','Monitore a produção de leite e a energia','Suplemente ferro e micronutrientes se preciso','Use proteína de alta qualidade','Priorize hidratação e nutrientes'],favor:['Espinafre, lentilha e quinoa','Carnes magras','Chia e linhaça','Ovos e abacate','Whey ou proteína vegetal'],avoid:['Jejuns prolongados','Pular refeições importantes','Déficit de ferro']},
+  {key:'tentantes',title:'Tentantes',cat:'mulher',icon:'👶',summary:'Jejum para mulheres tentando engravidar, com foco em insulina e inflamação, especialmente com SOP ou endometriose.',schedule:'Varie na semana: 12h, 13h, 14h, 15h, 16h e um dia de 18h. Jejuns de 16 a 18h em dias alternados.',tips:['Varie o jejum para não acostumar o corpo','Acompanhe o ciclo menstrual como sinal vital','Em dias curtos, foque em refeições ricas em nutrientes','Ajuste o jejum conforme a resposta do corpo','Priorize proteína magra e baixo índice glicêmico'],favor:['Proteínas magras','Vegetais de baixo índice','Gorduras saudáveis','Magnésio inositol','Cúrcuma e resveratrol'],avoid:['Excesso de inflamatórios','Jejum sem observar o ciclo','Açúcar']},
+  {key:'idosos',title:'Idosos',cat:'saude',icon:'🧓',summary:'Jejum leve para longevidade e preservação de massa muscular na maturidade, sempre com bom aporte de proteína.',schedule:'Jejum fisiológico de 12h diário; em dias alternados suba a 14h, 15h ou no máximo 16h.',tips:['Boa proteína em cada refeição preserva o músculo','Faça musculação no mínimo 4x por semana','Inclua aeróbico 3x por semana','Durma de 7 a 8 horas','Varie os alimentos, evite monotonia'],favor:['Peixe, frango e ovos','Vegetais variados','Ômega-3 e magnésio','Coenzima Q10','Vitamina D3 com K2'],avoid:['Ultraprocessados','Adoçantes artificiais','Excesso de glúten e laticínios']},
+  {key:'intestino-preso',title:'Intestino Preso',cat:'saude',icon:'🚽',summary:'Jejum, água e fibras para regular o intestino sem depender de laxantes, que irritam a mucosa a longo prazo.',schedule:'Jejum de 12h diário e 16h intercalado 3x por semana.',tips:['Beba ao menos 2,5 litros de água, meio litro ao acordar','Comece as refeições por verduras e legumes','Mastigue de 20 a 30 vezes','Durma bem e mantenha-se ativo','1 colher de azeite ou óleo de coco em jejum'],favor:['Verduras e legumes','Azeite ou óleo de coco','Magnésio','Goma acácia e glutamina','Muita água'],avoid:['Laxantes como cáscara sagrada e sene','Sedentarismo','Déficit de sono','Excesso de prebióticos']},
+  {key:'infeccoes-repeticao',title:'Infecções de Repetição',cat:'saude',icon:'🧫',summary:'Jejum para fortalecer imunidade e microbiota contra infecções urinárias e candidíase recorrentes.',schedule:'Varie de 12h a 18h na semana, com 1 dia de 24h. Uma vez por semana pode fazer 18 a 20h.',tips:['Use D-manose e cranberry para infecção urinária','Óleo de orégano ajuda contra fungos','Corrija a vitamina D','Própolis apoia a imunidade','Cuide da qualidade do sono'],favor:['D-manose e cranberry','Óleo de orégano','Vitamina D','Própolis','Água e chás'],avoid:['Privação de sono','Excesso de açúcar','Depender só de medicamentos']},
+  {key:'enxaqueca',title:'Enxaqueca e Dores de Cabeça',cat:'saude',icon:'🤕',summary:'Jejum, hidratação forte e magnésio para reduzir a frequência de dores de cabeça e enxaquecas.',schedule:'Jejum de 16h, 3x por semana. Ex: das 20h ao meio-dia do dia seguinte.',tips:['Beba de 2,5 a 3,5 litros de água por dia','Quebre o jejum com vegetais e proteína magra','Evite carboidrato refinado na primeira refeição','Faça atividade leve a moderada','Reduza estresse com natureza e meditação'],favor:['Abobrinha, brócolis e espinafre','Frango, peixe e ovos','Salmão e sardinha','Quinoa e batata-doce','Magnésio (citrato, treonato)'],avoid:['Carboidratos refinados','Refrigerantes e bebidas açucaradas','Estimulantes após as 14h']},
+  {key:'ansiedade',title:'Ansiedade',cat:'saude',icon:'🧘',summary:'Jejum aliado a sono e rotina para regular o relógio biológico e reduzir sintomas de ansiedade.',schedule:'Jejum de 16h com janela de 8h, variando o horário de início a cada dia.',tips:['Quebre o jejum com folhas, fibras e proteína magra','Prefira água e chás calmantes, café só 2h após acordar','Mantenha rotina de sono consistente de 8h','Evite estimulantes após as 14h','Reduza telas 2h antes de dormir'],favor:['Folhas verdes e legumes','Frango e peixe','Abacate e azeite','Quinoa e grão de bico','Chá de camomila e hortelã'],avoid:['Carboidratos refinados','Café em excesso','Telas antes de dormir']},
+  {key:'libido',title:'Libido',cat:'saude',icon:'❤️‍🔥',summary:'Jejum para reduzir inflamação e gordura e melhorar a composição corporal, apoiando o equilíbrio hormonal e a libido.',schedule:'Jejum de 16h 3x por semana; nos outros dias 12 a 14h com alimentação equilibrada.',tips:['Quebre o jejum com verduras, legumes e proteína','Reduza estimulantes, álcool e cigarro','Durma de 7 a 8 horas','Controle o estresse e o ambiente','Cuide da saúde intestinal'],favor:['Comida de verdade','Proteínas e vegetais','Ômega-3','Zinco e magnésio','Vitamina D3 e creatina'],avoid:['Pré-treino e estimulantes em excesso','Álcool e cigarro','Inflamatórios (trigo, leite, soja)']},
+  {key:'autismo',title:'Autismo',cat:'saude',icon:'🧩',summary:'Jejum e comida de verdade para equilibrar o intestino e apoiar comorbidades do autismo como ansiedade e TDAH.',schedule:'Comece em 12h e evolua até 16h, fazendo 16h 3x por semana; nos demais dias 12 a 14h.',tips:['Priorize comida de verdade, reduza processados','Quebre o jejum com proteína e gordura boa','Aumente o jejum conforme a adaptação','Mantenha estilo de vida ativo e contato com a natureza','Ouça o corpo nos dias de jejum livre'],favor:['Ovos e carnes','Peixes','Verduras e legumes','Azeite e abacate','Magnésio, ômega-3 e D3'],avoid:['Carboidratos refinados','Industrializados','Processados']},
+  {key:'depressao',title:'Depressão',cat:'saude',icon:'🌤️',summary:'Jejum para ajudar a regular neurotransmissores e reduzir inflamação, apoiando a saúde mental.',schedule:'16/8, 3x por semana em dias não consecutivos, com dias mais leves de 12h e fim de semana livre.',tips:['Quebre o jejum ao meio-dia com proteína e vegetais','Inclua caminhadas ou exercício moderado','Busque exposição ao sol','Varie as escolhas alimentares','Mantenha alimentação rica em nutrientes'],favor:['Ovos, salmão e frango','Abacate, azeite e castanhas','Espinafre e brócolis','Batata-doce e quinoa','Ômega-3 e creatina'],avoid:['Ultraprocessados','Sedentarismo','Déficit de vitamina D e magnésio']},
+  {key:'imunidade',title:'Imunidade',cat:'saude',icon:'🦠',summary:'Jejum para dar descanso digestivo, cuidar do intestino e fortalecer a resposta imunológica.',schedule:'Jejum de 12 a 16h, 3x por semana em dias alternados.',tips:['Coma alimentos naturais e coloridos','Beba pelo menos 2,5 litros de água por dia','Respeite o ritmo circadiano, sem comer de madrugada','Pegue sol de 10 a 15 min entre 11h e 13h','Durma ao menos 7 horas'],favor:['Alimentos coloridos','Tomate e cenoura','Ômega-3','Vitamina C lipossomal','Vitamina D3 com K2'],avoid:['Comer de madrugada','Aditivos artificiais','Sono insuficiente']},
+  {key:'memoria-cognicao',title:'Memória e Cognição',cat:'saude',icon:'🧠',summary:'Jejum e alimentos para a saúde cerebral, ajudando memória, foco e cognição, inclusive no TDAH.',schedule:'16/8 ou 12h em dias intermediários, 3 a 5x por semana, com 1 dia de descanso.',tips:['Durante o jejum: água, chás e no máximo 1 café pequeno','Quebre o jejum com proteína e gordura boa','Pratique exercício para oxigenar o cérebro','Priorize 7 a 8h de sono, cochilos de 15 a 40 min ajudam','Mantenha boa hidratação'],favor:['Ovos','Sardinha e salmão','Nozes e amêndoas','Abacate e azeite','Ômega-3 e magnésio'],avoid:['Açúcar no café (inclusive adoçante)','Ultraprocessados','Repetir o mesmo tempo de jejum sempre']},
+  {key:'triglicerideos-alto',title:'Triglicerídeos Alto',cat:'saude',icon:'🫀',summary:'Jejum e menos carboidrato refinado para baixar triglicerídeos e proteger a saúde cardiovascular.',schedule:'Jejum de 12 a 16h variando na semana: seg a qua 12h, qui e sex 14h, fim de semana 16h.',tips:['Comece a refeição por saladas ricas em fibra e proteína','Prefira carboidratos complexos aos refinados','Controle as porções, não coma até estufar','Faça ao menos 150 min de atividade por semana','Mastigue devagar'],favor:['Folhas e fibras','Frango, ovos e tofu','Grãos integrais','Frutas de baixo índice','Abobrinha e couve-flor'],avoid:['Carboidratos refinados e açúcar','Bebidas açucaradas','Ultraprocessados','Sedentarismo']}
+];
+const AJ_BIOHACK = {
+  manha:['Raspe a língua ao acordar para remover toxinas da noite','Beba 500 ml de água, de preferência ainda na cama','Lave o rosto com água fria para despertar o corpo','Pegue de 2 a 10 min de luz natural, sem vidro nem óculos escuros','Aterramento: pise descalço na terra, grama ou areia por 5 a 10 min','Shot matinal: limão ou vinagre de maçã, própolis, gengibre e cúrcuma opcionais','Intestino preso: 1 colher de azeite ou MCT não quebra o jejum metabólico','Água com sal integral (pitada em 1 litro) repõe minerais no jejum'],
+  noite:['Evite comer tarde da noite','Reduza a luz azul e as telas cerca de 2h antes de dormir','Durma em horário parecido todos os dias, de 7 a 8 horas','Intestino preso: 1 colher de azeite ou MCT antes de dormir','Nunca jejue após ingestão de álcool']
+};
+const AJ_FOODS = {
+  favor:['Folhas verdes: alface, rúcula, espinafre, acelga, agrião','Legumes low carb: pepino, abobrinha, berinjela, brócolis, couve-flor','Proteínas: ovos, frango, peixe, carne magra, tofu','Gorduras boas: abacate, azeite, óleo de coco, castanhas, chia, linhaça','Carboidratos complexos: batata-doce, mandioca, arroz integral, quinoa, aveia','Leguminosas: feijão, lentilha, grão de bico (porções moderadas)','Frutas de baixo índice: morango, framboesa, mirtilo'],
+  evitar:['Carboidratos refinados: açúcar, pão branco, farinha branca','Bebidas açucaradas e sucos de fruta','Ultraprocessados e industrializados','Adoçantes artificiais e stevia (mandam sinal de doce)','Álcool (quebra o jejum)','Óleos refinados','Iniciar a refeição pelo carboidrato'],
+  prato:['50% do prato: verduras e legumes','25% do prato: proteínas','25% do prato: carboidratos e leguminosas','Ordem: verduras e legumes, depois proteína, carbo por último','Emagrecimento sem treino: deixe o carbo para a próxima refeição','Ganho de massa com treino: inclua carbo complexo como arroz e feijão','Mastigue cerca de 20 vezes por garfada']
+};
+const AJ_EVOLUTION_COLS = ['Data','Hora da última refeição','Horas de jejum','Horas e qualidade de sono','Quantidade de água','Raspou a língua','Bebeu água ao acordar','Peso atual'];
+
 function renderFastCoach(){
   const body = document.getElementById('fast-coach-body');
   if(!body) return;
@@ -4980,6 +5049,108 @@ function applyCoachProto(h){
 // HOME
 // ══════════════════════════════════
 // ── HOME PREMIUM (Fase 1 do revamp) ──────────────────────────────
+// ── BIBLIOTECA DE PROTOCOLOS (Academia do Jejum) ──
+let _fastLibCat = 'objetivo';
+const AJ_CATS = [
+  {k:'objetivo', label:'Objetivo'},
+  {k:'saude',    label:'Saúde'},
+  {k:'mulher',   label:'Mulher'},
+];
+function renderFastLibrary(){
+  const el = document.getElementById('fast-library'); if(!el) return;
+  const chips = AJ_CATS.map(c=>`<button onclick="_fastLibCat='${c.k}';renderFastLibrary()" style="flex:1;padding:9px;border-radius:8px;border:1px solid ${_fastLibCat===c.k?'var(--gold)':'var(--bdr)'};background:${_fastLibCat===c.k?'var(--gold)':'var(--s2)'};color:${_fastLibCat===c.k?'var(--gold-ink)':'var(--mid)'};font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer">${c.label}</button>`).join('');
+  const list = AJ_PROTOCOLS.filter(p=>p.cat===_fastLibCat).map(p=>`
+    <div onclick="openProtocol('${p.key}')" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--bdr);cursor:pointer">
+      <div style="width:40px;height:40px;border-radius:10px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.25);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${p.icon}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:15px;color:var(--text);font-weight:700">${p.title}</div><div style="font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.summary}</div></div>
+      <div style="color:var(--gold);font-size:20px;font-weight:700;flex-shrink:0">›</div>
+    </div>`).join('');
+  el.innerHTML = `
+  <div class="card">
+    <div class="card-hd"><div class="card-title">📚 BIBLIOTECA DE PROTOCOLOS</div></div>
+    <div style="font-size:12px;color:var(--mid);margin:-6px 0 12px">Protocolos de jejum por objetivo e condição, no método da Academia do Jejum.</div>
+    <div style="display:flex;gap:6px;margin-bottom:4px">${chips}</div>
+    ${list}
+  </div>`;
+}
+function openProtocol(key){
+  const p = AJ_PROTOCOLS.find(x=>x.key===key); if(!p) return;
+  const sec = (title, items, color) => (items&&items.length) ? `
+    <div style="margin-top:16px">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:${color||'var(--gold)'};font-weight:800;margin-bottom:8px">${title}</div>
+      ${items.map(it=>`<div style="display:flex;gap:8px;font-size:14px;color:var(--mid);line-height:1.5;margin-bottom:6px"><span style="color:${color||'var(--gold)'}">•</span><span>${it}</span></div>`).join('')}
+    </div>` : '';
+  const body = document.getElementById('protocol-body');
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+      <div style="width:48px;height:48px;border-radius:12px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.25);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">${p.icon}</div>
+      <div class="sheet-title" style="margin:0">${p.title}</div>
+    </div>
+    <div style="font-size:14px;color:var(--mid);line-height:1.6;margin-bottom:14px">${p.summary}</div>
+    <div style="background:var(--gold-bg);border:1px solid rgba(201,169,110,.25);border-radius:var(--rs);padding:14px">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:5px">⏱️ Esquema de jejum</div>
+      <div style="font-size:14px;color:var(--text);line-height:1.6">${p.schedule}</div>
+    </div>
+    ${sec('Como aplicar', p.tips, 'var(--gold)')}
+    ${sec('Priorize', p.favor, 'var(--green)')}
+    ${sec('Evite', p.avoid, 'var(--red)')}
+    <div style="margin-top:16px">
+      <button onclick="closeSheet('protocol-ov');fastAskAbout('${p.title.replace(/'/g,'')}')" class="btn btn-gold btn-full" style="padding:13px">🧭 Perguntar ao Coach sobre este protocolo</button>
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.5">Conteúdo educativo baseado no método Academia do Jejum. Não substitui orientação médica.</div>`;
+  openSheet('protocol-ov');
+}
+
+// ── COACH DE JEJUM IA ──
+function ajProtocolIndex(){ return AJ_PROTOCOLS.map(p=>p.title+' ('+p.schedule+')').join(' | '); }
+const FAST_COACH_SYSTEM = (ispt) => `Você é o Coach de Jejum do Opus X: especialista em jejum intermitente, emagrecimento, ganho de músculo e estilo de vida saudável, no método da Academia do Jejum.
+PERFIL DO USUÁRIO: ${userProfileText()}
+PROTOCOLOS QUE VOCÊ CONHECE (adapte ao perfil, nunca copie literalmente): ${ajProtocolIndex()}
+PRINCÍPIOS: quebrar o jejum por verduras e proteína, carbo por último; variar as horas de jejum para não estagnar; hidratação ~35 ml/kg; sono de 7 a 8h; comida de verdade; quem quer músculo não deve exagerar no jejum (nada de 20-22h).
+BIOHACKING MATINAL: ${AJ_BIOHACK.manha.slice(0,5).join('; ')}.
+Regras: respostas curtas, diretas e práticas, sem elogios vazios. Baseie-se no perfil e nos protocolos. NÃO dê diagnóstico médico; em condições de saúde sérias, oriente procurar um profissional. Responda em ${ispt?'português brasileiro':'English'}.`;
+const FAST_CHIPS = ['Qual protocolo é melhor pra mim?','O que comer ao quebrar o jejum?','Travei no peso, e agora?','Posso treinar em jejum?'];
+function renderFastChips(){
+  const el=document.getElementById('fast-qchips'); if(!el) return;
+  el.innerHTML = FAST_CHIPS.map(c=>`<div class="qchip" onclick="fastAskAbout('${c.replace(/'/g,'')}')">${c}</div>`).join('');
+}
+function fastAskAbout(q){
+  const inp=document.getElementById('fast-input'); if(inp){ inp.value=q; }
+  sendFastMsg();
+}
+async function sendFastMsg(){
+  const inp=document.getElementById('fast-input'); if(!inp) return;
+  const msg=inp.value.trim(); if(!msg) return;
+  const feed='fast-chat-feed';
+  if(!D.apiKey){
+    inp.value='';
+    const f=document.getElementById(feed);
+    if(f){ f.innerHTML += `<div class="ai-msg user">${msg}</div><div class="ai-msg ai">💡 Ative o Coach IA com sua API Key (Perfil → engrenagem) para respostas personalizadas com base no seu perfil e nos protocolos.</div>`; f.scrollTop=9999; }
+    return;
+  }
+  inp.value=''; const btn=document.getElementById('fast-send-btn'); if(btn) btn.disabled=true;
+  appendAiMsg(feed,'user',msg);
+  showTypingInFeed(feed,'fast-typing');
+  if(!D.coachChats) D.coachChats={};
+  if(!D.coachChats.faster) D.coachChats.faster=[];
+  D.coachChats.faster.push({role:'user',content:msg});
+  const ispt=lang==='pt';
+  const msgs=[...D.coachChats.faster.slice(-10).map(m=>({role:m.role==='bot'?'assistant':'user',content:m.content}))];
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:600,system:FAST_COACH_SYSTEM(ispt),messages:msgs})});
+    const data=await res.json();
+    const d=document.getElementById('fast-typing');if(d)d.remove();
+    const reply=data.content?.[0]?.text||'Erro.';
+    appendAiMsg(feed,'bot',reply);
+    D.coachChats.faster.push({role:'bot',content:reply});
+    if(D.coachChats.faster.length>40)D.coachChats.faster=D.coachChats.faster.slice(-40);
+    save();
+  }catch(e){
+    const d=document.getElementById('fast-typing');if(d)d.remove();
+    appendAiMsg(feed,'bot',ispt?'Erro de conexão.':'Connection error.');
+  }finally{ if(btn) btn.disabled=false; }
+}
+
 const MG_GROUPS = {
   push: { label:'Empurrar', color:'#C9A96E', muscles:['peito','ombro','triceps'], target:20 },
   pull: { label:'Puxar',    color:'#B5786A', muscles:['costas','biceps'],          target:16 },
