@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T00:49:45Z">
+<meta name="app-version" content="2026-09-14T00:54:47Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -5935,12 +5935,14 @@ function buildSessionHTML(key, session, idx) {
         </div>
       </div>
       <div id="woexp-${exKey}" style="display:${isExpanded?'block':'none'}">
+        ${warmupHint((!isTimed&&ex.load) ? ex.load : (lastSeries&&lastSeries[0]&&lastSeries[0].load))}
         <div style="background:var(--s1);border-top:1px solid var(--bdr)">${seriesRows}</div>
         <div style="padding:10px 14px;border-top:1px solid var(--bdr)">
           <div class="ex-notes"><strong>${lang==='pt'?'EXECUÇÃO':'EXECUTION'}</strong>${ex.notes}</div>
           <textarea class="ex-feedback-input" id="fb-${fbKey}" placeholder="${tr('feedback_ph')}">${fb}</textarea>
           <button class="ex-feedback-save" onclick="saveExFeedback('${fbKey}')">${lang==='pt'?'SALVAR':'SAVE'}</button>
           <div style="clear:both;margin-top:8px"></div>
+          ${exPrefControl(ex.name)}
           <button onclick="openSkipModal('exercise','${ex.name.replace(/'/g,'')}')" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;margin-top:6px">😮‍💨 Não vou fazer esse exercício</button>
         </div>
       </div>
@@ -7381,6 +7383,43 @@ function exThumb(name){
 }
 
 // Render rico de exercício do plano custom — séries/cargas + substitutos, igual ao Opus 15
+// Sugestão de aquecimento a partir da carga de trabalho (só quando há número).
+function warmupHint(loadStr){
+  if(loadStr==null) return '';
+  const m=String(loadStr).replace(',','.').match(/(\d+(?:\.\d+)?)/);
+  if(!m) return '';                       // carga corporal / "moderada" → sem aquecimento numérico
+  const w=parseFloat(m[1]); if(!w||w<=0) return '';
+  const step=w>=40?5:2.5;
+  const r=x=>Math.max(step, Math.round(w*x/step)*step);
+  const s1=r(.5), s2=r(.7);
+  if(s2>=w) return '';                     // carga muito leve → aquecimento não agrega
+  return `<div style="margin:0;padding:10px 14px;border-top:1px solid var(--bdr);background:rgba(201,169,110,.05)">
+    <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:3px">🔥 Aquecimento</div>
+    <div style="font-size:13px;color:var(--mid);line-height:1.5">Antes de valer: <strong style="color:var(--text)">${s1} × 8</strong> · <strong style="color:var(--text)">${s2} × 5</strong> · descanso curto. Prepara a articulação sem cansar.</div>
+  </div>`;
+}
+
+// Preferência por exercício que a IA aprende (mais/menos)
+function setExPref(nameEnc, p){
+  const name=decodeURIComponent(nameEnc);
+  const key=exNameNorm(name);
+  D.exPref=D.exPref||{};
+  if(D.exPref[key] && D.exPref[key].p===p){ delete D.exPref[key]; toast('Preferência removida'); }
+  else { D.exPref[key]={p:p, n:name}; toast(p==='more'?'A IA vai priorizar esse ✓':'A IA vai evitar esse ✓'); }
+  save();
+  if(typeof refreshWorkoutViews==='function') refreshWorkoutViews();
+}
+function exPrefControl(name){
+  const key=exNameNorm(name);
+  const cur=(D.exPref||{})[key];
+  const enc=encodeURIComponent(name);
+  const on=p=>cur&&cur.p===p;
+  return `<div style="display:flex;gap:6px;margin-top:8px">
+    <button onclick="setExPref('${enc}','more')" style="flex:1;padding:8px;background:${on('more')?'var(--gold)':'var(--s2)'};border:1px solid ${on('more')?'var(--gold)':'var(--bdr)'};border-radius:6px;color:${on('more')?'var(--gold-ink)':'var(--mid)'};font-size:11px;font-weight:700;cursor:pointer">⭐ Quero mais</button>
+    <button onclick="setExPref('${enc}','less')" style="flex:1;padding:8px;background:${on('less')?'var(--red)':'var(--s2)'};border:1px solid ${on('less')?'var(--red)':'var(--bdr)'};border-radius:6px;color:${on('less')?'#fff':'var(--mid)'};font-size:11px;font-weight:700;cursor:pointer">⬇️ Quero menos</button>
+  </div>`;
+}
+
 function buildCustomExerciseHTML(s, origEx, i){
   const checked = D.exChecked||{};
   const exKey = 'cu_'+s.id+'_ex_'+i;
@@ -7499,7 +7538,8 @@ function buildCustomExerciseHTML(s, origEx, i){
         </div>
       </div>`;
     })();
-    body = `<div style="background:var(--s1);border-top:1px solid var(--bdr)">${seriesRows}</div>
+    body = `${warmupHint(ex.load || (lastSeries&&lastSeries[0]&&lastSeries[0].load))}
+      <div style="background:var(--s1);border-top:1px solid var(--bdr)">${seriesRows}</div>
       ${suggestBox}
       ${noteTxt?`<div style="padding:10px 14px;border-top:1px solid var(--bdr)"><div class="ex-notes"><strong>${noteLbl}</strong>${noteTxt}</div></div>`:''}`;
   }
@@ -7511,6 +7551,7 @@ function buildCustomExerciseHTML(s, origEx, i){
     <textarea class="ex-feedback-input" id="fb-${fbKey}" placeholder="${tr('feedback_ph')}">${fb}</textarea>
     <button class="ex-feedback-save" onclick="saveExFeedback('${fbKey}')">${lang==='pt'?'SALVAR':'SAVE'}</button>
     <div style="clear:both;margin-top:8px"></div>
+    ${exPrefControl(ex.name)}
     <button onclick="openSkipModal('exercise','${ex.name.replace(/'/g,'')}')" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;margin-top:6px">😮‍💨 Não vou fazer esse exercício</button>
   </div>`;
 
@@ -8674,6 +8715,11 @@ function userProfileText(){
   if(p.equipmentNote) parts.push('Obs. de equipamento: '+p.equipmentNote);
   if(p.days) parts.push('Treina '+p.days+'x/semana');
   if(D.trainingFocus) parts.push('FOCO/PRIORIDADES: '+D.trainingFocus);
+  const prefs=D.exPref||{};
+  const more=Object.keys(prefs).filter(k=>prefs[k].p==='more').map(k=>prefs[k].n);
+  const less=Object.keys(prefs).filter(k=>prefs[k].p==='less').map(k=>prefs[k].n);
+  if(more.length) parts.push('Exercícios que o usuário QUER MAIS (priorize e inclua estes ou variações próximas): '+more.join(', '));
+  if(less.length) parts.push('Exercícios que o usuário QUER MENOS (evite ou reduza): '+less.join(', '));
   return parts.length ? parts.join(' | ') : 'Perfil ainda não preenchido — pergunte ao usuário o que precisar antes de orientar.';
 }
 
@@ -10056,8 +10102,10 @@ function renderSecaHoje() {
       </div>
       <!-- Per-series rows (collapsible) -->
       <div id="exseries-${planIdx}-${i}" style="display:${exExpanded?'block':'none'}">
+        ${warmupHint(lastSeries&&lastSeries[0]&&lastSeries[0].load)}
         ${seriesRowsHtml}
         <div style="padding:10px 14px;border-bottom:1px solid var(--bdr)">
+          ${exPrefControl(ex.name)}
           <button onclick="openSkipModal('exercise','${ex.name.replace(/'/g,'')}')" style="width:100%;padding:9px;background:transparent;border:1px dashed var(--bdr2);border-radius:6px;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer">😮‍💨 Não vou fazer esse exercício</button>
         </div>
       </div>
