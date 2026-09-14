@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T01:17:30Z">
+<meta name="app-version" content="2026-09-14T07:15:12Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1497,6 +1497,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <!-- Backup dos dados (API key fica no menu de engrenagem, fora da vista do usuário) -->
     <div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
       <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:10px" id="profile-backup-title">MEUS DADOS</div>
+      <div id="profile-backup-line" style="font-size:12px;margin-bottom:10px;line-height:1.5"></div>
+      <button onclick="syncNow()" style="width:100%;padding:14px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.35);border-radius:8px;color:var(--gold);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left">☁️ FAZER BACKUP AGORA</button>
+      <button onclick="restoreFromCloud()" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left">⬇️ RESTAURAR DA NUVEM</button>
+      <button onclick="openBackupHelp()" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left">⚙️ CONFIGURAR SYNC (GITHUB)</button>
       <button onclick="exportBackup()" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left" id="profile-export-btn">📤 EXPORTAR DADOS</button>
       <label style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:block;text-align:left;margin-bottom:8px" id="profile-import-btn">📥 IMPORTAR DADOS<input type="file" accept=".json" onchange="importBackup(event)" style="display:none"></label>
       <button id="opx-check-update-btn" onclick="if(window._opxCheckUpdate)_opxCheckUpdate(this)" style="width:100%;padding:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:8px;text-align:left">🔄 VERIFICAR ATUALIZAÇÃO</button>
@@ -2731,10 +2735,13 @@ async function pushToGist(){
       if(res.ok){ const j = await res.json(); setGistId(j.id); }
     }
     if(!res.ok) throw new Error('HTTP '+res.status);
+    try{ localStorage.setItem(_gistKey('apex_last_sync'), String(Date.now())); }catch(e){}
     setSyncStatus('synced');
+    if(typeof renderBackupStatus==='function') renderBackupStatus();
   } catch(e){
     console.warn('[gist] push failed', e);
     setSyncStatus('error', 'falhou — verifique token');
+    if(typeof renderBackupStatus==='function') renderBackupStatus();
   } finally { _gistSyncing = false; }
 }
 
@@ -4697,6 +4704,14 @@ function obSkip() {
 function renderProfilePage() {
   renderThemePicker();
   renderTrainingToggle();
+  // Linha de status do backup
+  const bl=document.getElementById('profile-backup-line');
+  if(bl){
+    const on=(typeof getGistToken==='function')?!!getGistToken():false;
+    if(!on){ bl.innerHTML='<span style="color:var(--red,#E05252)">⚠️ Backup na nuvem desligado.</span> Seus dados estão só neste aparelho.'; }
+    else { const ts=(typeof lastSyncTs==='function')?lastSyncTs():0; const stale=!ts||(Date.now()-ts>24*3600000);
+      bl.innerHTML= stale ? `<span style="color:var(--gold)">⚠️ Backup pode estar desatualizado.</span> ${ts?'Último '+timeAgoPt(ts)+'.':''}` : `<span style="color:var(--green)">✓ Backup na nuvem ${timeAgoPt(ts)}.</span>`; }
+  }
   // Preenche email da conta
   const emailEl = document.getElementById('auth-user-email');
   if(emailEl && currentUser) emailEl.textContent = currentUser.email || '—';
@@ -5379,26 +5394,74 @@ async function ensurePersistentStorage(){
   }catch(e){}
 }
 
-// status de backup na Home: avisa quando está desligado
+// tempo relativo curto em pt
+function timeAgoPt(ts){
+  if(!ts) return '';
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60) return 'agora mesmo';
+  const m=Math.floor(s/60); if(m<60) return 'há '+m+' min';
+  const h=Math.floor(m/60); if(h<24) return 'há '+h+'h';
+  const d=Math.floor(h/24); return 'há '+d+(d===1?' dia':' dias');
+}
+function lastSyncTs(){ try{ const v=localStorage.getItem(_gistKey('apex_last_sync')); return v?parseInt(v):0; }catch(e){ return 0; } }
+
+// status de backup na Home: mostra quando foi o último e avisa se desligou/desatualizou
 function renderBackupStatus(){
   const el=document.getElementById('h-backup-bar'); if(!el) return;
   const on = (typeof getGistToken==='function') ? !!getGistToken() : false;
-  if(on){
-    el.innerHTML = `<div onclick="openSheet('api-ov')" style="margin:10px 14px 0;background:var(--s1);border:1px solid rgba(82,168,120,.3);border-radius:var(--r);padding:11px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">
-      <div style="font-size:18px">🔒</div>
-      <div style="flex:1"><div style="font-size:12px;color:var(--green);font-weight:800">Backup na nuvem ligado</div><div style="font-size:11px;color:var(--dim)">Seus dados sincronizam sozinhos.</div></div>
-    </div>`;
-  } else {
+  if(!on){
     el.innerHTML = `<div onclick="openBackupHelp()" style="margin:10px 14px 0;background:rgba(224,82,82,.09);border:1px solid rgba(224,82,82,.4);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">
       <div style="font-size:18px">⚠️</div>
       <div style="flex:1"><div style="font-size:12px;color:var(--red,#E05252);font-weight:800">Backup desligado</div><div style="font-size:11px;color:var(--mid)">Seus dados estão só neste aparelho. Toque para proteger.</div></div>
       <div style="color:var(--gold);font-weight:700;font-size:18px">›</div>
+    </div>`;
+    return;
+  }
+  const ts=lastSyncTs();
+  const stale = !ts || (Date.now()-ts > 24*3600000);
+  if(stale){
+    el.innerHTML = `<div onclick="syncNow()" style="margin:10px 14px 0;background:rgba(201,169,110,.10);border:1px solid rgba(201,169,110,.45);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">
+      <div style="font-size:18px">⚠️</div>
+      <div style="flex:1"><div style="font-size:12px;color:var(--gold);font-weight:800">Backup pode estar desatualizado</div><div style="font-size:11px;color:var(--mid)">${ts?'Último: '+timeAgoPt(ts)+'. ':''}Toque para sincronizar agora.</div></div>
+      <div style="color:var(--gold);font-weight:700;font-size:18px">↻</div>
+    </div>`;
+  } else {
+    el.innerHTML = `<div onclick="syncNow()" style="margin:10px 14px 0;background:var(--s1);border:1px solid rgba(82,168,120,.3);border-radius:var(--r);padding:11px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">
+      <div style="font-size:18px">🔒</div>
+      <div style="flex:1"><div style="font-size:12px;color:var(--green);font-weight:800">Backup na nuvem · ${timeAgoPt(ts)}</div><div style="font-size:11px;color:var(--dim)">Sincroniza sozinho. Toque para forçar agora.</div></div>
     </div>`;
   }
 }
 function openBackupHelp(){
   openSheet('api-ov');
   setTimeout(()=>{ const g=document.getElementById('gist-field'); if(g) g.scrollIntoView({behavior:'smooth',block:'center'}); }, 220);
+}
+async function syncNow(){
+  if(typeof getGistToken==='function' && !getGistToken()){ openBackupHelp(); return; }
+  toast('Sincronizando…');
+  try{ await pushToGist(); }catch(e){}
+  if(typeof renderBackupStatus==='function') renderBackupStatus();
+  if(typeof renderProfilePage==='function') renderProfilePage();
+}
+async function restoreFromCloud(){
+  if(typeof getGistToken==='function' && !getGistToken()){ toast('Ligue o backup primeiro'); openBackupHelp(); return; }
+  if(!confirm('Restaurar da nuvem? Isso substitui os dados deste aparelho pelo backup mais recente.')) return;
+  toast('Restaurando…');
+  try{
+    const token=getGistToken(); let gistId=getGistId();
+    if(!gistId){ const r=await findExistingOpusGist(token); if(r.ok&&r.gistId){ setGistId(r.gistId); gistId=r.gistId; } }
+    if(!gistId){ toast('Nenhum backup encontrado'); return; }
+    const res=await fetch('https://api.github.com/gists/'+gistId,{headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json'},cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const j=await res.json(); const f=j.files&&j.files[GIST_FILE];
+    if(!f||!f.content){ toast('Backup vazio'); return; }
+    const parsed=JSON.parse(f.content);
+    if(!parsed.data){ toast('Backup inválido'); return; }
+    Object.assign(D, parsed.data);
+    save();
+    toast('Dados restaurados ✓');
+    setTimeout(()=>location.reload(), 800);
+  }catch(e){ console.warn('[restore]',e); toast('Falha ao restaurar'); }
 }
 
 function renderHomeCardio(){
