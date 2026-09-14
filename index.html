@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T00:41:11Z">
+<meta name="app-version" content="2026-09-14T00:49:45Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -963,7 +963,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </div>
 
     <div class="hist-tabs">
-      <button class="hist-tab on" onclick="showHistTab('weight',this)" id="ht-weight">PESO</button>
+      <button class="hist-tab on" onclick="showHistTab('weight',this)" id="ht-weight">CORPO</button>
       <button class="hist-tab" onclick="showHistTab('workout',this)" id="ht-workout">TREINOS</button>
       <button class="hist-tab" onclick="showHistTab('fast',this)" id="ht-fast">JEJUNS</button>
       <button class="hist-tab" onclick="showHistTab('reports',this)" id="ht-reports" style="color:var(--gold)">ANÁLISES</button>
@@ -1004,6 +1004,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         </div>
       </div>
 
+      <div id="body-comp-card" style="padding:0 14px;margin-bottom:14px"></div>
       <div id="july-goal-card" style="margin-bottom:14px"></div>
       <div id="waist-card" style="margin-bottom:14px"></div>
       <div id="photo-card" style="margin-bottom:14px"></div>
@@ -8309,7 +8310,7 @@ function renderWeightPage(){
     const bc=document.getElementById('bmi-cursor');if(bc)bc.style.left=pct+'%';
     setEl('bmi-status','BMI <strong>'+bmi+'</strong> · '+cat);
   }
-  drawWeightChart(); renderWeightHistList(); renderJulyGoal(); renderWaistCard(); renderPhotoCard();
+  drawWeightChart(); renderWeightHistList(); renderJulyGoal(); renderBodyComposition(); renderWaistCard(); renderPhotoCard();
 }
 
 // ── CINTURA — sinal de gordura melhor que a balança ──
@@ -8356,6 +8357,75 @@ function logWaist(){
   D.waistLog=D.waistLog.slice(-120);
   save(); renderWaistCard();
   toast('Cintura registrada ✓');
+}
+
+// ── COMPOSIÇÃO CORPORAL (estilo Fitbod: % gordura + massa magra vs gorda) ──
+function renderBodyComposition(){
+  const el=document.getElementById('body-comp-card'); if(!el) return;
+  const cur=(D.weightLog&&D.weightLog.length)?D.weightLog[D.weightLog.length-1].lbs:(D.weightLbs||null);
+  const bf=D.bodyFat||0;
+  const u=D.weightUnit==='kg'?'kg':'lbs';
+  const dw=v=>D.weightUnit==='kg'?(v*0.453592):v;
+  const fmt=v=>dw(v).toFixed(1);
+  // tendência do % de gordura (histórico próprio)
+  const bfLog=D.bfLog||[];
+  let bfTrend='';
+  if(bfLog.length>1){
+    const d=bfLog[bfLog.length-1].val-bfLog[0].val;
+    if(Math.abs(d)>=0.1) bfTrend=`${d<0?'▼':'▲'} ${Math.abs(d).toFixed(1)}% desde o início`;
+  }
+  let body;
+  if(cur && bf>0){
+    const fatLbs=cur*bf/100, leanLbs=cur-fatLbs;
+    const leanPct=Math.max(0,Math.min(100,100-bf));
+    body=`
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:2px">% Gordura</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:44px;color:var(--gold);line-height:1;font-style:italic">${bf.toFixed(1)}<span style="font-size:18px;color:var(--mid);font-style:normal">%</span></div>
+        ${bfTrend?`<div style="font-size:12px;color:${/▼/.test(bfTrend)?'var(--green)':'var(--mid)'};margin-top:4px">${bfTrend}</div>`:''}
+      </div>
+      <button onclick="focusBfInput()" style="background:var(--gold-bg);border:1px solid rgba(201,169,110,.3);border-radius:6px;color:var(--gold);font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;letter-spacing:1px">ATUALIZAR</button>
+    </div>
+    <div style="height:12px;border-radius:6px;overflow:hidden;display:flex;margin-bottom:8px;border:1px solid var(--bdr)">
+      <div style="width:${leanPct}%;background:linear-gradient(90deg,var(--gold),var(--gold2))"></div>
+      <div style="flex:1;background:var(--s3)"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px">
+      <div><span style="color:var(--gold);font-weight:700">Massa magra</span> <span style="color:var(--text);font-weight:700">${fmt(leanLbs)} ${u}</span></div>
+      <div><span style="color:var(--mid);font-weight:700">Gordura</span> <span style="color:var(--text);font-weight:700">${fmt(fatLbs)} ${u}</span></div>
+    </div>`;
+  } else {
+    body=`<div style="font-size:13px;color:var(--mid);line-height:1.5;margin-bottom:12px">Adicione seu <strong style="color:var(--text)">% de gordura</strong> para ver massa magra vs. gordura e acompanhar a evolução.</div>`;
+  }
+  el.innerHTML=`
+  <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:14px">🧬 Composição corporal</div>
+    ${body}
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <input id="bf-input" type="number" inputmode="decimal" step=".1" placeholder="% de gordura" style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:22px;padding:10px 12px;outline:none">
+      <button onclick="logBodyFat()" style="background:var(--gold);color:var(--gold-ink);border:none;border-radius:8px;font-size:11px;font-weight:800;letter-spacing:1px;padding:10px 16px;cursor:pointer">REGISTRAR</button>
+    </div>
+    <div style="font-size:10px;color:var(--dim);margin-top:8px">Use uma balança de bioimpedância, adipômetro ou a estimativa de um profissional. Mesmo aproximado, a tendência é o que importa.</div>
+  </div>`;
+}
+function focusBfInput(){ const el=document.getElementById('bf-input'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth',block:'center'}); } }
+function logBodyFat(){
+  const el=document.getElementById('bf-input'); if(!el) return;
+  const v=parseFloat(String(el.value).replace(',','.'));
+  if(isNaN(v)||v<=0||v>75){ toast('Informe um % de gordura válido'); return; }
+  D.bodyFat=v;
+  if(!D.bfLog) D.bfLog=[];
+  D.bfLog=D.bfLog.filter(w=>w.date!==TODAY);
+  D.bfLog.push({date:TODAY, val:v, ts:Date.now()});
+  D.bfLog=D.bfLog.slice(-120);
+  // massa magra derivada, se houver peso
+  const cur=(D.weightLog&&D.weightLog.length)?D.weightLog[D.weightLog.length-1].lbs:(D.weightLbs||null);
+  if(cur) D.leanMass=Math.round(cur*(1-v/100));
+  save();
+  renderBodyComposition();
+  if(typeof renderProfile==='function') renderProfile();
+  toast('Composição atualizada ✓');
 }
 
 // ── FOTO DE PROGRESSO (IndexedDB p/ não estourar o localStorage) ──
@@ -10475,6 +10545,7 @@ function showHistTab(id, el) {
   const sec = document.getElementById('hs-'+id);
   if(sec) sec.classList.add('on');
   if(id==='reports') renderReportsHistory();
+  if(id==='weight' && typeof renderWeightPage==='function') renderWeightPage();
 }
 
 function snapshotSeriesHistory(type, planIdx) {
