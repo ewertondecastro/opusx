@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T07:18:18Z">
+<meta name="app-version" content="2026-09-14T07:21:15Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -7473,6 +7473,18 @@ function lastLoadByName(name){
   const r = (D.loadByName||{})[k];
   return (r && r.series && r.series.length) ? r.series : null;
 }
+// Motor de progressão: analisa a tendência de carga por nome
+function progressionInsight(name){
+  const arr=(D.loadTrend||{})[exNameNorm(name)]||[];
+  if(arr.length<2) return null;
+  const L=arr.map(e=>e.load);
+  const last=L[L.length-1], prev=L[L.length-2];
+  if(last>prev) return {state:'up', msg:'📈 Progredindo: '+prev+' → '+last+' lb. Boa, mantenha o ritmo.', color:'var(--green)'};
+  const best=Math.max(...L);
+  const sinceBest=L.length-1-L.indexOf(best);
+  if(sinceBest>=2) return {state:'flat', msg:'⚠️ Sem novo recorde há '+sinceBest+' sessões (topo '+best+' lb). Faça 1 deload (−10%) e volte subindo, ou baixe 2 reps e aumente a carga.', color:'var(--gold)'};
+  return null;
+}
 
 // 🏆 recorde (PR) + 📊 volume por músculo, ao fechar um exercício
 function registerSetStats(name, series, sets){
@@ -7485,6 +7497,13 @@ function registerSetStats(name, series, sets){
       D.prByName[k]={load:max, ts:Date.now(), name:name};
       if(prev && typeof toast==='function') toast('🏆 Novo recorde: '+name.replace(/^[A-D]\d\)\s*/,'')+' '+max+' lb!');
     }
+    // tendência de carga por nome (1 entrada/dia, guarda o maior) → detecção de platô
+    if(!D.loadTrend) D.loadTrend={};
+    const arr=D.loadTrend[k]=D.loadTrend[k]||[];
+    const ex0=arr.find(e=>e.date===TODAY);
+    if(ex0){ ex0.load=Math.max(ex0.load,max); ex0.ts=Date.now(); }
+    else arr.push({load:max, ts:Date.now(), date:TODAY});
+    if(arr.length>12) D.loadTrend[k]=arr.slice(-12);
   }
   const m = (typeof muscleOf==='function') ? muscleOf(name) : null;
   if(m){
@@ -7943,8 +7962,10 @@ function buildCustomExerciseHTML(s, origEx, i){
       }
       const pr = (D.prByName||{})[exNameNorm(ex.name)];
       const enc = encodeURIComponent(ex.name);
+      const insight = (typeof progressionInsight==='function') ? progressionInsight(ex.name) : null;
       return `<div style="padding:10px 14px;border-top:1px solid var(--bdr);background:rgba(201,169,110,.06)">
         <div style="font-size:12px;color:var(--mid)">Última vez: <strong style="color:var(--text)">${loads.join(' / ')} lb</strong>${pr?` · 🏆 recorde ${pr.load} lb`:''}.</div>
+        ${insight?`<div style="font-size:12px;color:${insight.color};font-weight:700;margin-top:4px;line-height:1.4">${insight.msg}</div>`:''}
         <div style="font-size:13px;color:var(--gold);font-weight:700;margin-top:2px">💡 Sugestão hoje: ${suggested} lb — ${note}.</div>
         <div style="font-size:10px;color:var(--dim);margin-top:8px;margin-bottom:4px">Como foi a carga hoje?</div>
         <div style="display:flex;gap:6px">
