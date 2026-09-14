@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T00:31:57Z">
+<meta name="app-version" content="2026-09-14T00:41:11Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -2146,6 +2146,39 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-btns">
       <button class="btn btn-outline" onclick="closeSheet('custom-session-ov')" style="flex:1">Cancelar</button>
       <button class="btn btn-gold" onclick="saveCustomSession()" style="flex:2;margin:0">Salvar Sessão</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADICIONAR EXERCÍCIO (universal — qualquer treino) -->
+<div class="overlay" id="addex-ov" onclick="if(event.target===this)closeSheet('addex-ov')">
+  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">ADICIONAR EXERCÍCIO</div>
+    <div id="addex-context" style="font-size:12px;color:var(--mid);margin-bottom:14px">Faça mais do que o proposto de hoje.</div>
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:6px">NOME DO EXERCÍCIO</div>
+    <input class="sheet-input" id="addex-name" type="text" placeholder="Ex: Rosca direta com halteres" style="margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+      <div>
+        <div style="font-size:9px;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:4px">SÉRIES</div>
+        <input class="sheet-input" id="addex-sets" type="number" inputmode="numeric" value="3" style="margin:0;text-align:center;padding:12px 6px">
+      </div>
+      <div>
+        <div style="font-size:9px;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:4px">REPS</div>
+        <input class="sheet-input" id="addex-reps" type="text" value="10-12" style="margin:0;text-align:center;padding:12px 6px">
+      </div>
+      <div>
+        <div style="font-size:9px;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:4px">PAUSA</div>
+        <input class="sheet-input" id="addex-rest" type="text" value="60s" style="margin:0;text-align:center;padding:12px 6px">
+      </div>
+      <div>
+        <div style="font-size:9px;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:4px">CARGA</div>
+        <input class="sheet-input" id="addex-load" type="text" placeholder="—" style="margin:0;text-align:center;padding:12px 6px">
+      </div>
+    </div>
+    <div class="sheet-btns">
+      <button class="btn btn-outline" onclick="closeSheet('addex-ov')" style="flex:1">Cancelar</button>
+      <button class="btn btn-gold" onclick="confirmAddEx()" style="flex:2;margin:0">Adicionar</button>
     </div>
   </div>
 </div>
@@ -5926,6 +5959,7 @@ function buildSessionHTML(key, session, idx) {
     </div>
     <div class="session-progress-bar"><div class="spb-fill" id="spb-${key}" style="width:${progPct}%"></div></div>
     <div class="exercise-list">${exHTML}</div>
+    ${renderExtraEx('wo_'+key, 'Adicionar ao treino de hoje.')}
     <div class="session-feedback">
       <textarea placeholder="${tr('session_fb_ph')}" id="sfb-${sfKey}">${sf}</textarea>
     </div>
@@ -7780,6 +7814,9 @@ function renderQuickWorkout(){
     </div>
     <div style="height:4px;background:var(--s2)"><div id="cu-spb-${qw.id}" style="height:100%;width:${progPct}%;background:var(--gold);transition:width .3s"></div></div>
     ${(qw.exercises||[]).map((ex,ei)=>buildCustomExerciseHTML(qw, ex, ei)).join('')}
+    <div style="padding:10px 14px 0">
+      <button onclick="openAddEx({t:'quick'}, 'Adicionar a este treino montado.')" style="width:100%;padding:12px;background:var(--gold-bg);border:1px dashed rgba(201,169,110,.45);border-radius:10px;color:var(--gold);font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer">+ Adicionar exercício</button>
+    </div>
     <div style="padding:12px 14px;border-top:1px solid var(--bdr)">
       <textarea id="cu-sfb-${qw.id}" placeholder="${tr('session_fb_ph')}" style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:13px;padding:10px;min-height:54px;outline:none;resize:vertical;box-sizing:border-box">${sfb}</textarea>
       <button onclick="logCustomSession(${qw.id})" class="btn btn-gold btn-full" style="padding:13px;margin-top:10px">${tr('log_session_btn')}</button>
@@ -8100,10 +8137,89 @@ function _csRemoveEx(i){
   _renderCsExercises(_csExercises);
 }
 
-// Atalho: abre o editor da sessão e já adiciona uma linha nova para digitar
-function quickAddExercise(si){
-  if(typeof openEditSession==='function') openEditSession(si);
-  setTimeout(()=>{ if(typeof csAddExercise==='function') csAddExercise(); }, 70);
+// ── ADICIONAR EXERCÍCIO — universal (qualquer treino do app) ──────────────
+// alvo: {t:'custom',idx} | {t:'quick'} | {t:'extra',key,label}
+let _addexTarget = null;
+function openAddEx(target, contextLabel){
+  _addexTarget = target;
+  const ctx = document.getElementById('addex-context');
+  if(ctx) ctx.textContent = contextLabel || 'Faça mais do que o proposto de hoje.';
+  ['name','load'].forEach(f=>{ const el=document.getElementById('addex-'+f); if(el) el.value=''; });
+  const s=document.getElementById('addex-sets'); if(s) s.value='3';
+  const r=document.getElementById('addex-reps'); if(r) r.value='10-12';
+  const p=document.getElementById('addex-rest'); if(p) p.value='60s';
+  openSheet('addex-ov');
+  setTimeout(()=>{ const n=document.getElementById('addex-name'); if(n) n.focus(); }, 80);
+}
+function confirmAddEx(){
+  const name=(document.getElementById('addex-name').value||'').trim();
+  if(!name){ toast('Digite o nome do exercício'); return; }
+  const ex={
+    name,
+    sets:(document.getElementById('addex-sets').value||'3').trim(),
+    reps:(document.getElementById('addex-reps').value||'10-12').trim(),
+    rest:(document.getElementById('addex-rest').value||'60s').trim(),
+    load:(document.getElementById('addex-load').value||'').trim()
+  };
+  const t=_addexTarget||{};
+  if(t.t==='custom'){
+    const s=D.customPlan.sessions[t.idx]; if(!s) return;
+    s.exercises=s.exercises||[]; s.exercises.push(ex); save();
+    if(typeof renderCustomPlan==='function') renderCustomPlan();
+  } else if(t.t==='quick'){
+    if(!D.quickWorkout) return;
+    D.quickWorkout.exercises=D.quickWorkout.exercises||[]; D.quickWorkout.exercises.push(ex); save();
+    if(typeof renderQuickWorkout==='function') renderQuickWorkout();
+  } else if(t.t==='extra'){
+    D.extraEx=D.extraEx||{}; (D.extraEx[t.key]=D.extraEx[t.key]||[]).push(ex); save();
+    refreshWorkoutViews();
+  }
+  closeSheet('addex-ov');
+  toast(name+' adicionado ✓');
+}
+// Atalho para sessões do plano custom
+function quickAddExercise(si){ openAddEx({t:'custom',idx:si}, 'Adicionar à sessão de hoje.'); }
+
+// ── EXERCÍCIOS EXTRAS — camada por cima dos treinos prontos (Opus 15, plano pronto) ──
+function renderExtraEx(key, label){
+  const list=(D.extraEx&&D.extraEx[key])||[];
+  const rows=list.map((ex,i)=>{
+    const ck='xx_'+key+'_'+i;
+    const done=!!(D.exChecked||{})[ck];
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--bdr)">
+      <div onclick="toggleExtraDone('${key}',${i})" style="width:24px;height:24px;border-radius:7px;border:2px solid ${done?'var(--gold)':'var(--bdr2)'};background:${done?'var(--gold)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer">
+        ${done?'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="var(--gold-ink)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':''}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;color:var(--text);font-weight:600${done?';opacity:.5;text-decoration:line-through':''}">${ex.name}</div>
+        <div style="font-size:12px;color:var(--dim);margin-top:1px">${ex.sets}×${ex.reps}${ex.load?' · '+ex.load:''} · <span style="color:var(--gold)">extra</span></div>
+      </div>
+      <button onclick="removeExtraEx('${key}',${i})" style="background:transparent;border:1px solid var(--bdr2);border-radius:6px;color:var(--dim);font-size:11px;font-weight:700;padding:6px 9px;cursor:pointer;flex-shrink:0">✕</button>
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:2px">${rows}
+    <div style="padding:12px 16px;border-top:1px solid var(--bdr)">
+      <button onclick="openAddEx({t:'extra',key:'${key}'}, ${JSON.stringify((label||'Adicionar exercício extra')).replace(/"/g,'&quot;')})" style="width:100%;padding:12px;background:var(--gold-bg);border:1px dashed rgba(201,169,110,.45);border-radius:10px;color:var(--gold);font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer">+ Adicionar exercício</button>
+    </div></div>`;
+}
+function toggleExtraDone(key,i){
+  D.exChecked=D.exChecked||{}; const ck='xx_'+key+'_'+i;
+  D.exChecked[ck]=!D.exChecked[ck]; save(); refreshWorkoutViews();
+}
+function removeExtraEx(key,i){
+  if(!(D.extraEx&&D.extraEx[key])) return;
+  D.extraEx[key].splice(i,1);
+  // reindexa os checks dos extras deste treino
+  const old=D.exChecked||{}, nw={};
+  Object.keys(old).forEach(k=>{ if(!k.startsWith('xx_'+key+'_')) nw[k]=old[k]; });
+  D.extraEx[key].forEach((_,j)=>{ /* checks reiniciam após remoção para evitar deslocamento */ });
+  D.exChecked=nw; save(); refreshWorkoutViews();
+}
+function refreshWorkoutViews(){
+  try{ if(typeof buildWorkoutUI==='function') buildWorkoutUI(); }catch(e){}
+  try{ if(typeof renderSecaHoje==='function') renderSecaHoje(); }catch(e){}
+  try{ if(typeof renderQuickWorkout==='function') renderQuickWorkout(); }catch(e){}
+  try{ if(typeof renderCustomPlan==='function') renderCustomPlan(); }catch(e){}
 }
 
 function saveCustomSession(){
@@ -9883,6 +9999,12 @@ function renderSecaHoje() {
   });
 
   html += `</div>`;
+
+  // Exercícios extras (o usuário pode fazer mais do que o proposto)
+  html += `<div style="margin:12px 14px 0;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden">
+    <div style="padding:12px 16px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-weight:700">Exercícios extras</div>
+    ${renderExtraEx('seca_'+type, 'Adicionar ao Treino '+type+'.')}
+  </div>`;
 
   // FORÇA — botão concluído
   const _fkey = getCurrentWeekKey()+'_'+planIdx;
