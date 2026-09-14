@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T12:51:32Z">
+<meta name="app-version" content="2026-09-14T12:55:03Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -1468,6 +1468,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       </div>
     </div>
 
+    <!-- Lembretes -->
+    <div style="margin:0 14px 12px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="min-width:0;flex:1">
+          <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:4px">🔔 Lembretes</div>
+          <div id="profile-reminders-line" style="font-size:13px;color:var(--mid)">—</div>
+        </div>
+        <button onclick="openReminders()" style="flex-shrink:0;padding:9px 14px;background:var(--gold-bg);border:1px solid rgba(201,169,110,.35);border-radius:8px;color:var(--gold);font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer">AJUSTAR</button>
+      </div>
+    </div>
+
     <!-- Details (colapsável) -->
     <div style="margin:0 14px;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden">
       <div onclick="toggleProfileDetails()" style="padding:13px 16px;display:flex;align-items:center;cursor:pointer">
@@ -1988,6 +1999,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div class="sheet-desc"><span id="fastinfo-sub"></span></div>
     <div id="fastinfo-body" style="margin-bottom:18px"></div>
     <button class="btn btn-gold btn-full" onclick="closeSheet('fastinfo-ov')">Entendi</button>
+  </div>
+</div>
+
+<!-- LEMBRETES (centro) -->
+<div class="overlay" id="reminders-ov" onclick="if(event.target===this)closeSheet('reminders-ov')">
+  <div class="sheet" style="max-height:90vh;overflow-y:auto">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">LEMBRETES DIÁRIOS</div>
+    <div class="sheet-desc">Escolha os horários e baixe o arquivo. Ele adiciona lembretes que se repetem todo dia no seu calendário — funcionam mesmo com o app fechado.</div>
+    <div id="reminders-list" style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px"></div>
+    <button class="btn btn-gold btn-full" onclick="downloadRemindersICS()" style="padding:14px">📅 Baixar lembretes (.ics)</button>
+    <button class="btn btn-outline btn-full" onclick="closeSheet('reminders-ov')" style="margin-top:8px">Fechar</button>
   </div>
 </div>
 
@@ -4881,6 +4904,8 @@ function renderProfilePage() {
   // Linha do objetivo atual
   const gl=document.getElementById('profile-goal-line');
   if(gl){ const goals=(D.userProfile||{}).goals; gl.textContent=(typeof goalLabelList==='function')?goalLabelList(goals):(goals&&goals.length?goals.join(', '):'—'); }
+  const rl=document.getElementById('profile-reminders-line');
+  if(rl && typeof remindersSummaryLine==='function') rl.textContent=remindersSummaryLine();
   // Linha de status do backup
   const bl=document.getElementById('profile-backup-line');
   if(bl){
@@ -9366,6 +9391,63 @@ function setReminderTime(){
   if(typeof initReminder==='function') initReminder();
   toast('Horário salvo ✓');
 }
+// ── CENTRO DE LEMBRETES (.ics recorrente, funciona com app fechado) ──
+const REMINDER_DEFS = [
+  {k:'treino', icon:'🏋️', label:'Treino do dia',    sum:'🏋️ Opus X — Hora do treino',       desc:'Bora treinar. Abra o Opus X.',                    def:'05:00'},
+  {k:'jejum',  icon:'⏳', label:'Quebrar o jejum',   sum:'⏳ Opus X — Quebrar o jejum',        desc:'Quebre com proteína e verduras primeiro.',        def:'12:00'},
+  {k:'agua',   icon:'💧', label:'Beber água',        sum:'💧 Opus X — Hidratação',            desc:'Meta de água do dia. Capriche.',                  def:'15:00'},
+  {k:'sono',   icon:'🌙', label:'Hora de dormir',    sum:'🌙 Opus X — Hora de dormir',        desc:'Reduza telas. 7-8h de sono constroem resultado.', def:'22:00'},
+];
+function _remState(){
+  D.reminders = D.reminders || {};
+  REMINDER_DEFS.forEach(r=>{ if(!D.reminders[r.k]) D.reminders[r.k]={on:(r.k==='treino'||r.k==='jejum'), time:r.def}; });
+  return D.reminders;
+}
+function openReminders(){ renderReminders(); openSheet('reminders-ov'); }
+function renderReminders(){
+  const el=document.getElementById('reminders-list'); if(!el) return;
+  const st=_remState();
+  el.innerHTML=REMINDER_DEFS.map(r=>{
+    const s=st[r.k]; const on=!!s.on;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid ${on?'var(--gold)':'var(--bdr)'};background:${on?'var(--gold-bg)':'var(--s2)'}">
+      <div style="font-size:20px;flex-shrink:0">${r.icon}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:15px;color:var(--text);font-weight:700">${r.label}</div></div>
+      <input type="time" value="${s.time||r.def}" onchange="setReminderK('${r.k}',this.value)" style="background:var(--s1);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:15px;padding:6px 8px;outline:none;${on?'':'opacity:.4'}">
+      <div onclick="toggleReminderK('${r.k}')" style="width:44px;height:26px;border-radius:14px;background:${on?'var(--gold)':'var(--s3)'};position:relative;cursor:pointer;flex-shrink:0;transition:background .2s">
+        <div style="position:absolute;top:3px;left:${on?'21px':'3px'};width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleReminderK(k){ const st=_remState(); st[k].on=!st[k].on; save(); renderReminders(); if(typeof renderProfilePage==='function') renderProfilePage(); }
+function setReminderK(k,v){ if(!/^([01]?\d|2[0-3]):[0-5]\d$/.test(v)) return; const st=_remState(); st[k].time=v; save(); if(typeof renderProfilePage==='function') renderProfilePage(); }
+function remindersSummaryLine(){
+  const st=_remState();
+  const on=REMINDER_DEFS.filter(r=>st[r.k].on);
+  if(!on.length) return 'Nenhum lembrete ativo. Toque para configurar.';
+  return on.map(r=>r.icon+' '+(st[r.k].time||r.def)).join('   ');
+}
+function downloadRemindersICS(){
+  const st=_remState();
+  const on=REMINDER_DEFS.filter(r=>st[r.k].on);
+  if(!on.length){ toast('Ative pelo menos um lembrete'); return; }
+  const stamp='20260601T000000';
+  const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//OpusX//Lembretes//PT','CALSCALE:GREGORIAN'];
+  on.forEach(r=>{
+    const [hh,mm]=(st[r.k].time||r.def).split(':');
+    const dt='20260601T'+hh.padStart(2,'0')+mm.padStart(2,'0')+'00';
+    lines.push('BEGIN:VEVENT','UID:opusx-'+r.k+'@opusx','DTSTAMP:'+stamp,'DTSTART:'+dt,'RRULE:FREQ=DAILY',
+      'SUMMARY:'+r.sum,'DESCRIPTION:'+r.desc,
+      'BEGIN:VALARM','TRIGGER:PT0M','ACTION:DISPLAY','DESCRIPTION:Opus X','END:VALARM','END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  const blob=new Blob([lines.join('\r\n')],{type:'text/calendar'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='opusx-lembretes.ics'; a.click();
+  URL.revokeObjectURL(url);
+  toast(on.length+' lembrete(s) gerado(s) — abra o arquivo pra adicionar ao calendário 📅');
+}
+
 function downloadReminderICS(){
   const t = D.reminderTime || '18:00';
   const [hh,mm] = t.split(':');
