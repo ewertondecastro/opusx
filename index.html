@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-13T23:44:18Z">
+<meta name="app-version" content="2026-09-14T00:31:57Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -4954,6 +4954,14 @@ const MG_GROUPS = {
 
 function renderHomeToday(){
   const el=document.getElementById('h-today-workout'); if(!el) return;
+  // Ocultado pelo usuário para hoje → mostra só uma barra fina para reexibir
+  if(D.homeTodayHidden===TODAY){
+    el.innerHTML=`<div onclick="showHomeToday()" style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;background:var(--s1);border:1px solid var(--bdr);border-radius:12px;cursor:pointer">
+      <span style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);font-weight:700">Treino de hoje · oculto</span>
+      <span style="font-size:12px;color:var(--gold);font-weight:700">Mostrar ›</span>
+    </div>`;
+    return;
+  }
   const cust=(typeof getCustomTodaySession==='function')?getCustomTodaySession():undefined;
   let inner;
   if(cust && cust!=='rest'){
@@ -4976,8 +4984,12 @@ function renderHomeToday(){
       <div style="font-size:13px;color:var(--mid);margin-top:6px">Monte um treino com a IA ou abra seu plano.</div>
       <button onclick="goPage('workout')" class="btn btn-gold btn-full" style="padding:14px;margin-top:14px">IR PARA O TREINO →</button>`;
   }
-  el.innerHTML=`<div style="background:linear-gradient(150deg,var(--gold-bg),var(--s1));border:1px solid rgba(201,169,110,.32);border-radius:18px;padding:20px">${inner}</div>`;
+  el.innerHTML=`<div style="position:relative;background:linear-gradient(150deg,var(--gold-bg),var(--s1));border:1px solid rgba(201,169,110,.32);border-radius:18px;padding:20px">
+    <button onclick="hideHomeToday(event)" aria-label="Ocultar treino de hoje" style="position:absolute;top:10px;right:10px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);border:1px solid var(--bdr);border-radius:8px;color:var(--dim);font-size:13px;line-height:1;cursor:pointer;z-index:2">✕</button>
+    ${inner}</div>`;
 }
+function hideHomeToday(e){ if(e&&e.stopPropagation)e.stopPropagation(); D.homeTodayHidden=TODAY; save(); renderHomeToday(); }
+function showHomeToday(){ D.homeTodayHidden=null; save(); renderHomeToday(); }
 
 function renderMuscleTargets(){
   const el=document.getElementById('h-muscle-targets'); if(!el) return;
@@ -7865,6 +7877,9 @@ function renderCustomPlan(){
       <div style="height:4px;background:var(--s2)"><div id="cu-spb-${s.id}" style="height:100%;width:${progPct}%;background:var(--gold);transition:width .3s"></div></div>
       ${isOpen ? `
       ${(s.exercises||[]).map((ex,ei)=>buildCustomExerciseHTML(s, ex, ei)).join('')}
+      <div style="padding:10px 14px 0">
+        <button onclick="quickAddExercise(${si})" style="width:100%;padding:12px;background:var(--gold-bg);border:1px dashed rgba(201,169,110,.45);border-radius:10px;color:var(--gold);font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer">+ Adicionar exercício</button>
+      </div>
       <div style="padding:12px 14px;border-top:1px solid var(--bdr)">
         <textarea id="cu-sfb-${s.id}" placeholder="${tr('session_fb_ph')}" style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:13px;padding:10px;min-height:54px;outline:none;resize:vertical;box-sizing:border-box">${sfb}</textarea>
         <button onclick="logCustomSession(${s.id})" class="btn btn-gold btn-full" style="padding:13px;margin-top:10px">${tr('log_session_btn')}</button>
@@ -8085,16 +8100,23 @@ function _csRemoveEx(i){
   _renderCsExercises(_csExercises);
 }
 
+// Atalho: abre o editor da sessão e já adiciona uma linha nova para digitar
+function quickAddExercise(si){
+  if(typeof openEditSession==='function') openEditSession(si);
+  setTimeout(()=>{ if(typeof csAddExercise==='function') csAddExercise(); }, 70);
+}
+
 function saveCustomSession(){
   const name = (document.getElementById('cs-name').value||'').trim();
   const focus = (document.getElementById('cs-focus').value||'').trim();
   if(!name){ toast('Digite um nome para a sessão'); return; }
   const exercises = _csExercises.filter(e=>e.name.trim());
-  const session = { name, focus, exercises, id: Date.now() };
   if(_editingSessionIdx >= 0){
-    D.customPlan.sessions[_editingSessionIdx] = session;
+    // preserva id (cronograma + sets marcados usam o id) e demais campos como preset
+    const prev = D.customPlan.sessions[_editingSessionIdx] || {};
+    D.customPlan.sessions[_editingSessionIdx] = { ...prev, name, focus, exercises };
   } else {
-    D.customPlan.sessions.push(session);
+    D.customPlan.sessions.push({ name, focus, exercises, id: Date.now() });
   }
   save();
   closeSheet('custom-session-ov');
