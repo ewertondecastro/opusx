@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T07:21:15Z">
+<meta name="app-version" content="2026-09-14T07:44:12Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -674,6 +674,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
   <!-- Meu Dia (briefing proativo) -->
   <div id="h-mydia" style="padding:0 14px;margin-top:14px"></div>
+  <!-- Alvo diário de nutrição -->
+  <div id="h-nutrition" style="padding:0 14px;margin-top:10px"></div>
   <!-- Resumo semanal (nudge) -->
   <div id="h-weekly" style="padding:0 14px;margin-top:10px"></div>
 
@@ -4970,6 +4972,7 @@ function goPage(id) {
   if (id==='profile') { renderProfilePage(); }
   if (id==='fast') { renderFastCoach(); renderBiohack(); renderFastLibrary(); renderFastChips(); renderEvolution(); }
   if (id==='nutrition') { renderNutDay(); renderFoodGuide(); }
+  if (id==='home' && typeof initHome==='function') { initHome(); }
   if (id==='workout') {
     // Auto-gravar horário de início ao abrir o treino
     if(!D.woSessionStart) D.woSessionStart = {};
@@ -5294,6 +5297,45 @@ const MG_GROUPS = {
   legs: { label:'Pernas',   color:'#6E9E9E', muscles:['quadriceps','posterior','gluteo','panturrilha'], target:18 },
 };
 
+// ── ALVO DIÁRIO DE NUTRIÇÃO (Home) ──
+function renderNutTarget(){
+  const el=document.getElementById('h-nutrition'); if(!el) return;
+  if(D.useNutrition===false){ el.innerHTML=''; return; }
+  const t=(typeof estTargets==='function')?estTargets():{cal:2000,protein:180};
+  const c=(typeof consumedToday==='function')?consumedToday():{kcal:0,prot:0};
+  const kcalLeft=Math.max(0, t.cal-c.kcal);
+  const protLeft=Math.max(0, t.protein-c.prot);
+  const kcalPct=Math.min(100, Math.round(c.kcal/Math.max(1,t.cal)*100));
+  const protPct=Math.min(100, Math.round(c.prot/Math.max(1,t.protein)*100));
+  const kcalOver=c.kcal>t.cal;
+  const bar=(pct,color)=>`<div style="height:8px;background:var(--s3);border-radius:5px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${pct}%;background:${color};border-radius:5px;transition:width .4s"></div></div>`;
+  el.innerHTML=`
+  <div style="background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">🍽️ Alvo de hoje</div>
+      <button onclick="openQuickAdd()" style="background:var(--gold-bg);border:1px solid rgba(201,169,110,.35);border-radius:6px;color:var(--gold);font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;letter-spacing:.5px">⚡ REGISTRAR</button>
+    </div>
+    <div style="display:flex;gap:14px">
+      <div style="flex:1">
+        <div style="display:flex;align-items:baseline;justify-content:space-between">
+          <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700">Proteína</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--green);font-style:italic;line-height:1">${Math.round(c.prot)}<span style="font-size:12px;color:var(--dim);font-style:normal">/${t.protein}g</span></span>
+        </div>
+        ${bar(protPct,'var(--green)')}
+        <div style="font-size:11px;color:var(--mid);margin-top:5px">${protLeft>0?'faltam '+protLeft+'g':'meta batida ✓'}</div>
+      </div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:baseline;justify-content:space-between">
+          <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700">Calorias</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:${kcalOver?'var(--red)':'var(--gold)'};font-style:italic;line-height:1">${Math.round(c.kcal)}<span style="font-size:12px;color:var(--dim);font-style:normal">/${t.cal}</span></span>
+        </div>
+        ${bar(kcalPct, kcalOver?'var(--red)':'var(--gold)')}
+        <div style="font-size:11px;color:${kcalOver?'var(--red)':'var(--mid)'};margin-top:5px">${kcalOver?'passou '+(c.kcal-t.cal)+' kcal':'restam '+kcalLeft+' kcal'}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 // ── MEU DIA — briefing proativo com ajuste inteligente ──
 function renderMyDay(){
   const el=document.getElementById('h-mydia'); if(!el) return;
@@ -5564,6 +5606,7 @@ function initHome() {
     });
   }
   if(typeof renderMyDay==='function') renderMyDay();
+  if(typeof renderNutTarget==='function') renderNutTarget();
   if(typeof renderWeeklyNudge==='function') renderWeeklyNudge();
   if(typeof renderHomeToday==='function') renderHomeToday();
   if(typeof renderMuscleTargets==='function') renderMuscleTargets();
@@ -6727,15 +6770,16 @@ function saveExtraFood(){
   D.extraFoods[TODAY].push({name,kcal,prot,ts:Date.now(),time:now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
   save(); closeSheet('extra-food-ov');
   toast(name+' registrado ✓');
-  renderExtraFoods(); if(typeof renderJulyGoal==='function') renderJulyGoal();
+  renderExtraFoods(); if(typeof renderJulyGoal==='function') renderJulyGoal(); if(typeof renderNutTarget==='function') renderNutTarget();
 }
 
 // soma do que foi registrado hoje (quick add, foto, manual)
 function consumedToday(){
   const foods = (D.extraFoods||{})[TODAY]||[];
+  const e = (D.eatenLog||{})[TODAY]||{kcal:0,prot:0};
   return {
-    kcal: foods.reduce((s,f)=>s+(f.kcal||0),0),
-    prot: foods.reduce((s,f)=>s+(f.prot||0),0)
+    kcal: foods.reduce((s,f)=>s+(f.kcal||0),0) + (e.kcal||0),
+    prot: foods.reduce((s,f)=>s+(f.prot||0),0) + (e.prot||0)
   };
 }
 
@@ -6815,7 +6859,7 @@ function saveQuickAdd(){
   save();
   closeSheet('quickadd-ov');
   toast('Registrado no seu dia ✓');
-  renderExtraFoods(); if(typeof renderJulyGoal==='function') renderJulyGoal();
+  renderExtraFoods(); if(typeof renderJulyGoal==='function') renderJulyGoal(); if(typeof renderNutTarget==='function') renderNutTarget();
 }
 function removeExtraFood(idx){
   if(!D.extraFoods||!D.extraFoods[TODAY]) return;
@@ -7047,9 +7091,25 @@ function confirmSetDietStart() {
 
 function toggleMealCheck(key, el) {
   if(!D.mealChecked) D.mealChecked={};
-  D.mealChecked[key] = !D.mealChecked[key];
-  el.classList.toggle('done',D.mealChecked[key]);
+  const now = !D.mealChecked[key];
+  D.mealChecked[key] = now;
+  el.classList.toggle('done',now);
+  // registra macros da refeição no log do dia (alimenta o alvo diário da Home)
+  try{
+    const m = key.match(/^day(\d+)_meal(\d+)$/);
+    if(m){
+      const plan=getNutPlan(); const day=plan[+m[1]]||plan[0]; const meal=(day.meals||[])[+m[2]];
+      if(meal && day.kcal){
+        const kc=meal.kcal||0, pr=Math.round((day.prot||0)*(kc/day.kcal));
+        if(!D.eatenLog) D.eatenLog={};
+        const e=D.eatenLog[TODAY]=D.eatenLog[TODAY]||{kcal:0,prot:0};
+        e.kcal=Math.max(0, e.kcal+(now?kc:-kc));
+        e.prot=Math.max(0, e.prot+(now?pr:-pr));
+      }
+    }
+  }catch(e){}
   save();
+  if(typeof renderNutTarget==='function') renderNutTarget();
 }
 
 function toggleRecipe(id, btn) {
