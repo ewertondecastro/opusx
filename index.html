@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=2">
 <link rel="manifest" href="manifest.webmanifest?v=2">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-14T13:02:47Z">
+<meta name="app-version" content="2026-09-15T02:38:47Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -867,6 +867,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div id="recovery-card"></div>
     <div id="readiness-card"></div>
     <div id="cardio-today"></div>
+    <div id="deload-card"></div>
     <div id="today-hero"></div>
     <div style="margin:0 14px 10px">
       <button onclick="openBodyPart(true)" class="btn btn-gold btn-full" style="padding:16px;font-size:14px">🤖 CRIAR TREINO COM IA</button>
@@ -5170,6 +5171,7 @@ function goPage(id) {
   if (id==='home' && typeof initHome==='function') { initHome(); }
   if (id==='workout') {
     if(typeof renderWoGoalStrip==='function') renderWoGoalStrip();
+    if(typeof renderDeloadCard==='function') renderDeloadCard();
     // Auto-gravar horário de início ao abrir o treino
     if(!D.woSessionStart) D.woSessionStart = {};
     const _wdKey = TODAY;
@@ -6452,6 +6454,7 @@ function getTodayKey() {
 
 function buildWorkoutUI() {
   if(typeof renderWoGoalStrip==='function') renderWoGoalStrip();
+  if(typeof renderDeloadCard==='function') renderDeloadCard();
   const plan = WORKOUT_PLAN[lang] || WORKOUT_PLAN.pt;
   const tabsEl = document.getElementById('day-tabs');
   const sessionsEl = document.getElementById('workout-sessions');
@@ -6789,6 +6792,8 @@ function woSeriesDone(sk, exKey, si, total, withTimer) {
     if(_nm) recordLoadByName(_nm, series);
     // 🏆 Recorde (PR) + 📊 volume por músculo
     if(_nm && typeof registerSetStats==='function') registerSetStats(_nm, series, total);
+    // 📈 motor de dupla progressão: registra a sessão deste exercício
+    if(_nm && typeof recordProgression==='function') recordProgression(_nm, series, ((window._exMeta||{})[exKey]||{}).reps, total);
     // marca o EXERCÍCIO como concluído (todas as séries feitas)
     D.exChecked[exKey] = true;
     const rowEl = document.getElementById('exrow-'+exKey);
@@ -7790,6 +7795,262 @@ function progressionInsight(name){
   return null;
 }
 
+// ═══════════ MOTOR DE DUPLA PROGRESSÃO ═══════════
+// Regra: topo da faixa em todas as séries → sobe carga e recomeça no mínimo da faixa.
+// Dentro da faixa → mesma carga, +1 rep. Abaixo → mantém (ou alivia se foi difícil).
+// 3 sessões sem subir carga nem reps → trocar exercício. Peso corporal → reps, depois +1 série.
+function progRange(repsStr){
+  const s=String(repsStr||'');
+  if(/min/i.test(s)) return null;
+  const m=s.match(/(\d+)\s*[-–a]\s*(\d+)/);
+  if(m){ const lo=+m[1], hi=+m[2]; if(hi>=lo && hi<=50 && lo>0) return {lo,hi}; }
+  const one=s.match(/^\s*(\d+)\s*$/);
+  if(one){ const n=+one[1]; if(n>0&&n<=50) return {lo:Math.max(1,n-2), hi:n}; }
+  return null;
+}
+function _pnum(v){ const n=parseFloat(String(v==null?'':v).replace(',','.').replace(/[^0-9.]/g,'')); return isNaN(n)?null:n; }
+function progRound(x){ return Math.round(x/2.5)*2.5; }
+function progStep(load){ return load<50 ? 2.5 : 5; }
+function isDeloadActive(){ return !!(D.deloadUntil && Date.now()<D.deloadUntil); }
+
+function recordProgression(name, series, repsStr, sets){
+  const k=exNameNorm(name); if(!k) return;
+  const done=(series||[]).filter(Boolean);
+  const reps=done.map(s=>_pnum(s.reps)).filter(n=>n!=null&&n>0);
+  if(!reps.length) return;
+  const loads=done.map(s=>_pnum(s.load)).filter(n=>n!=null&&n>0);
+  const rg=progRange(repsStr);
+  D.progLog=D.progLog||{};
+  const arr=D.progLog[k]=D.progLog[k]||[];
+  const entry={date:TODAY, ts:Date.now(), load:loads.length?Math.max(...loads):null, reps, lo:rg?rg.lo:null, hi:rg?rg.hi:null, sets:sets||reps.length, deload:isDeloadActive()};
+  const i=arr.findIndex(e=>e.date===TODAY);
+  if(i>=0) arr[i]=entry; else arr.push(entry);
+  arr.sort((a,b)=>a.ts-b.ts);
+  if(arr.length>24) D.progLog[k]=arr.slice(-24);
+  if(!D.progStartAt) D.progStartAt=Date.now();
+}
+
+// Aproveita o histórico antigo (D.loadHistory) — idempotente, 1x por carregamento
+function ensureProgBackfill(){
+  if(window._progBF) return; window._progBF=true;
+  const lh=D.loadHistory||{}; D.progLog=D.progLog||{};
+  const plan=(typeof WORKOUT_PLAN!=='undefined')?(WORKOUT_PLAN[lang]||WORKOUT_PLAN.pt):{};
+  const sessions=((D.customPlan||{}).sessions||[]).concat(D.quickWorkout?[D.quickWorkout]:[]);
+  let added=0, earliest=null;
+  Object.keys(lh).forEach(hk=>{
+    let ex=null;
+    let m=hk.match(/^load_wo_cu_(\d+)_ex_(\d+)$/);
+    if(m){ const s=sessions.find(x=>String(x.id)===m[1]); ex=s&&(s.exercises||[])[+m[2]]; }
+    else if((m=hk.match(/^load_wo_([A-Za-z]+)_ex_(\d+)$/))){ const ss=plan[m[1]]; ex=ss&&(ss.exercises||[])[+m[2]]; }
+    if(!ex||!ex.name) return;
+    const k=exNameNorm(ex.name); if(!k) return;
+    const rg=progRange(ex.reps);
+    (lh[hk]||[]).forEach(h=>{
+      const done=(h.series||[]).filter(Boolean);
+      const reps=done.map(s=>_pnum(s.reps)).filter(n=>n!=null&&n>0);
+      if(!reps.length) return;
+      const loads=done.map(s=>_pnum(s.load)).filter(n=>n!=null&&n>0);
+      const ts=Date.parse(h.date)||h.ts||0; if(!ts) return;
+      const arr=D.progLog[k]=D.progLog[k]||[];
+      if(arr.some(e=>e.date===h.date)) return;
+      arr.push({date:h.date, ts, load:loads.length?Math.max(...loads):null, reps, lo:rg?rg.lo:null, hi:rg?rg.hi:null, sets:reps.length, deload:false});
+      added++; if(!earliest||ts<earliest) earliest=ts;
+    });
+  });
+  if(added){
+    Object.keys(D.progLog).forEach(k=>{ D.progLog[k].sort((a,b)=>a.ts-b.ts); if(D.progLog[k].length>24) D.progLog[k]=D.progLog[k].slice(-24); });
+    if(!D.progStartAt || (earliest && earliest<D.progStartAt)) D.progStartAt=earliest;
+    save();
+  }
+}
+
+// sessões seguidas (até a última) sem subir carga nem reps totais
+function progStallSessions(arr){
+  const a=arr.filter(e=>!e.deload);
+  let n=0;
+  for(let i=a.length-1;i>0;i--){
+    const cur=a[i], prev=a[i-1];
+    const lc=cur.load||0, lp=prev.load||0;
+    const tc=cur.reps.reduce((x,y)=>x+y,0), tp=prev.reps.reduce((x,y)=>x+y,0);
+    if(lc>lp || (lc===lp && tc>tp)) break;
+    n++;
+  }
+  return n>0 ? n+1 : 0;
+}
+
+// Prescrição de hoje para um exercício
+function prescribe(name, ex){
+  if(!ex) return null;
+  if(typeof isTimedEx==='function' && isTimedEx(ex)) return null;
+  const rg=progRange(ex.reps); if(!rg) return null;
+  ensureProgBackfill();
+  const k=exNameNorm(name);
+  const hist=((D.progLog||{})[k]||[]).filter(e=>e.date!==TODAY);   // estável durante o dia
+  const baseSets=Math.max(1, parseInt(ex.sets)||3);
+  const rd=(typeof readinessToday==='function')?readinessToday():null;
+  const deload=isDeloadActive();
+  const R=`${rg.lo}–${rg.hi}`;
+
+  if(!hist.length){
+    const ls=(typeof lastLoadByName==='function')?lastLoadByName(name):null;
+    const L=ls?Math.max(0,...ls.filter(Boolean).map(s=>_pnum(s.load)||0)):0;
+    return {action:'calibrate', load:L||null, repsTarget:rg.lo, sets:baseSets, range:rg,
+      why: L ? `Começando o acompanhamento com ${L} lb. Faça ${R} reps; o app ajusta a partir daqui.`
+             : `Primeira vez: escolha uma carga que você faça ${R} reps sobrando 2. O app ajusta a partir daqui.`};
+  }
+  const last=hist[hist.length-1];
+  const reps=last.reps, minR=Math.min(...reps);
+  const lastSets=last.sets||reps.length;
+  const eff=(D.effortByName||{})[k];
+  const nearLast = eff && Math.abs((eff.ts||0)-(last.ts||0)) < 36*3600000;
+  const hardLast = nearLast && eff.r==='hard';
+  const allTop = reps.length>=Math.min(baseSets,lastSets) && minR>=rg.hi;
+  const inRange = minR>=rg.lo;
+  const repsTxt = reps.join('/');
+  let r;
+
+  if(last.load==null){                              // peso corporal / sem carga
+    if(allTop){
+      if(lastSets<5) r={action:'volume', load:null, repsTarget:rg.lo, sets:lastSets+1, range:rg, why:`Você fez ${repsTxt} (topo da faixa). Adiciona 1 série: ${lastSets+1}×${rg.lo}.`};
+      else r={action:'swap', load:null, repsTarget:rg.lo, sets:baseSets, range:rg, why:`Já está em ${lastSets} séries no topo da faixa. Troque por uma variação mais difícil (toque em ALT).`};
+    } else {
+      const t=Math.min(rg.hi, minR+1);
+      r={action:'reps', load:null, repsTarget:t, sets:Math.max(baseSets,lastSets), range:rg, why:`Última: ${repsTxt}. Meta de hoje: ${t} reps em todas as séries.`};
+    }
+  } else if(allTop && !hardLast){
+    const nl=progRound(last.load+progStep(last.load));
+    r={action:'load', load:nl, from:last.load, repsTarget:rg.lo, sets:baseSets, range:rg, why:`Você fez ${repsTxt} com ${last.load} lb, topo da faixa. Sobe para ${nl} lb e recomeça em ${rg.lo} reps.`};
+  } else if(inRange){
+    const t=Math.min(rg.hi, minR+1);
+    r={action:'reps', load:last.load, repsTarget:t, sets:baseSets, range:rg, why:`Mesma carga (${last.load} lb). Última: ${repsTxt}. Meta: ${t} reps em todas; ao chegar em ${rg.hi} em todas, a carga sobe.`};
+  } else if(hardLast){
+    const nl=progRound(last.load*0.9);
+    r={action:'reduce', load:nl, from:last.load, repsTarget:rg.lo, sets:baseSets, range:rg, why:`Última ficou abaixo de ${rg.lo} reps (${repsTxt}) e foi difícil. Alivia para ${nl} lb e firma a técnica.`};
+  } else {
+    r={action:'hold', load:last.load, repsTarget:rg.lo, sets:baseSets, range:rg, why:`Última ficou abaixo de ${rg.lo} reps (${repsTxt}). Mantém ${last.load} lb e busca ${rg.lo} em todas.`};
+  }
+
+  // estagnação: 3+ sessões sem progresso → trocar exercício
+  const stall=progStallSessions(hist);
+  if(stall>=3 && r.action!=='load' && r.action!=='volume'){
+    r={...r, action:'swap', stall, why:`Travado há ${stall} sessões sem subir carga nem reps. Troque por uma variação (toque em ALT) ou faça a semana leve.`};
+  }
+  // prontidão baixa: nunca sobe carga nem volume
+  if(rd==='low' && (r.action==='load' || r.action==='volume')){
+    r={...r, action:'hold', load:r.from!=null?r.from:last.load, sets:Math.min(r.sets,lastSets||baseSets), repsTarget:Math.min(rg.hi,minR), why:`Você marcou FRACO hoje: sem aumento. Mantém ${r.from!=null?r.from:(last.load!=null?last.load+' lb':'o mesmo')} e foca na técnica.`};
+  }
+  // semana leve
+  if(deload){
+    const dl=r.load!=null?progRound(r.load*0.85):null;
+    r={...r, action:'deload', load:dl, sets:Math.max(2,baseSets-1), repsTarget:rg.lo, why:`Semana leve: ${dl!=null?dl+' lb, ':''}${Math.max(2,baseSets-1)} séries de ${rg.lo}, sem ir à falha. Recuperação = progresso.`};
+  }
+  return r;
+}
+
+const RX_STYLE = {
+  load:     {icon:'⬆️', color:'var(--green)', label:'SUBIR CARGA'},
+  reps:     {icon:'➕', color:'var(--gold)',  label:'MAIS REPS'},
+  volume:   {icon:'📈', color:'var(--green)', label:'MAIS 1 SÉRIE'},
+  hold:     {icon:'⏸️', color:'var(--mid)',   label:'MANTER'},
+  reduce:   {icon:'⬇️', color:'var(--red)',   label:'ALIVIAR'},
+  swap:     {icon:'🔁', color:'var(--red)',   label:'TROCAR EXERCÍCIO'},
+  deload:   {icon:'🌙', color:'var(--blue)',  label:'SEMANA LEVE'},
+  calibrate:{icon:'🎯', color:'var(--gold)',  label:'CALIBRAR'},
+};
+function rxShort(rx){
+  const st=RX_STYLE[rx.action]||RX_STYLE.hold;
+  return `${st.icon} Hoje: ${rx.sets}×${rx.repsTarget}${rx.load!=null?' · '+rx.load+' lb':''}`;
+}
+function rxBoxHTML(rx, ex, exKey){
+  const st=RX_STYLE[rx.action]||RX_STYLE.hold;
+  const enc=encodeURIComponent(ex.name);
+  const altName=(ex._substituted?ex._origName:ex.name).replace(/^[A-D]\d\)\s*/,'').replace(/'/g,'').trim();
+  return `<div style="padding:12px 14px;border-top:1px solid var(--bdr);background:rgba(201,169,110,.06)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+      <span style="font-size:10px;letter-spacing:1.5px;font-weight:800;color:${st.color}">${st.icon} ${st.label}</span>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--text);font-style:italic;line-height:1">${rx.sets}×${rx.repsTarget}${rx.load!=null?`<span style="font-size:14px;color:var(--gold);font-style:normal"> · ${rx.load} lb</span>`:''}</span>
+    </div>
+    <div style="font-size:13px;color:var(--mid);line-height:1.5">${rx.why}</div>
+    ${rx.action==='swap'?`<button onclick="openAlternatives('${altName}','cu','${exKey}')" style="width:100%;margin-top:10px;padding:9px;background:var(--red-bg);border:1px solid rgba(224,82,82,.35);border-radius:8px;color:var(--red);font-size:12px;font-weight:700;cursor:pointer">🔁 Ver substitutos</button>`:''}
+    <div style="font-size:10px;color:var(--dim);margin-top:10px;margin-bottom:4px">Como foi a carga hoje? (ajusta a próxima)</div>
+    <div style="display:flex;gap:6px">
+      <button onclick="rateEffort('${enc}','easy')" style="flex:1;padding:7px;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;color:var(--mid);font-size:11px;font-weight:700;cursor:pointer">😅 Fácil</button>
+      <button onclick="rateEffort('${enc}','ok')" style="flex:1;padding:7px;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;color:var(--mid);font-size:11px;font-weight:700;cursor:pointer">👍 Na medida</button>
+      <button onclick="rateEffort('${enc}','hard')" style="flex:1;padding:7px;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;color:var(--mid);font-size:11px;font-weight:700;cursor:pointer">🥵 Difícil</button>
+    </div>
+  </div>`;
+}
+
+// resumo da sessão: quantos sobem, mantêm, trocam
+function rxSessionSummary(exercises){
+  const c={load:0,reps:0,volume:0,hold:0,reduce:0,swap:0,deload:0,calibrate:0};
+  (exercises||[]).forEach(e=>{ const rx=prescribe(e.name,e); if(rx) c[rx.action]=(c[rx.action]||0)+1; });
+  const parts=[];
+  if(c.load) parts.push(`<span style="color:var(--green)">⬆️ carga em ${c.load}</span>`);
+  if(c.volume) parts.push(`<span style="color:var(--green)">📈 +1 série em ${c.volume}</span>`);
+  if(c.reps) parts.push(`<span style="color:var(--gold)">➕ reps em ${c.reps}</span>`);
+  if(c.hold+c.reduce) parts.push(`<span style="color:var(--mid)">⏸️ manter ${c.hold+c.reduce}</span>`);
+  if(c.swap) parts.push(`<span style="color:var(--red)">🔁 trocar ${c.swap}</span>`);
+  if(c.deload) parts.push(`<span style="color:var(--blue)">🌙 semana leve</span>`);
+  if(c.calibrate) parts.push(`<span style="color:var(--dim)">🎯 calibrar ${c.calibrate}</span>`);
+  if(!parts.length) return '';
+  return `<div style="padding:10px 16px;border-bottom:1px solid var(--bdr);background:var(--s1);font-size:12px;font-weight:700;line-height:1.7">
+    <span style="font-size:10px;letter-spacing:1.5px;color:var(--dim);font-weight:800;margin-right:6px">📈 PROGRESSÃO DE HOJE</span>${parts.join(' <span style="color:var(--dim)">·</span> ')}
+  </div>`;
+}
+
+// textos de contexto para a IA
+function progHistoryText(name){
+  const arr=((D.progLog||{})[exNameNorm(name)]||[]).slice(-5);
+  if(!arr.length) return '';
+  return 'HISTÓRICO RECENTE DESTE EXERCÍCIO: '+arr.map(e=>`${new Date(e.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} ${e.load!=null?e.load+' lb':'corporal'} × ${e.reps.join('/')}`).join('; ')+'.';
+}
+function progSummaryText(){
+  const log=D.progLog||{}; const keys=Object.keys(log);
+  if(!keys.length) return '';
+  const rows=keys.map(k=>{ const a=log[k]; const l=a[a.length-1]; return {k,l,stall:progStallSessions(a),n:a.length}; })
+    .sort((a,b)=>b.l.ts-a.l.ts).slice(0,10);
+  const txt=rows.map(r=>`${r.k}: ${r.l.load!=null?r.l.load+' lb':'corporal'} × ${r.l.reps.join('/')}${r.l.lo?` (faixa ${r.l.lo}-${r.l.hi})`:''}${r.stall>=3?' [TRAVADO '+r.stall+' sessões]':''}`).join('; ');
+  return 'PROGRESSÃO DOS LIFTS (última sessão de cada; o app usa dupla progressão: topo da faixa em todas as séries → sobe carga; travado 3 sessões → trocar exercício): '+txt+(isDeloadActive()?' | SEMANA LEVE ATIVA.':'');
+}
+
+// semana leve: sugerida após ~6 semanas e 12+ dias de treino
+function progTrainingDaysSince(since){
+  const days=new Set();
+  Object.values(D.progLog||{}).forEach(arr=>arr.forEach(e=>{ if(e.ts>=since) days.add(e.date); }));
+  return days.size;
+}
+function deloadDue(){
+  if(isDeloadActive()) return false;
+  if(D.deloadSnoozeUntil && Date.now()<D.deloadSnoozeUntil) return false;
+  const since=D.lastDeloadAt||D.progStartAt; if(!since) return false;
+  return (Date.now()-since)>=42*86400000 && progTrainingDaysSince(since)>=12;
+}
+function startDeload(){ D.deloadUntil=Date.now()+7*86400000; D.lastDeloadAt=Date.now(); save(); toast('Semana leve ativada por 7 dias ✓'); if(typeof refreshWorkoutViews==='function') refreshWorkoutViews(); renderDeloadCard(); }
+function endDeload(){ D.deloadUntil=0; save(); toast('Semana leve encerrada'); if(typeof refreshWorkoutViews==='function') refreshWorkoutViews(); renderDeloadCard(); }
+function snoozeDeload(){ D.deloadSnoozeUntil=Date.now()+7*86400000; save(); renderDeloadCard(); }
+function renderDeloadCard(){
+  const el=document.getElementById('deload-card'); if(!el) return;
+  ensureProgBackfill();
+  if(isDeloadActive()){
+    const until=new Date(D.deloadUntil).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    el.innerHTML=`<div style="margin:0 14px 12px;padding:14px 16px;background:var(--blue-bg);border:1px solid rgba(82,137,201,.35);border-radius:var(--r);display:flex;align-items:center;gap:12px">
+      <div style="font-size:22px">🌙</div>
+      <div style="flex:1"><div style="font-size:13px;color:var(--blue);font-weight:800">Semana leve ativa até ${until}</div><div style="font-size:11px;color:var(--mid)">Cargas −15% e 1 série a menos. Volte mais forte.</div></div>
+      <button onclick="endDeload()" style="background:transparent;border:1px solid var(--bdr2);border-radius:6px;color:var(--dim);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer">Encerrar</button>
+    </div>`;
+  } else if(deloadDue()){
+    el.innerHTML=`<div style="margin:0 14px 12px;padding:14px 16px;background:var(--s1);border:1px solid rgba(82,137,201,.45);border-radius:var(--r)">
+      <div style="font-size:13px;color:var(--blue);font-weight:800;margin-bottom:4px">🌙 Hora da semana leve</div>
+      <div style="font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px">Você treina há mais de 6 semanas sem descanso programado. Uma semana com menos carga recupera articulações e destrava a progressão.</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="startDeload()" class="btn btn-gold" style="flex:2;margin:0;padding:10px;font-size:12px">Iniciar semana leve</button>
+        <button onclick="snoozeDeload()" class="btn btn-outline" style="flex:1;padding:10px;font-size:12px">Agora não</button>
+      </div>
+    </div>`;
+  } else el.innerHTML='';
+}
+
 // 🏆 recorde (PR) + 📊 volume por músculo, ao fechar um exercício
 function registerSetStats(name, series, sets){
   const loads = (series||[]).filter(Boolean).map(s=>parseFloat(String(s.load).replace(/[^0-9.]/g,''))).filter(n=>!isNaN(n)&&n>0);
@@ -8094,6 +8355,8 @@ async function sendAskEx(){
 
 EXERCÍCIO EM FOCO AGORA: ${ex.name} (${ex.sets}×${ex.reps}).${ex.notes?' Execução sugerida: '+ex.notes+'.':''}
 OUTROS EXERCÍCIOS DO TREINO DE HOJE: ${(ex.siblings||[]).join('; ')||'—'}.
+${ex.target?'PRESCRIÇÃO DO MOTOR DE PROGRESSÃO PARA HOJE: '+ex.target+'. Respeite essa prescrição (dupla progressão) ao orientar carga e reps.':''}
+${(typeof progHistoryText==='function')?progHistoryText(ex.name):''}
 O usuário está no meio do treino. Responda curto e prático (2 a 5 frases) sobre ESTE exercício ou o treino de hoje. Se ele disser "esse exercício", é o em foco.`;
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':D.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-5',max_tokens:500,system:sys,messages:[{role:'user',content:msg}]})});
@@ -8171,7 +8434,10 @@ function buildCustomExerciseHTML(s, origEx, i){
 
   const isTimed  = isTimedEx(ex);
   const isCardio = /min/i.test(ex.reps||'');
-  const nSeries  = isCardio ? 0 : Math.max(1, parseInt(ex.sets)||3);
+  // 📈 prescrição de hoje (dupla progressão)
+  const rx = (!isCardio && typeof prescribe==='function') ? prescribe(ex.name, ex) : null;
+  if(rx) window._exMeta[exKey].target = rxShort(rx)+' — '+rx.why;
+  const nSeries  = isCardio ? 0 : Math.max(1, (rx&&rx.sets) ? rx.sets : (parseInt(ex.sets)||3));
   const restSecs = parseRestSecs(ex.rest);
   const isExpanded = !!(D.woExpand||{})[exKey];
 
@@ -8205,8 +8471,9 @@ function buildCustomExerciseHTML(s, origEx, i){
       const sk = 'wos_'+exKey+'_s'+sx;
       const sdone = !!checked[sk];
       const sd = (D.seriesData||{})[sk]||{};
-      const refReps = lastSeries?.[sx]?.reps || '';
-      const refLoad = lastSeries?.[sx]?.load || '';
+      // alvo da prescrição tem prioridade sobre "igual à última vez"
+      const refReps = (rx && rx.repsTarget) ? String(rx.repsTarget) : (lastSeries?.[sx]?.reps || '');
+      const refLoad = (rx && rx.load!=null) ? String(rx.load) : (lastSeries?.[sx]?.load || '');
       const fillReps = sd.reps || refReps || '';
       const fillLoad = sd.load || refLoad || '';
       const repsHasRef = !sd.reps && refReps;
@@ -8279,9 +8546,10 @@ function buildCustomExerciseHTML(s, origEx, i){
         </div>
       </div>`;
     })();
-    body = `${warmupHint(ex.load || (lastSeries&&lastSeries[0]&&lastSeries[0].load))}
+    body = `${rx ? rxBoxHTML(rx, ex, exKey) : ''}
+      ${warmupHint((rx&&rx.load!=null) ? rx.load : (ex.load || (lastSeries&&lastSeries[0]&&lastSeries[0].load)))}
       <div style="background:var(--s1);border-top:1px solid var(--bdr)">${seriesRows}</div>
-      ${suggestBox}
+      ${rx ? '' : suggestBox}
       ${noteTxt?`<div style="padding:10px 14px;border-top:1px solid var(--bdr)"><div class="ex-notes"><strong>${noteLbl}</strong>${noteTxt}</div></div>`:''}`;
   }
 
@@ -8304,7 +8572,8 @@ function buildCustomExerciseHTML(s, origEx, i){
       ${exThumb(ex.name)}
       <div class="ex-info">
         <div class="ex-name">${ex.name}${ex._substituted?` <span style="color:var(--gold);font-size:10px;font-weight:700;letter-spacing:.5px">↔ SUB</span>`:''}</div>
-        <div class="ex-detail">${ex.sets}×${ex.reps}${ex.rest?' · '+ex.rest:''}${(!isTimed&&!isCardio&&ex.load)?' · <span style="color:var(--gold)">'+ex.load+'</span>':''}</div>
+        <div class="ex-detail">${ex.sets}×${ex.reps}${ex.rest?' · '+ex.rest:''}${(!isTimed&&!isCardio&&ex.load&&!rx)?' · <span style="color:var(--gold)">'+ex.load+'</span>':''}</div>
+        ${rx?`<div style="margin-top:3px;font-size:11px;font-weight:800;color:${(RX_STYLE[rx.action]||{}).color||'var(--gold)'}">${rxShort(rx)}</div>`:''}
         ${lastBadge?`<div style="margin-top:2px;font-size:11px;color:var(--dim)">${lastBadge}</div>`:''}
       </div>
       <div class="ex-actions" onclick="event.stopPropagation()">
@@ -8596,6 +8865,7 @@ function renderQuickWorkout(){
       </div>
     </div>
     <div style="height:4px;background:var(--s2)"><div id="cu-spb-${qw.id}" style="height:100%;width:${progPct}%;background:var(--gold);transition:width .3s"></div></div>
+    ${typeof rxSessionSummary==='function' ? rxSessionSummary(qw.exercises) : ''}
     ${(qw.exercises||[]).map((ex,ei)=>buildCustomExerciseHTML(qw, ex, ei)).join('')}
     <div style="padding:10px 14px 0">
       <button onclick="openAddEx({t:'quick'}, 'Adicionar a este treino montado.')" style="width:100%;padding:12px;background:var(--gold-bg);border:1px dashed rgba(201,169,110,.45);border-radius:10px;color:var(--gold);font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer">+ Adicionar exercício</button>
@@ -8696,6 +8966,7 @@ function renderCustomPlan(){
       </div>
       <div style="height:4px;background:var(--s2)"><div id="cu-spb-${s.id}" style="height:100%;width:${progPct}%;background:var(--gold);transition:width .3s"></div></div>
       ${isOpen ? `
+      ${typeof rxSessionSummary==='function' ? rxSessionSummary(s.exercises) : ''}
       ${(s.exercises||[]).map((ex,ei)=>buildCustomExerciseHTML(s, ex, ei)).join('')}
       <div style="padding:10px 14px 0">
         <button onclick="quickAddExercise(${si})" style="width:100%;padding:12px;background:var(--gold-bg);border:1px dashed rgba(201,169,110,.45);border-radius:10px;color:var(--gold);font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer">+ Adicionar exercício</button>
@@ -9518,6 +9789,7 @@ function userProfileText(){
   const less=Object.keys(prefs).filter(k=>prefs[k].p==='less').map(k=>prefs[k].n);
   if(more.length) parts.push('Exercícios que o usuário QUER MAIS (priorize e inclua estes ou variações próximas): '+more.join(', '));
   if(less.length) parts.push('Exercícios que o usuário QUER MENOS (evite ou reduza): '+less.join(', '));
+  if(typeof progSummaryText==='function'){ const ps=progSummaryText(); if(ps) parts.push(ps); }
   return parts.length ? parts.join(' | ') : 'Perfil ainda não preenchido — pergunte ao usuário o que precisar antes de orientar.';
 }
 
