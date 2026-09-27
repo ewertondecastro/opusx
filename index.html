@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=2">
 <link rel="manifest" href="manifest.webmanifest?v=2">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-27T09:31:20Z">
+<meta name="app-version" content="2026-09-27T11:00:58Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -8985,10 +8985,14 @@ function renderQuickWorkout(){
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <span class="badge badge-gold" id="cu-cnt-${qw.id}" style="white-space:nowrap">${done}/${total}</span>
-        <button onclick="discardQuickWorkout()" style="background:transparent;border:1px solid var(--bdr2);border-radius:6px;color:var(--dim);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer">✕</button>
+        <button onclick="toggleQuickWorkout(event)" style="background:transparent;border:1px solid var(--bdr2);border-radius:6px;color:var(--dim);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">${D.qwCollapsed?'+':'−'}</button>
       </div>
     </div>
     <div style="height:4px;background:var(--s2)"><div id="cu-spb-${qw.id}" style="height:100%;width:${progPct}%;background:var(--gold);transition:width .3s"></div></div>
+    ${D.qwCollapsed ? `<div style="padding:11px 16px;display:flex;align-items:center;justify-content:space-between">
+      <span onclick="toggleQuickWorkout(event)" style="font-size:12px;color:var(--gold);font-weight:700;cursor:pointer">Abrir treino ›</span>
+      <span onclick="discardQuickWorkout()" style="font-size:11px;color:var(--dim);cursor:pointer">descartar</span>
+    </div>` : `
     ${typeof rxSessionSummary==='function' ? rxSessionSummary(qw.exercises) : ''}
     ${(qw.exercises||[]).map((ex,ei)=>buildCustomExerciseHTML(qw, ex, ei)).join('')}
     <div style="padding:10px 14px 0">
@@ -9008,7 +9012,13 @@ function renderQuickWorkout(){
         <button class="ai-send-btn" onclick="sendWoMsg('${ckey}')"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
       </div>
     </div>
+    <div style="padding:0 16px 14px;text-align:right"><span onclick="discardQuickWorkout()" style="font-size:11px;color:var(--dim);cursor:pointer">descartar este treino</span></div>`}
   </div>`;
+}
+// ✕ fecha o card do treino montado sem apagar nada
+function toggleQuickWorkout(e){
+  if(e&&e.stopPropagation) e.stopPropagation();
+  D.qwCollapsed = !D.qwCollapsed; save(); renderQuickWorkout();
 }
 
 function renderCustomPlan(){
@@ -12676,7 +12686,7 @@ function cutInstallTraining(){
     const sch={}; DAY_ORDER.forEach(d=>sch[d]='rest');
     const map={Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5};
     Object.keys(map).forEach(d=>{ const s=installed[map[d]]; if(s) sch[d]=s.id; });
-    D.customPlan = { active:true, sessions: installed.concat((c.prevPlan.sessions||[])), schedule: sch };
+    D.customPlan = { active:true, sessions: installed, schedule: sch };   // durante o cut só os 6 treinos do cut aparecem
     D.cuOpen = {};
     c.sessionIds = installed.map(s=>s.id);
     c.planInstalled = true;
@@ -12991,6 +13001,22 @@ function cutInput(iso, field, label, ph, suf){
   </div>`;
 }
 
+// blocos que abrem ao toque (guarda o estado em D.cut.ui)
+function cutFoldOpen(k){ const c=cutState(); return !!(c && c.ui && c.ui[k]); }
+function cutToggleFold(k){ const c=cutState(); if(!c) return; c.ui=c.ui||{}; c.ui[k]=!c.ui[k]; save(); renderCutPage(); }
+function cutBlock(k, icon, title, resumo, fn){
+  if(!cutFoldOpen(k)){
+    return `<div onclick="cutToggleFold('${k}')" style="background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px;margin:0 0 10px;display:flex;align-items:center;gap:12px;cursor:pointer">
+      <div style="font-size:17px">${icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:var(--text);font-weight:700">${title}</div>
+        ${resumo?`<div style="font-size:11px;color:var(--dim);margin-top:2px">${resumo}</div>`:''}
+      </div>
+      <div style="color:var(--gold);font-size:18px;font-weight:700">›</div>
+    </div>`;
+  }
+  return `<div onclick="cutToggleFold('${k}')" style="display:flex;justify-content:flex-end;padding:0 4px 6px;cursor:pointer"><span style="font-size:11px;color:var(--dim);letter-spacing:1px">FECHAR ✕</span></div>`+fn();
+}
 function renderCutPage(){
   const body=document.getElementById('cut-body'); if(!body) return;
   const c=cutState();
@@ -13010,19 +13036,22 @@ function renderCutPage(){
     save();
   }
   if(i<0){ body.innerHTML = cutPreHTML() + cutPlanHTML(c.plan) + cutMealsHTML(c.dates[0]) + cutFooterHTML(); return; }
+  const iso=c.dates[i], p=c.plan, w=cutWindow(c), pr=cutProjection();
+  const cv=v=>(D.weightUnit==='kg'?v*0.453592:v), wu=cutWunit();
+  const nSym=Object.keys((cutLogOf(iso).sym)||{}).filter(k=>cutLogOf(iso).sym[k]).length;
   body.innerHTML =
       cutHeroHTML(i)
     + cutRedFlagHTML()
     + cutTodayHTML(i)
     + cutNonNegHTML(i)
-    + cutCheckinHTML(i)
-    + cutMealsHTML(c.dates[i])
     + cutTrainHTML(i)
-    + cutProjectionHTML()
-    + cutSymptomsHTML(c.dates[i])
-    + cutSafetyTextHTML()
-    + cutPlanHTML(c.plan)
-    + cutFooterHTML();
+    + cutCheckinHTML(i)
+    + cutBlock('meals','🍽️','Cardápio do dia','3 refeições · '+p.kcal+' kcal · janela '+w.start+' → '+w.end, ()=>cutMealsHTML(iso))
+    + cutBlock('proj','📈','Projeção', pr?('balança '+(pr.scaleChange>0?'+':'')+cv(pr.scaleChange).toFixed(1)+' '+wu+' · gordura est. -'+cv(pr.fatLb).toFixed(2)+' '+wu):'', ()=>cutProjectionHTML())
+    + cutBlock('sym','🚨','Sintomas', nSym?(nSym+' marcado(s) hoje'):'nada marcado hoje', ()=>cutSymptomsHTML(iso))
+    + cutBlock('numbers','🔢','Os números', 'BMR '+p.bmr+' · TDEE '+p.tdee+' · déficit '+p.deficit+' kcal/dia', ()=>cutPlanHTML(p))
+    + cutBlock('safety','🛡️','Regras de segurança','o que o app nunca vai sugerir', ()=>cutSafetyTextHTML())
+    + cutBlock('end','⚙️','Encerrar ou refazer o cut','', ()=>cutFooterHTML());
 }
 function cutRefreshLive(){
   const c=cutState(); if(!c) return;
@@ -13300,10 +13329,10 @@ function cutMealsHTML(iso){
         </div>`).join('')}
     </div>
     <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.5">Pesos em gramas, proteína e carboidrato já cozidos. Vegetais podem passar do peso à vontade. Café e chá sem açúcar liberados o dia todo.</div>
-    <div style="margin-top:12px">
-      <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:6px">Trocas equivalentes</div>
+    ${cutFoldOpen('subs') ? `<div style="margin-top:12px">
+      <div onclick="cutToggleFold('subs')" style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:6px;cursor:pointer">Trocas equivalentes ✕</div>
       ${CUT_SUBS.map(s=>`<div style="font-size:11px;color:var(--mid);padding:4px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--text);font-weight:600">${s.de}</span> → ${s.por}</div>`).join('')}
-    </div>
+    </div>` : `<div onclick="cutToggleFold('subs')" style="margin-top:12px;font-size:12px;color:var(--gold);font-weight:700;cursor:pointer">🔁 Ver trocas equivalentes ›</div>`}
   `);
 }
 // treino do dia
