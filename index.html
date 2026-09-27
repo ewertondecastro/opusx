@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=2">
 <link rel="manifest" href="manifest.webmanifest?v=2">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-15T10:10:38Z">
+<meta name="app-version" content="2026-09-27T00:46:44Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -671,6 +671,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     <div style="font-family:'Bebas Neue',sans-serif;font-size:44px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:4px" id="h-name">BOM DIA, <span style="color:var(--gold)">EWERTON</span></div>
     <div style="font-size:15px;color:var(--mid)" id="h-sub">Consistência bate perfeição.</div>
   </div>
+
+  <!-- 6-DAY CUT -->
+  <div id="h-cut" style="padding:0 14px;margin-top:14px"></div>
 
   <!-- Meu Dia (briefing proativo) -->
   <div id="h-mydia" style="padding:0 14px;margin-top:14px"></div>
@@ -1552,6 +1555,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 </div>
 
 <!-- ═══════════ NAV ═══════════ -->
+
+<!-- ══════════ OPUS X: 6-DAY CUT ══════════ -->
+<div class="page" id="pg-cut">
+  <div style="padding:56px 20px 18px;background:linear-gradient(180deg,var(--s1) 0%,transparent 100%);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:12px">
+    <div onclick="goPage('home')" style="width:34px;height:34px;flex-shrink:0;border-radius:10px;border:1px solid var(--bdr2);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:20px;font-weight:700;cursor:pointer">‹</div>
+    <div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700">Missão · 27/09 → 02/10</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--text);letter-spacing:1px;line-height:1">6-DAY CUT</div>
+    </div>
+  </div>
+  <div id="cut-body" style="padding:14px"></div>
+</div>
+
 <nav class="nav">
   <div class="nav-tab on" id="nav-home" onclick="goPage('home')">
     <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -5190,6 +5206,7 @@ function goPage(id) {
   if (id==='fast') { renderFastCoach(); renderBiohack(); renderFastLibrary(); renderFastChips(); renderEvolution(); }
   if (id==='nutrition') { renderNutDay(); renderFoodGuide(); }
   if (id==='home' && typeof initHome==='function') { initHome(); }
+  if (id==='cut' && typeof renderCutPage==='function') { renderCutPage(); }
   if (id==='workout') {
     if(typeof renderWoGoalStrip==='function') renderWoGoalStrip();
     if(typeof renderDeloadCard==='function') renderDeloadCard();
@@ -5871,6 +5888,7 @@ function initHome() {
       }
     });
   }
+  if(typeof renderCutHome==='function') renderCutHome();
   if(typeof renderMyDay==='function') renderMyDay();
   if(typeof renderNutTarget==='function') renderNutTarget();
   if(typeof renderWeeklyNudge==='function') renderWeeklyNudge();
@@ -6019,6 +6037,8 @@ function toggleExCheckHome(key, el) {
 // Water — meta calculada pelo peso corporal, incrementos de 8oz
 const WATER_OZ_EACH = 8;
 function waterGoalOz(){
+  const _cp = (typeof cutActivePlan==='function') ? cutActivePlan() : null;
+  if(_cp) return _cp.waterOz;                       // meta de água do 6-DAY CUT
   const lbs = D.weightLbs || 175;
   // ~metade do peso (lb) em oz, arredondado p/ múltiplo de 8
   let oz = Math.round(lbs * 0.5 / 8) * 8;
@@ -9654,6 +9674,9 @@ async function delProgressPhoto(id){
 function estTargets(){
   const w = D.weightLbs || (D.weightLog&&D.weightLog.length?D.weightLog[D.weightLog.length-1].lbs:235);
   const goalW = (D.julyGoal&&D.julyGoal.target) || w;
+  // durante o 6-DAY CUT o app fala um número só: o do cut
+  const _cp = (typeof cutActivePlan==='function') ? cutActivePlan() : null;
+  if(_cp) return { maint:_cp.tdee, cal:_cp.kcal, protein:_cp.prot, goalW, cut:true };
   let maint;
   if(D.heightIn && D.age){
     const kg=w*0.453592, cm=D.heightIn*2.54;
@@ -12297,6 +12320,1216 @@ function pad(n){return String(n).padStart(2,'0');}
 function fmt12(d){return d.toLocaleTimeString(lang==='pt'?'pt-BR':'en-US',{hour:'2-digit',minute:'2-digit'});}
 let _tt;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ══════════════════════════════════════════════════════════════
+// OPUS X: 6-DAY CUT — missão de 6 dias (27/09/2026 → 02/10/2026)
+// Déficit agressivo porém defensável. Sem desidratação, sem
+// diurético, sem jejum prolongado, sem dia de 0 caloria.
+// ══════════════════════════════════════════════════════════════
+const CUT_START_ISO = '2026-09-27';
+const CUT_TOTAL_DAYS = 6;
+const CUT_KCAL_PER_LB_FAT = 3500;
+
+// ── datas ──
+function cutISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function cutParseISO(iso){ const p=String(iso).split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+function cutDateList(startISO){
+  const out=[]; const s=cutParseISO(startISO||CUT_START_ISO);
+  for(let i=0;i<CUT_TOTAL_DAYS;i++){ const d=new Date(s); d.setDate(s.getDate()+i); out.push(cutISO(d)); }
+  return out;
+}
+function cutKeyOf(iso){ return cutParseISO(iso).toDateString(); }
+function cutTodayISO(){ return cutISO(new Date()); }
+function cutDayLabel(iso){
+  const d=cutParseISO(iso);
+  return ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][d.getDay()]+' '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+}
+function cutState(){ return D.cut || null; }
+// índice do dia atual dentro do cut: 0..5 ativo, -1 antes, >=6 acabou
+function cutDayIndex(c){
+  c = c || cutState(); if(!c) return -1;
+  const list = c.dates || cutDateList(c.startISO);
+  const t = cutTodayISO();
+  const i = list.indexOf(t);
+  if(i>=0) return i;
+  return (t < list[0]) ? -1 : CUT_TOTAL_DAYS;
+}
+// plano ativo do cut (null fora da janela) — usado pelas metas do app
+function cutActivePlan(){
+  const c=cutState(); if(!c || c.stopped) return null;
+  const i=cutDayIndex(c);
+  return (i>=0 && i<CUT_TOTAL_DAYS) ? c.plan : null;
+}
+function cutLogOf(iso){
+  const c=cutState(); if(!c) return {};
+  c.log = c.log || {};
+  c.log[iso] = c.log[iso] || {};
+  return c.log[iso];
+}
+
+// ── perfil e cálculo energético ──
+function cutLastOf(arr, field){ if(!Array.isArray(arr)||!arr.length) return null; const l=arr[arr.length-1]; return l?l[field]:null; }
+function cutProfile(){
+  const unknown=[];
+  let wLbs = cutLastOf(D.weightLog,'lbs') || D.weightLbs || 0;
+  if(!wLbs){ wLbs = 0; unknown.push('peso'); }
+  const heightIn = D.heightIn || 0; if(!heightIn) unknown.push('altura');
+  const age = D.age || 0; if(!age) unknown.push('idade');
+  let sex = ((D.userProfile||{}).sex || D.gender || '').toLowerCase();
+  if(!sex){ unknown.push('sexo'); sex='m'; }
+  const female = /f|fem|mulher|woman/.test(sex);
+  let bf = D.bodyFat || cutLastOf(D.bfLog,'val') || 0; if(!bf) unknown.push('% de gordura');
+  const kg = wLbs*0.453592, cm = heightIn*2.54;
+  const leanKg = bf ? kg*(1-bf/100) : 0;
+  return { wLbs, kg, heightIn, cm, age, female, bf, leanKg, unknown };
+}
+function cutBMR(p){
+  // Katch-McArdle quando existe % de gordura (mais fiel em quem tem gordura alta),
+  // senão Mifflin-St Jeor. Sem altura/idade cai num piso conservador.
+  if(p.leanKg) return { val: Math.round(370 + 21.6*p.leanKg), how:'Katch-McArdle (massa magra)' };
+  if(p.kg && p.cm && p.age) return { val: Math.round(10*p.kg + 6.25*p.cm - 5*p.age + (p.female?-161:5)), how:'Mifflin-St Jeor' };
+  if(p.kg) return { val: Math.round(p.kg*19), how:'estimativa conservadora (peso × 19) — faltam altura e idade' };
+  return { val: 0, how:'sem dados suficientes' };
+}
+function cutActivity(steps, liftDays){
+  // 1.2 sedentário + musculação + caminhada
+  let af = 1.2;
+  af += (liftDays>=6 ? 0.15 : liftDays>=4 ? 0.12 : 0.08);
+  const s = steps||0;
+  af += s>=13000 ? 0.16 : s>=11000 ? 0.13 : s>=9000 ? 0.10 : s>=7000 ? 0.07 : 0.04;
+  return Math.round(af*100)/100;
+}
+function cutStepTarget(baseline){
+  if(!baseline) return { target: 11000, note:'sem histórico de passos — comecei em 11.000/dia' };
+  const t = Math.min(14000, Math.max(10000, Math.round((baseline*1.25+1000)/500)*500));
+  return { target: t, note: 'baseado nos seus ~'+baseline.toLocaleString('pt-BR')+' passos/dia atuais (+25%)' };
+}
+// plano completo de calorias e macros
+function cutComputePlan(opts){
+  opts = opts || {};
+  const p = cutProfile();
+  const bmr = cutBMR(p);
+  const stepsBase = opts.stepsBaseline!=null ? opts.stepsBaseline : (cutState()&&cutState().stepsBaseline) || 0;
+  const st = cutStepTarget(stepsBase);
+  const steps = opts.steps || st.target;
+  const af = cutActivity(steps, 6);
+  const tdee = Math.round(bmr.val*af);
+  // déficit agressivo (27%) com piso de segurança
+  const wanted = 0.27;
+  let kcal = Math.round(tdee*(1-wanted)/10)*10;
+  const floor = Math.max(1500, Math.round(bmr.val*1.05/10)*10);
+  let capped = false;
+  if(kcal < floor){ kcal = floor; capped = true; }
+  const deficit = Math.max(0, tdee - kcal);
+  const defPct = tdee ? Math.round(deficit/tdee*100) : 0;
+  // proteína: referência = massa magra +20% (ou 85% do peso quando não há % de gordura)
+  const refKg = p.leanKg ? p.leanKg*1.20 : (p.kg?p.kg*0.85:0);
+  let prot = Math.round(2.0*refKg/5)*5;
+  if(prot*4 > kcal*0.45) prot = Math.round(kcal*0.45/4/5)*5;     // não passa de 45% das calorias
+  if(refKg && prot < Math.round(1.8*refKg)) prot = Math.round(1.8*refKg/5)*5;
+  // gordura: mínimo fisiológico
+  let fat = Math.max(Math.round(0.6*refKg), Math.round(kcal*0.20/9));
+  let carb = Math.round((kcal - prot*4 - fat*9)/4);
+  if(carb < 100){                                                 // nunca zerar carbo
+    fat = Math.max(Math.round(0.5*refKg), Math.round((kcal - prot*4 - 100*4)/9));
+    carb = Math.round((kcal - prot*4 - fat*9)/4);
+  }
+  const waterOz = Math.min(200, Math.round(Math.max(96, p.kg*35/29.574 + 17)/8)*8); // 35 ml/kg + 500 ml de treino
+  const totalDeficit = deficit*CUT_TOTAL_DAYS;
+  const fatLb = totalDeficit/CUT_KCAL_PER_LB_FAT;
+  return {
+    bmr: bmr.val, bmrHow: bmr.how, af, tdee, maint: tdee,
+    kcal, deficit, defPct, capped, floor,
+    prot, carb, fat, refKg: Math.round(refKg*10)/10,
+    steps, stepsNote: st.note, stepsBaseline: stepsBase,
+    waterOz, sleepMin: 7.5, sleepMax: 9,
+    totalDeficit, fatLb: Math.round(fatLb*100)/100, fatKg: Math.round(fatLb*0.4536*100)/100,
+    unknown: p.unknown, wLbs: p.wLbs, kg: p.kg, bf: p.bf, leanKg: p.leanKg
+  };
+}
+
+// ── janela alimentar ──
+function cutWindow(c){
+  c = c || cutState() || {};
+  const fastH = c.fastH || 16;
+  const eatH = 24 - fastH;
+  const start = c.windowStart || '12:00';
+  const [h,m] = start.split(':').map(Number);
+  const endH = (h + eatH) % 24;
+  return { fastH, eatH, start, end: String(endH).padStart(2,'0')+':'+String(m||0).padStart(2,'0') };
+}
+function cutTimeAdd(hhmm, hours){
+  const [h,m]=String(hhmm).split(':').map(Number);
+  let t = h*60 + (m||0) + Math.round(hours*60);
+  t = ((t%1440)+1440)%1440;
+  return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
+}
+
+// ── alimentos (por 100 g, salvo indicado) ──
+const CUT_FOODS = {
+  claras:    {n:'Claras de ovo',            kcal:52,  p:10.9, c:0.7, f:0.2,  hint:'~33 g = 1 clara'},
+  ovo:       {n:'Ovo inteiro',              kcal:143, p:12.6, c:0.7, f:9.9,  hint:'~50 g = 1 ovo'},
+  frango:    {n:'Peito de frango grelhado', kcal:165, p:31,   c:0,   f:3.6,  hint:'peso já cozido'},
+  tilapia:   {n:'Tilápia / peixe branco',   kcal:128, p:26,   c:0,   f:2.7,  hint:'peso já cozido'},
+  patinho:   {n:'Carne magra moída (93%)',  kcal:152, p:21,   c:0,   f:7,    hint:'peso já cozido'},
+  iogurte:   {n:'Iogurte grego natural 0%', kcal:59,  p:10,   c:3.6, f:0.4,  hint:''},
+  cottage:   {n:'Cottage',                  kcal:98,  p:11,   c:3.4, f:4.3,  hint:''},
+  whey:      {n:'Whey protein',             kcal:400, p:80,   c:8,   f:5,    hint:'~30 g = 1 scoop'},
+  arroz:     {n:'Arroz branco cozido',      kcal:130, p:2.7,  c:28,  f:0.3,  hint:'peso já cozido'},
+  batata:    {n:'Batata doce cozida',       kcal:86,  p:1.6,  c:20,  f:0.1,  hint:'peso já cozido'},
+  aveia:     {n:'Aveia em flocos',          kcal:389, p:17,   c:66,  f:7,    hint:'peso cru'},
+  azeite:    {n:'Azeite de oliva',          kcal:884, p:0,    c:0,   f:100,  hint:'~14 g = 1 colher de sopa'},
+  abacate:   {n:'Abacate',                  kcal:160, p:2,    c:9,   f:15,   hint:''},
+  legumes:   {n:'Legumes (brócolis, abobrinha, vagem)', kcal:35, p:2.8, c:7, f:0.4, hint:'à vontade se passar'},
+  salada:    {n:'Salada verde (folhas, pepino, tomate)', kcal:20, p:1.2, c:3.6, f:0.2, hint:'à vontade se passar'},
+  morango:   {n:'Morango',                  kcal:32,  p:0.7,  c:7.7, f:0.3,  hint:''},
+  banana:    {n:'Banana',                   kcal:89,  p:1.1,  c:23,  f:0.3,  hint:'~110 g = 1 média'}
+};
+const CUT_SUBS = [
+  {de:'Peito de frango', por:'Tilápia, peixe branco, peito de peru ou patinho (mesmo peso)'},
+  {de:'Carne magra moída', por:'Frango desfiado ou atum em água (mesmo peso)'},
+  {de:'Iogurte grego 0%', por:'Cottage (mesmo peso) ou 1 scoop de whey + 200 ml de água'},
+  {de:'Whey', por:'2 claras + 1 ovo, ou 150 g de iogurte grego'},
+  {de:'Arroz', por:'Batata inglesa, batata doce ou macarrão (mesmo peso cozido)'},
+  {de:'Batata doce', por:'Arroz, mandioca ou aveia (60 g de aveia ≈ 240 g de batata doce)'},
+  {de:'Azeite', por:'Óleo de abacate, ou 90 g de abacate por colher de sopa'},
+  {de:'Legumes/salada', por:'Qualquer vegetal sem amido: couve-flor, aspargo, repolho, pepino'},
+  {de:'Morango', por:'Mirtilo, framboesa, melancia ou kiwi (mesmo peso)'}
+];
+function cutItem(key, grams){
+  const f = CUT_FOODS[key]; if(!f) return null;
+  const g = Math.max(0, Math.round(grams/5)*5);
+  if(!g) return null;
+  return { key, n:f.n, g, hint:f.hint,
+    kcal: Math.round(f.kcal*g/100), p: Math.round(f.p*g/100), c: Math.round(f.c*g/100), f: Math.round(f.f*g/100) };
+}
+function cutSumItems(items){
+  return items.reduce((a,i)=>({kcal:a.kcal+i.kcal, p:a.p+i.p, c:a.c+i.c, f:a.f+i.f}), {kcal:0,p:0,c:0,f:0});
+}
+// monta uma refeição batendo aproximadamente os alvos de P/C/G
+function cutBuildMeal(spec, tP, tC, tF){
+  const items=[];
+  let rp=tP, rc=tC, rf=tF;
+  (spec.fixed||[]).forEach(fx=>{
+    const it = cutItem(fx[0], fx[1]); if(!it){ return; }
+    items.push(it); rp-=it.p; rc-=it.c; rf-=it.f;
+  });
+  if(spec.prot){
+    const f=CUT_FOODS[spec.prot];
+    const it=cutItem(spec.prot, Math.max(0, rp)/(f.p/100));
+    if(it){ items.push(it); rp-=it.p; rc-=it.c; rf-=it.f; }
+  }
+  if(spec.carb && rc>2){
+    const f=CUT_FOODS[spec.carb];
+    const it=cutItem(spec.carb, Math.max(0, rc)/(f.c/100));
+    if(it){ items.push(it); rc-=it.c; rf-=it.f; rp-=it.p; }
+  }
+  if(spec.fat && rf>2){
+    const f=CUT_FOODS[spec.fat];
+    const it=cutItem(spec.fat, Math.max(0, rf)/(f.f/100));
+    if(it){ items.push(it); rf-=it.f; }
+  }
+  const tot=cutSumItems(items);
+  return { name:spec.name, time:spec.time, tag:spec.tag||'', items, ...tot };
+}
+function cutBuildMeals(plan, c){
+  const w = cutWindow(c);
+  const mid = cutTimeAdd(w.start, w.eatH/2);
+  const last = cutTimeAdd(w.end, -0.5);
+  const specs = [
+    { name:'Quebra do jejum', time:w.start, tag:'Proteína + fruta. Nada de açúcar.', prot:'iogurte', carb:'aveia', fat:null, fixed:[['morango',150],['whey',30]], share:[0.30,0.25,0.15] },
+    { name:'Refeição principal', time:mid, tag:'A maior parte do carboidrato fica aqui, perto do treino.', prot:'frango', carb:'arroz', fat:'azeite', fixed:[['legumes',200]], share:[0.35,0.50,0.35] },
+    { name:'Última refeição', time:last, tag:'Fecha a janela. Proteína alta, saciedade alta.', prot:'tilapia', carb:'batata', fat:'abacate', fixed:[['salada',150]], share:[0.35,0.25,0.50] }
+  ];
+  const meals = specs.map(s => cutBuildMeal(s, plan.prot*s.share[0], plan.carb*s.share[1], plan.fat*s.share[2]));
+  // passo de correção: a última refeição fecha o dia em cima do alvo
+  const tot = cutSumItems([].concat.apply([], meals.map(m=>m.items)));
+  const li = specs.length-1, sp = specs[li];
+  meals[li] = cutBuildMeal(sp,
+    Math.max(0, plan.prot*sp.share[0] - (tot.p - plan.prot)),
+    Math.max(0, plan.carb*sp.share[1] - (tot.c - plan.carb)),
+    Math.max(0, plan.fat*sp.share[2]  - (tot.f - plan.fat)));
+  return meals;
+}
+
+// ── treino da semana (6 dias) ──
+const CUT_SPLIT = [
+  { key:'upperA', name:'DIA 1 · Superior A', focus:'Costas · Peito · Ombro · Bíceps · Tríceps', muscles:['costas','peito','ombro','triceps','biceps'], n:6, cardio:20 },
+  { key:'lowerA', name:'DIA 2 · Inferior A', focus:'Quadríceps · Posterior · Glúteo · Panturrilha', muscles:['quadriceps','posterior','gluteo','panturrilha'], n:5, cardio:20 },
+  { key:'recov',  name:'DIA 3 · Cardio + Core', focus:'Recuperação ativa · Abdômen · Zona 2', muscles:['abdomen','costas'], n:4, cardio:40 },
+  { key:'upperB', name:'DIA 4 · Superior B', focus:'Costas · Ombro · Peito · Braços', muscles:['costas','ombro','peito','biceps','triceps'], n:6, cardio:20 },
+  { key:'lowerB', name:'DIA 5 · Inferior B', focus:'Posterior · Glúteo · Quadríceps · Abdômen', muscles:['posterior','gluteo','quadriceps','abdomen'], n:5, cardio:20 },
+  { key:'full',   name:'DIA 6 · Full body pump', focus:'Corpo inteiro · bomba final', muscles:['costas','peito','quadriceps','ombro','posterior','abdomen'], n:6, cardio:30 }
+];
+// exercícios que ele já treinou entram na frente (carga conhecida = progressão real)
+function cutKnownScore(name){
+  try{
+    const k = exNameNorm(name);
+    if((D.progLog||{})[k] && D.progLog[k].length) return 2;
+    if((D.loadByName||{})[k]) return 1;
+  }catch(e){}
+  return 0;
+}
+function cutBuildSessions(){
+  // poupa o joelho sempre: em 6 dias seguidos não vale o risco de agachamento profundo/impacto
+  const pools={};
+  const take=(m)=>{
+    if(!pools[m] || !pools[m].length){
+      let pool=(typeof orderedPool==='function') ? orderedPool(m, true) : [];
+      pool=pool.slice().sort((a,b)=>cutKnownScore(b.name)-cutKnownScore(a.name));
+      pools[m]=pool;
+    }
+    return pools[m].length ? pools[m].shift() : null;
+  };
+  return CUT_SPLIT.map(sp=>{
+    const picks=[]; let gi=0, guard=0;
+    while(picks.length<sp.n && guard<60){
+      const m = sp.muscles[gi%sp.muscles.length];
+      const ex = take(m);
+      if(ex && !picks.some(x=>x.name===ex.name)){
+        const d = (typeof exDefaults==='function') ? exDefaults(m) : {sets:3,reps:'10-12',rest:'60s'};
+        picks.push({ name:ex.name, sets:(sp.key==='recov'?2:d.sets), reps:d.reps, rest:d.rest, load:'', notes:ex.detail||'', muscle:m });
+      }
+      gi++; guard++;
+    }
+    picks.push({ name:'🏁 Cardio Zona 2 ('+sp.cardio+' min)', sets:1, reps:sp.cardio+' min', rest:'—',
+      load:'Bike, elíptico, remo ou esteira inclinada', muscle:'',
+      notes:'Zona 2: dá pra conversar. Baixo impacto por causa do joelho. Ao marcar, já conta na sua meta de cardio.' });
+    return { name:sp.name, focus:sp.focus+' · '+sp.cardio+' min de cardio', exercises:picks, cutKey:sp.key, cardio:sp.cardio };
+  });
+}
+function cutTrainingOfDay(i){
+  const c=cutState();
+  if(c && c.sessions && c.sessions[i]) return c.sessions[i];
+  return CUT_SPLIT[i] ? {name:CUT_SPLIT[i].name, focus:CUT_SPLIT[i].focus, cardio:CUT_SPLIT[i].cardio} : null;
+}
+
+// ── iniciar / encerrar ──
+function cutStart(){
+  const wIn = document.getElementById('cut-w0');
+  const w = wIn ? parseFloat(String(wIn.value).replace(',','.')) : NaN;
+  if(isNaN(w) || w<=0){ toast('Registre o peso de hoje para começar'); if(wIn) wIn.focus(); return; }
+  const lbs = (typeof inpToLbs==='function') ? inpToLbs(w) : w;
+  const waistEl = document.getElementById('cut-waist0');
+  const waist = waistEl && waistEl.value ? parseFloat(String(waistEl.value).replace(',','.')) : null;
+  const stepsEl = document.getElementById('cut-steps0');
+  const stepsBase = stepsEl && stepsEl.value ? parseInt(stepsEl.value) : 0;
+  const trainEl = document.getElementById('cut-train-time');
+  const trainTime = (trainEl && trainEl.value) || ((D.userProfile||{}).trainTime) || '17:00';
+  const winEl = document.getElementById('cut-window-start');
+  const windowStart = (winEl && winEl.value) || '12:00';
+  const fastEl = document.querySelector('input[name="cut-fast"]:checked');
+  const fastH = fastEl ? parseInt(fastEl.value) : 16;
+
+  // peso entra no histórico normal do app também
+  if(!D.weightLog) D.weightLog=[];
+  D.weightLog = D.weightLog.filter(x=>x.date!==TODAY);
+  D.weightLog.push({date:TODAY, lbs, ts:Date.now()});
+  D.weightLbs = lbs;
+  if(waist){
+    if(!D.waistLog) D.waistLog=[];
+    D.waistLog = D.waistLog.filter(x=>x.date!==TODAY);
+    D.waistLog.push({date:TODAY, val:waist, unit:(typeof waistUnit==='function')?waistUnit():'in', ts:Date.now()});
+  }
+
+  const dates = cutDateList(CUT_START_ISO);
+  const plan = cutComputePlan({stepsBaseline: stepsBase});
+  const sessions = cutBuildSessions();
+  D.cut = {
+    startISO: CUT_START_ISO, dates, startedAt: Date.now(),
+    fastH, windowStart, trainTime, stepsBaseline: stepsBase,
+    baseline: { weightLbs: lbs, waist: waist||null, bf: D.bodyFat||null, date: cutTodayISO() },
+    plan, sessions, log: {}, symptoms: {}, stopped:false, planInstalled:false
+  };
+  cutInstallTraining();
+  save();
+  toast('6-DAY CUT iniciado 🔥');
+  renderCutPage(); if(typeof initHome==='function') initHome();
+}
+// instala as 6 sessões no Meu Plano (guardando o plano anterior para devolver depois)
+function cutInstallTraining(){
+  const c=cutState(); if(!c || c.planInstalled) return;
+  try{
+    c.prevPlan = JSON.parse(JSON.stringify(D.customPlan||{active:false,sessions:[]}));
+    const base=Date.now();
+    const installed=(c.sessions||[]).map((s,i)=>({...s, preset:'cut', id:base+i}));
+    const sch={}; DAY_ORDER.forEach(d=>sch[d]='rest');
+    const map={Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5};
+    Object.keys(map).forEach(d=>{ const s=installed[map[d]]; if(s) sch[d]=s.id; });
+    D.customPlan = { active:true, sessions: installed.concat((c.prevPlan.sessions||[])), schedule: sch };
+    D.cuOpen = {};
+    c.sessionIds = installed.map(s=>s.id);
+    c.planInstalled = true;
+    if(typeof refreshWorkoutViews==='function') refreshWorkoutViews();
+  }catch(e){ console.warn('[cut] instalar treino', e); }
+}
+function cutRestoreTraining(){
+  const c=cutState(); if(!c || !c.planInstalled) return;
+  try{
+    if(c.prevPlan && (c.prevPlan.sessions||[]).length){ D.customPlan = c.prevPlan; }
+    else { D.customPlan.sessions = (D.customPlan.sessions||[]).filter(s=>s.preset!=='cut'); }
+    c.planInstalled = false;
+    if(typeof refreshWorkoutViews==='function') refreshWorkoutViews();
+  }catch(e){ console.warn('[cut] restaurar treino', e); }
+}
+function cutStop(){
+  const c=cutState(); if(!c) return;
+  if(!confirm('Encerrar o 6-DAY CUT? O relatório do que você já fez continua salvo e seu plano de treino anterior volta.')) return;
+  c.stopped = true; c.stoppedAt = Date.now();
+  cutRestoreTraining();
+  save(); renderCutPage(); if(typeof initHome==='function') initHome();
+  toast('Cut encerrado. Nada do que você registrou foi perdido.');
+}
+function cutReset(){
+  if(!confirm('Apagar tudo do 6-DAY CUT (registros e relatório)?')) return;
+  cutRestoreTraining();
+  delete D.cut; save(); renderCutPage(); if(typeof initHome==='function') initHome();
+}
+function cutRecalc(){
+  const c=cutState(); if(!c) return;
+  c.plan = cutComputePlan({stepsBaseline:c.stepsBaseline});
+  save(); renderCutPage(); toast('Números recalculados com seus dados atuais ✓');
+}
+
+// ── check-in diário ──
+function cutSetNum(iso, field, val){
+  const c=cutState(); if(!c) return;
+  const l=cutLogOf(iso);
+  const n=parseFloat(String(val).replace(',','.'));
+  if(isNaN(n)) delete l[field]; else l[field]=n;
+  save();
+  cutRefreshLive();
+}
+function cutSetScale(iso, field, v){
+  const l=cutLogOf(iso);
+  l[field] = (l[field]===v) ? undefined : v;
+  save(); renderCutPage();
+}
+function cutLogWeight(iso){
+  const el=document.getElementById('cut-w-'+iso); if(!el) return;
+  const v=parseFloat(String(el.value).replace(',','.'));
+  if(isNaN(v)||v<=0){ toast('Informe o peso'); return; }
+  const lbs=(typeof inpToLbs==='function')?inpToLbs(v):v;
+  const l=cutLogOf(iso); l.weightLbs=lbs;
+  const c=cutState();
+  // pesagem do dia 1 vira a linha de base oficial (mesmo se o START foi antes)
+  if(c && iso===(c.dates||[])[0]){ c.baseline.weightLbs=lbs; c.baseline.date=iso; }
+  const key=cutKeyOf(iso);
+  if(!D.weightLog) D.weightLog=[];
+  D.weightLog=D.weightLog.filter(x=>x.date!==key);
+  D.weightLog.push({date:key, lbs, ts:Date.now()});
+  D.weightLog=D.weightLog.slice(-90);
+  D.weightLbs=lbs;
+  save(); renderCutPage();
+  if(typeof renderWeightPage==='function') renderWeightPage();
+  toast('Peso registrado ✓');
+}
+function cutLogWaist(iso){
+  const el=document.getElementById('cut-waist-'+iso); if(!el) return;
+  const v=parseFloat(String(el.value).replace(',','.'));
+  if(isNaN(v)||v<=0){ toast('Informe a cintura'); return; }
+  const l=cutLogOf(iso); l.waist=v;
+  const c=cutState();
+  if(c && iso===(c.dates||[])[0]){ c.baseline.waist=v; }
+  const key=cutKeyOf(iso);
+  if(!D.waistLog) D.waistLog=[];
+  D.waistLog=D.waistLog.filter(x=>x.date!==key);
+  D.waistLog.push({date:key, val:v, unit:(typeof waistUnit==='function')?waistUnit():'in', ts:Date.now()});
+  save(); renderCutPage(); toast('Cintura registrada ✓');
+}
+// puxa o que o resto do app já sabe do dia (comida, água, cardio, treino, sono)
+function cutPullToday(iso){
+  const c=cutState(); if(!c) return;
+  const l=cutLogOf(iso);
+  const key=cutKeyOf(iso);
+  if(key===TODAY){
+    const cons=(typeof consumedToday==='function')?consumedToday():{kcal:0,prot:0};
+    const mealsMacro=cutMealMacrosDone(iso);
+    l.kcal=Math.round(cons.kcal+mealsMacro.kcal);
+    l.prot=Math.round(cons.prot+mealsMacro.p);
+    l.carb=Math.round(mealsMacro.c);
+    l.fat=Math.round(mealsMacro.f);
+    l.waterOz=Math.round((D.water||0)*(typeof WATER_OZ_EACH!=='undefined'?WATER_OZ_EACH:8));
+    const sl=(D.sleepLog||{})[TODAY]||{};
+    if(sl.h) l.sleepH=sl.h;
+    if(sl.q) l.sleepQ=sl.q;
+  }
+  const mins=(D.cardioLog||[]).filter(x=>x.date===key).reduce((a,x)=>a+(x.mins||0),0);
+  if(mins) l.cardioMin=mins;
+  const sess=(c.sessionIds||[])[cutDayIndex(c)];
+  if(sess!=null){
+    const s=(D.customPlan.sessions||[]).find(x=>x.id===sess);
+    if(s){
+      const tot=(s.exercises||[]).length;
+      const dn=(s.exercises||[]).filter((_,i)=>(D.exChecked||{})['cu_'+s.id+'_ex_'+i]).length;
+      if(tot && dn>=Math.ceil(tot*0.7)) l.lift=1;
+      l.liftProgress=dn+'/'+tot;
+    }
+  }
+  save(); renderCutPage(); toast('Puxei o que o app já registrou hoje ✓');
+}
+// macros das refeições do cut marcadas no dia
+function cutMealMacrosDone(iso){
+  const c=cutState(); if(!c) return {kcal:0,p:0,c:0,f:0};
+  const l=cutLogOf(iso);
+  const done=l.meals||{};
+  const meals=cutBuildMeals(c.plan, c);
+  let t={kcal:0,p:0,c:0,f:0};
+  meals.forEach((m,i)=>{ if(done[i]){ t.kcal+=m.kcal; t.p+=m.p; t.c+=m.c; t.f+=m.f; } });
+  return t;
+}
+function cutToggleMeal(iso, i){
+  const l=cutLogOf(iso);
+  l.meals=l.meals||{};
+  l.meals[i]=!l.meals[i];
+  const mm=cutMealMacrosDone(iso);
+  const extra=(typeof consumedToday==='function' && cutKeyOf(iso)===TODAY)?consumedToday():{kcal:0,prot:0};
+  l.kcal=Math.round(mm.kcal+extra.kcal); l.prot=Math.round(mm.p+extra.prot);
+  l.carb=Math.round(mm.c); l.fat=Math.round(mm.f);
+  save(); renderCutPage();
+}
+function cutToggleLift(iso){
+  const l=cutLogOf(iso); l.lift = l.lift?0:1; save(); renderCutPage();
+}
+
+// ── sintomas e segurança ──
+const CUT_SYMPTOMS = [
+  {k:'tontura', l:'Tontura importante'},
+  {k:'desmaio', l:'Desmaio ou quase desmaio'},
+  {k:'palpita', l:'Palpitação persistente'},
+  {k:'peito',   l:'Dor no peito'},
+  {k:'confusao',l:'Confusão mental'},
+  {k:'fraqueza',l:'Fraqueza extrema'},
+  {k:'vomito',  l:'Vômitos persistentes'},
+  {k:'incapaz', l:'Não consigo fazer o que faço normalmente'}
+];
+function cutToggleSymptom(iso, k){
+  const l=cutLogOf(iso);
+  l.sym=l.sym||{};
+  l.sym[k]=!l.sym[k];
+  save(); renderCutPage();
+  if(l.sym[k]) toast('Registrado. Nenhum aumento de déficit ou de treino é recomendado agora.');
+}
+function cutSymptomsActive(){
+  const c=cutState(); if(!c) return [];
+  const out=[];
+  Object.keys(c.log||{}).forEach(iso=>{
+    const s=(c.log[iso]||{}).sym||{};
+    Object.keys(s).forEach(k=>{ if(s[k]) out.push({iso,k}); });
+  });
+  return out;
+}
+function cutRedFlag(){
+  // sintoma nas últimas 48 h bloqueia qualquer recomendação de apertar
+  const act=cutSymptomsActive();
+  if(!act.length) return null;
+  const now=Date.now();
+  const recent=act.filter(a=>(now-cutParseISO(a.iso).getTime())<=2*86400000);
+  return recent.length ? recent : null;
+}
+
+// ── score de execução (comportamento, não balança) ──
+function cutScore(iso){
+  const c=cutState(); if(!c) return null;
+  const l=(c.log||{})[iso]; if(!l) return null;
+  const p=c.plan;
+  const has = v => v!=null && !isNaN(v);
+  let pts=0, max=0, parts=[];
+  // calorias (25): perto do alvo vale tudo; comer muito abaixo também perde ponto
+  max+=25;
+  if(has(l.kcal)){
+    const diff=l.kcal-p.kcal;
+    let s;
+    if(Math.abs(diff)<=100) s=1;
+    else if(diff>0) s=Math.max(0, 1-(diff-100)/600);
+    else s=Math.max(0, 1-(Math.abs(diff)-100)/400);   // abaixo demais = passar fome, não é mérito
+    pts+=25*s; parts.push({l:'Calorias', s:Math.round(s*100)});
+  } else parts.push({l:'Calorias', s:null});
+  // proteína (25)
+  max+=25;
+  if(has(l.prot)){ const s=Math.min(1, l.prot/Math.max(1,p.prot)); pts+=25*s; parts.push({l:'Proteína', s:Math.round(s*100)}); }
+  else parts.push({l:'Proteína', s:null});
+  // treino (15)
+  max+=15;
+  { const s=l.lift?1:0; pts+=15*s; parts.push({l:'Treino', s:Math.round(s*100)}); }
+  // passos (15)
+  max+=15;
+  if(has(l.steps)){ const s=Math.min(1, l.steps/Math.max(1,p.steps)); pts+=15*s; parts.push({l:'Passos', s:Math.round(s*100)}); }
+  else parts.push({l:'Passos', s:null});
+  // água (10)
+  max+=10;
+  if(has(l.waterOz)){ const s=Math.min(1, l.waterOz/Math.max(1,p.waterOz)); pts+=10*s; parts.push({l:'Água', s:Math.round(s*100)}); }
+  else parts.push({l:'Água', s:null});
+  // sono (10)
+  max+=10;
+  if(has(l.sleepH)){
+    const h=l.sleepH;
+    const s = h>=7.5?1 : h>=6.5?0.7 : h>=6?0.4 : 0.2;
+    pts+=10*s; parts.push({l:'Sono', s:Math.round(s*100)});
+  } else parts.push({l:'Sono', s:null});
+  return { score: Math.round(pts), parts };
+}
+function cutAdherenceAvg(){
+  const c=cutState(); if(!c) return null;
+  const list=(c.dates||[]).map(d=>cutScore(d)).filter(Boolean);
+  if(!list.length) return null;
+  return Math.round(list.reduce((a,s)=>a+s.score,0)/list.length);
+}
+
+// ── projeção ──
+function cutProjection(){
+  const c=cutState(); if(!c) return null;
+  const p=c.plan;
+  const dates=c.dates||[];
+  let deficit=0, daysWithFood=0, kcalSum=0, protSum=0, stepsSum=0, stepDays=0, cardio=0, lifts=0, sleepSum=0, sleepDays=0;
+  dates.forEach(iso=>{
+    const l=(c.log||{})[iso]; if(!l) return;
+    if(l.kcal!=null){ deficit += (p.tdee - l.kcal); kcalSum+=l.kcal; daysWithFood++; }
+    if(l.prot!=null) protSum+=l.prot;
+    if(l.steps!=null){ stepsSum+=l.steps; stepDays++; }
+    if(l.cardioMin!=null) cardio+=l.cardioMin;
+    if(l.lift) lifts++;
+    if(l.sleepH!=null){ sleepSum+=l.sleepH; sleepDays++; }
+  });
+  const weights=dates.map(iso=>((c.log||{})[iso]||{}).weightLbs).filter(v=>v!=null);
+  const start=c.baseline.weightLbs;
+  const cur = weights.length ? weights[weights.length-1] : start;
+  const scaleChange = cur - start;
+  const fatLb = deficit/CUT_KCAL_PER_LB_FAT;
+  const otherLb = scaleChange + fatLb; // o que não é gordura (água/glicogênio/intestino)
+  const avg3 = weights.length>=3 ? weights.slice(-3).reduce((a,b)=>a+b,0)/3 : (weights.length?weights.reduce((a,b)=>a+b,0)/weights.length:null);
+  return {
+    start, cur, scaleChange, deficit: Math.round(deficit), fatLb: Math.round(fatLb*100)/100,
+    otherLb: Math.round(otherLb*100)/100, avg3,
+    kcalAvg: daysWithFood?Math.round(kcalSum/daysWithFood):null,
+    protAvg: daysWithFood?Math.round(protSum/daysWithFood):null,
+    stepsAvg: stepDays?Math.round(stepsSum/stepDays):null,
+    cardio, lifts, daysWithFood,
+    sleepAvg: sleepDays?Math.round(sleepSum/sleepDays*10)/10:null
+  };
+}
+// aviso anti-compensação
+function cutCompensationNote(i){
+  const c=cutState(); if(!c||i<=0) return null;
+  const prev=(c.log||{})[(c.dates||[])[i-1]];
+  if(!prev) return null;
+  const p=c.plan;
+  if(prev.kcal!=null && prev.kcal > p.kcal+400) return 'Ontem passou do alvo. Hoje o alvo é o MESMO — não corte calorias nem dobre o cardio para compensar. Compensar é o que quebra o plano.';
+  if(prev.kcal!=null && prev.kcal < p.kcal-400) return 'Ontem você comeu bem abaixo do alvo. Hoje coma o alvo cheio, principalmente a proteína. Passar fome não acelera nada.';
+  const s=cutScore((c.dates||[])[i-1]);
+  if(s && s.score<60) return 'Ontem rendeu pouco. Hoje é só executar o alvo normal. Nada de jejum extra nem sessão dupla para "pagar".';
+  return null;
+}
+
+// ── UI ──
+function cutW(lbs){ return (D.weightUnit==='kg') ? (lbs*0.453592).toFixed(1)+' kg' : lbs.toFixed(1)+' lb'; }
+function cutWunit(){ return D.weightUnit==='kg'?'kg':'lb'; }
+function cutNum(v, suf){ return (v==null||isNaN(v)) ? '—' : (Math.round(v*10)/10).toLocaleString('pt-BR')+(suf||''); }
+function cutBar(pct, color){
+  const p=Math.max(0,Math.min(100,Math.round(pct||0)));
+  return `<div style="height:6px;background:var(--s3);border-radius:4px;overflow:hidden"><div style="height:100%;width:${p}%;background:${color||'var(--gold)'}"></div></div>`;
+}
+function cutSectionTitle(icon, t, sub){
+  return `<div style="margin:0 0 10px"><div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">${icon} ${t}</div>${sub?`<div style="font-size:11px;color:var(--dim);margin-top:3px">${sub}</div>`:''}</div>`;
+}
+function cutCard(inner, border){
+  return `<div style="background:var(--s1);border:1px solid ${border||'var(--bdr)'};border-radius:var(--r);padding:16px;margin:0 0 12px">${inner}</div>`;
+}
+function cutScaleRow(iso, field, label, l1, l10){
+  const l=cutLogOf(iso); const cur=l[field];
+  let chips='';
+  for(let i=1;i<=10;i++){
+    const on=cur===i;
+    chips+=`<div onclick="cutSetScale('${iso}','${field}',${i})" style="flex:1;text-align:center;padding:7px 0;background:${on?'var(--gold)':'var(--s2)'};color:${on?'var(--gold-ink)':'var(--mid)'};border:1px solid ${on?'var(--gold)':'var(--bdr)'};border-radius:6px;font-size:12px;font-weight:800;cursor:pointer">${i}</div>`;
+  }
+  return `<div style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--mid);font-weight:700;margin-bottom:5px"><span>${label}</span><span style="color:var(--dim);font-weight:500">${l1} → ${l10}</span></div>
+    <div style="display:flex;gap:4px">${chips}</div>
+  </div>`;
+}
+function cutInput(iso, field, label, ph, suf){
+  const l=cutLogOf(iso);
+  const v=l[field]!=null?l[field]:'';
+  return `<div style="flex:1;min-width:120px">
+    <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:4px">${label}</div>
+    <div style="display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px">
+      <input type="number" inputmode="decimal" value="${v}" placeholder="${ph||''}" onchange="cutSetNum('${iso}','${field}',this.value)" style="width:100%;background:transparent;border:none;outline:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:20px;font-style:italic">
+      ${suf?`<span style="font-size:11px;color:var(--dim);white-space:nowrap">${suf}</span>`:''}
+    </div>
+  </div>`;
+}
+
+function renderCutPage(){
+  const body=document.getElementById('cut-body'); if(!body) return;
+  const c=cutState();
+  if(!c || c.reset){ body.innerHTML = cutSetupHTML(); return; }
+  const i = cutDayIndex(c);
+  if(c.stopped){ body.innerHTML = cutReportHTML(true) + cutFooterHTML(); return; }
+  if(i>=CUT_TOTAL_DAYS){
+    if(c.planInstalled){ cutRestoreTraining(); save(); }   // acabou: devolve o plano de treino anterior
+    body.innerHTML = cutReportHTML(false) + cutFooterHTML(); return;
+  }
+  if(i<0){ body.innerHTML = cutPreHTML() + cutPlanHTML(c.plan) + cutMealsHTML(c.dates[0]) + cutFooterHTML(); return; }
+  body.innerHTML =
+      cutHeroHTML(i)
+    + cutRedFlagHTML()
+    + cutTodayHTML(i)
+    + cutNonNegHTML(i)
+    + cutCheckinHTML(i)
+    + cutMealsHTML(c.dates[i])
+    + cutTrainHTML(i)
+    + cutProjectionHTML()
+    + cutSymptomsHTML(c.dates[i])
+    + cutSafetyTextHTML()
+    + cutPlanHTML(c.plan)
+    + cutFooterHTML();
+}
+function cutRefreshLive(){
+  const c=cutState(); if(!c) return;
+  const i=cutDayIndex(c); if(i<0||i>=CUT_TOTAL_DAYS) return;
+  const s=cutScore(c.dates[i]);
+  const el=document.getElementById('cut-score-now');
+  if(el && s) el.textContent=s.score;
+  if(typeof renderCutHome==='function') renderCutHome();
+}
+
+// setup (antes de começar)
+function cutSetupHTML(){
+  const plan=cutComputePlan({});
+  const p=cutProfile();
+  const wu=cutWunit();
+  const trainTime=((D.userProfile||{}).trainTime)||'17:00';
+  const unk = plan.unknown.length
+    ? `<div style="background:var(--red-bg);border:1px solid rgba(224,82,82,.3);border-radius:10px;padding:11px 13px;margin-bottom:12px">
+        <div style="font-size:11px;color:var(--red);font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">⚠️ Dados que faltam</div>
+        <div style="font-size:12px;color:var(--mid);line-height:1.5">${plan.unknown.join(', ')}. Usei a estimativa mais conservadora possível. Preencha no Perfil e toque em RECALCULAR para os números ficarem certos.</div>
+      </div>` : '';
+  return `
+  ${cutCard(`
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--gold);letter-spacing:1px;line-height:1">MISSÃO DE 6 DIAS</div>
+    <div style="font-size:13px;color:var(--mid);line-height:1.6;margin-top:6px">Domingo 27/09 → Sexta 02/10. Déficit agressivo, proteína alta, força todo dia, passos altos e sono protegido. Sem diurético, sem desidratar, sem jejum de dias, sem dia de fome.</div>
+  `, 'rgba(201,169,110,.35)')}
+  ${unk}
+  ${cutPlanHTML(plan)}
+  ${cutCard(`
+    ${cutSectionTitle('📋','Antes de apertar START','Pesagem de hoje e três respostas. Depois é só executar.')}
+    <div style="font-size:11px;color:var(--dim);margin-bottom:6px">Peso de hoje (em jejum, depois do banheiro)</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input id="cut-w0" type="number" inputmode="decimal" step=".1" placeholder="peso em ${wu}" style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:24px;font-style:italic;padding:10px 12px;outline:none">
+      <input id="cut-waist0" type="number" inputmode="decimal" step=".1" placeholder="cintura (opcional)" style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:14px;padding:10px 12px;outline:none">
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--dim);margin-bottom:5px">Passos por dia hoje</div>
+        <input id="cut-steps0" type="number" inputmode="numeric" placeholder="ex: 6000" style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:15px;padding:10px 12px;outline:none">
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--dim);margin-bottom:5px">Hora do treino</div>
+        <input id="cut-train-time" type="time" value="${trainTime}" style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:15px;padding:9px 12px;outline:none">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--dim);margin-bottom:5px">Primeira refeição</div>
+        <input id="cut-window-start" type="time" value="12:00" style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:15px;padding:9px 12px;outline:none">
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--dim);margin-bottom:5px">Janela</div>
+        <div style="display:flex;gap:6px">
+          <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:10px 4px;font-size:13px;color:var(--text);cursor:pointer"><input type="radio" name="cut-fast" value="16" checked> 16:8</label>
+          <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:10px 4px;font-size:13px;color:var(--text);cursor:pointer"><input type="radio" name="cut-fast" value="18"> 18:6</label>
+        </div>
+      </div>
+    </div>
+    <button onclick="cutStart()" class="btn btn-gold btn-full" style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px">START 6-DAY CUT</button>
+    <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.5">Ao começar, o app instala os 6 treinos no Meu Plano (seu plano atual fica guardado e volta no fim) e passa a mostrar só o que é para fazer hoje.</div>
+  `)}
+  ${cutSafetyTextHTML()}`;
+}
+function cutPreHTML(){
+  const c=cutState();
+  const d=cutParseISO(c.dates[0]);
+  const days=Math.ceil((d-new Date(new Date().toDateString()))/86400000);
+  return cutCard(`
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">Pronto para começar</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:var(--text);letter-spacing:1px;line-height:1.1;margin:6px 0">COMEÇA EM ${days} DIA${days===1?'':'S'}</div>
+    <div style="font-size:13px;color:var(--mid);line-height:1.6">Dia 1 é ${cutDayLabel(c.dates[0])}. Na manhã do dia 1, abra aqui, registre o peso e execute.</div>
+  `, 'rgba(201,169,110,.35)');
+}
+// números do plano
+function cutPlanHTML(plan){
+  const rows=[
+    ['BMR estimado', plan.bmr+' kcal', plan.bmrHow],
+    ['TDEE / manutenção', plan.tdee+' kcal', 'BMR × '+plan.af+' (6 treinos + '+plan.steps.toLocaleString('pt-BR')+' passos)'],
+    ['Déficit diário', plan.deficit+' kcal', plan.defPct+'% do TDEE'+(plan.capped?' (limitado pelo piso de segurança)':'')],
+    ['Calorias do dia', plan.kcal+' kcal', 'piso de segurança: '+plan.floor+' kcal'],
+    ['Déficit total em 6 dias', plan.totalDeficit.toLocaleString('pt-BR')+' kcal', ''],
+    ['Gordura perdida (teórico)', plan.fatLb.toFixed(2)+' lb ('+plan.fatKg.toFixed(2)+' kg)', 'déficit ÷ 3.500 kcal por lb']
+  ];
+  return cutCard(`
+    ${cutSectionTitle('🔢','Os números','Calculados com os seus dados. Balança ≠ gordura: os dois aparecem separados.')}
+    ${rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr)">
+      <div style="flex:1"><div style="font-size:13px;color:var(--text);font-weight:600">${r[0]}</div>${r[2]?`<div style="font-size:11px;color:var(--dim);margin-top:2px">${r[2]}</div>`:''}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);font-style:italic;white-space:nowrap">${r[1]}</div>
+    </div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      ${[['Proteína',plan.prot+' g'],['Carbo',plan.carb+' g'],['Gordura',plan.fat+' g']].map(m=>`
+        <div style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700">${m[0]}</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--text);font-style:italic;line-height:1.1">${m[1]}</div>
+        </div>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.5">Proteína calculada sobre ${plan.refKg} kg de referência (massa magra + 20%). Água: ${plan.waterOz} oz/dia. Passos: ${plan.steps.toLocaleString('pt-BR')}/dia — ${plan.stepsNote}. Sono: ${plan.sleepMin}–${plan.sleepMax} h.</div>
+    <div style="font-size:11px;color:var(--dim);margin-top:6px">Estimativas de gasto calórico têm margem de erro grande (±15% ou mais). O que manda é a tendência do peso e da cintura ao longo dos dias.</div>
+    ${cutState()?`<button onclick="cutRecalc()" class="btn btn-outline btn-full" style="margin-top:12px;font-size:11px">RECALCULAR COM MEUS DADOS ATUAIS</button>`:''}
+  `);
+}
+// hero do dia
+function cutHeroHTML(i){
+  const c=cutState();
+  const iso=c.dates[i];
+  const s=cutScore(iso);
+  const dots=(c.dates||[]).map((d,k)=>{
+    const sc=cutScore(d);
+    const on=k<i||(k===i);
+    const color = k<i ? (sc&&sc.score>=70?'var(--green)':sc?'var(--gold)':'var(--s3)') : (k===i?'var(--gold)':'var(--s3)');
+    return `<div style="flex:1;height:5px;border-radius:3px;background:${color}"></div>`;
+  }).join('');
+  return `<div style="background:linear-gradient(150deg,var(--gold-bg),var(--s1));border:1px solid rgba(201,169,110,.35);border-radius:var(--r);padding:16px;margin:0 0 12px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">${cutDayLabel(iso)}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--text);letter-spacing:1px;line-height:1">DAY ${i+1} OF 6</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700">Score de hoje</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;font-style:italic;color:${s&&s.score>=70?'var(--green)':'var(--gold)'};line-height:1" id="cut-score-now">${s?s.score:0}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:4px;margin-top:12px">${dots}</div>
+  </div>`;
+}
+// TODAY (só as ações de hoje)
+function cutTodayHTML(i){
+  const c=cutState(), p=c.plan, iso=c.dates[i], l=cutLogOf(iso);
+  const w=cutWindow(c);
+  const tr=cutTrainingOfDay(i);
+  const comp=cutCompensationNote(i);
+  const row=(k,v)=>`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--bdr)">
+    <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mid);font-weight:700">${k}</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:21px;color:var(--text);font-style:italic">${v}</div></div>`;
+  return cutCard(`
+    ${cutSectionTitle('🎯','Today','Só isso. Nada além disso hoje.')}
+    ${row('Calories', p.kcal+' kcal')}
+    ${row('Protein', p.prot+' g')}
+    ${row('Carbs / Fat', p.carb+' g / '+p.fat+' g')}
+    ${row('Steps', p.steps.toLocaleString('pt-BR'))}
+    ${row('Lift', tr?tr.name.replace(/^DIA \d+ · /,''):'—')}
+    ${row('Cardio', (tr&&tr.cardio?tr.cardio:20)+' min Zona 2')}
+    ${row('Water', p.waterOz+' oz')}
+    ${row('Eating window', w.start+' → '+w.end+' ('+w.fastH+':'+w.eatH+')')}
+    ${row('Sleep goal', p.sleepMin+'–'+p.sleepMax+' h')}
+    ${comp?`<div style="background:var(--red-bg);border:1px solid rgba(224,82,82,.3);border-radius:10px;padding:11px 13px;margin-top:12px;font-size:12px;color:var(--text);line-height:1.5">🚫 ${comp}</div>`:''}
+  `, 'rgba(201,169,110,.25)');
+}
+// não-negociáveis com estado
+function cutNonNegHTML(i){
+  const c=cutState(), p=c.plan, iso=c.dates[i], l=cutLogOf(iso);
+  const items=[
+    ['Proteína', l.prot!=null?l.prot+'/'+p.prot+' g':'—', l.prot!=null&&l.prot>=p.prot*0.95],
+    ['Calorias', l.kcal!=null?l.kcal+'/'+p.kcal+' kcal':'—', l.kcal!=null&&Math.abs(l.kcal-p.kcal)<=150],
+    ['Treino', l.lift?'feito':(l.liftProgress||'—'), !!l.lift],
+    ['Passos', l.steps!=null?l.steps.toLocaleString('pt-BR')+'/'+p.steps.toLocaleString('pt-BR'):'—', l.steps!=null&&l.steps>=p.steps],
+    ['Água', l.waterOz!=null?l.waterOz+'/'+p.waterOz+' oz':'—', l.waterOz!=null&&l.waterOz>=p.waterOz],
+    ['Sono', l.sleepH!=null?l.sleepH+' h':'—', l.sleepH!=null&&l.sleepH>=7.5]
+  ];
+  return cutCard(`
+    ${cutSectionTitle('🔒','Non-negotiables','')}
+    ${items.map(it=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr)">
+      <div style="width:20px;height:20px;border-radius:6px;border:1px solid ${it[2]?'var(--green)':'var(--bdr2)'};background:${it[2]?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800">${it[2]?'✓':''}</div>
+      <div style="flex:1;font-size:13px;color:var(--text);font-weight:600">${it[0]}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:19px;font-style:italic;color:${it[2]?'var(--green)':'var(--mid)'}">${it[1]}</div>
+    </div>`).join('')}
+  `);
+}
+
+// check-in do dia
+function cutCheckinHTML(i){
+  const c=cutState(), iso=c.dates[i], l=cutLogOf(iso), p=c.plan;
+  const wu=cutWunit(), wUn=(typeof waistUnit==='function')?waistUnit():'in';
+  const wVal = l.weightLbs!=null ? (D.weightUnit==='kg'?(l.weightLbs*0.453592).toFixed(1):l.weightLbs.toFixed(1)) : '';
+  const sq=l.sleepQ||0;
+  const sleepChips=['😴 Ruim','😐 Ok','🙂 Bom','😃 Ótimo'].map((t,k)=>{
+    const v=k+1, on=sq===v;
+    return `<div onclick="cutSetScale('${iso}','sleepQ',${v})" style="flex:1;text-align:center;padding:8px 2px;background:${on?'var(--gold)':'var(--s2)'};color:${on?'var(--gold-ink)':'var(--mid)'};border:1px solid ${on?'var(--gold)':'var(--bdr)'};border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">${t}</div>`;
+  }).join('');
+  return cutCard(`
+    ${cutSectionTitle('📝','Check-in de hoje','Ao acordar, antes de comer ou beber, depois do banheiro.')}
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="cut-w-${iso}" type="number" inputmode="decimal" step=".1" value="${wVal}" placeholder="peso (${wu})" style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:22px;font-style:italic;padding:9px 12px;outline:none">
+      <button onclick="cutLogWeight('${iso}')" style="background:var(--gold);color:var(--gold-ink);border:none;border-radius:8px;font-size:11px;font-weight:800;letter-spacing:1px;padding:0 14px;cursor:pointer">PESO</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input id="cut-waist-${iso}" type="number" inputmode="decimal" step=".1" value="${l.waist!=null?l.waist:''}" placeholder="cintura (${wUn}) — opcional" style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:14px;padding:11px 12px;outline:none">
+      <button onclick="cutLogWaist('${iso}')" style="background:var(--s3);color:var(--gold);border:1px solid var(--bdr2);border-radius:8px;font-size:11px;font-weight:800;letter-spacing:1px;padding:0 14px;cursor:pointer">CINTURA</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      ${cutInput(iso,'sleepH','Sono','7.5','h')}
+      ${cutInput(iso,'rhr','FC repouso','—','bpm')}
+    </div>
+    <div style="font-size:12px;color:var(--mid);font-weight:700;margin-bottom:5px">Qualidade do sono</div>
+    <div style="display:flex;gap:6px;margin-bottom:14px">${sleepChips}</div>
+    ${cutScaleRow(iso,'hunger','Fome','sem fome','faminto')}
+    ${cutScaleRow(iso,'energy','Energia','zerado','ligado')}
+    ${cutScaleRow(iso,'soreness','Dor muscular','nenhuma','muita')}
+    <div style="height:1px;background:var(--bdr);margin:6px 0 14px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${cutInput(iso,'kcal','Calorias',String(p.kcal),'kcal')}
+      ${cutInput(iso,'prot','Proteína',String(p.prot),'g')}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${cutInput(iso,'carb','Carbo',String(p.carb),'g')}
+      ${cutInput(iso,'fat','Gordura',String(p.fat),'g')}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${cutInput(iso,'waterOz','Água',String(p.waterOz),'oz')}
+      ${cutInput(iso,'steps','Passos',String(p.steps),'passos')}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      ${cutInput(iso,'cardioMin','Cardio','20','min')}
+      ${cutInput(iso,'workoutMin','Tempo de treino','60','min')}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="cutToggleLift('${iso}')" style="flex:1;padding:12px;border-radius:9px;border:1px solid ${l.lift?'var(--green)':'var(--bdr2)'};background:${l.lift?'var(--green-bg)':'transparent'};color:${l.lift?'var(--green)':'var(--mid)'};font-size:12px;font-weight:800;letter-spacing:1px;cursor:pointer">${l.lift?'✓ TREINO FEITO':'MARCAR TREINO FEITO'}</button>
+      <button onclick="cutPullToday('${iso}')" style="flex:1;padding:12px;border-radius:9px;border:1px solid var(--bdr2);background:transparent;color:var(--gold);font-size:12px;font-weight:800;letter-spacing:1px;cursor:pointer">PUXAR DO APP</button>
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-top:9px;line-height:1.5">"Puxar do app" traz o que você já registrou hoje em comida, água, cardio e treino. Depois é só corrigir o que estiver diferente.</div>
+    ${cutScoreHTML(iso)}
+  `);
+}
+function cutScoreHTML(iso){
+  const s=cutScore(iso); if(!s) return '';
+  return `<div style="margin-top:14px;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:800">Score de execução</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;font-style:italic;color:${s.score>=70?'var(--green)':'var(--gold)'};line-height:1">${s.score}<span style="font-size:13px;color:var(--dim)">/100</span></div>
+    </div>
+    ${s.parts.map(pt=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="width:72px;font-size:11px;color:var(--mid)">${pt.l}</div>
+      <div style="flex:1">${cutBar(pt.s==null?0:pt.s, pt.s==null?'var(--s3)':(pt.s>=90?'var(--green)':'var(--gold)'))}</div>
+      <div style="width:36px;text-align:right;font-size:11px;color:${pt.s==null?'var(--dim)':'var(--mid)'}">${pt.s==null?'—':pt.s+'%'}</div>
+    </div>`).join('')}
+    <div style="font-size:11px;color:var(--dim);margin-top:6px">Mede execução, não a balança. Oscilação de peso não tira ponto.</div>
+  </div>`;
+}
+// cardápio
+function cutMealsHTML(iso){
+  const c=cutState(); const plan=c?c.plan:cutComputePlan({});
+  const meals=cutBuildMeals(plan, c||{});
+  const l=c?cutLogOf(iso):{};
+  const done=(l.meals)||{};
+  const tot=meals.reduce((a,m)=>({kcal:a.kcal+m.kcal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f}),{kcal:0,p:0,c:0,f:0});
+  const w=cutWindow(c||{});
+  return cutCard(`
+    ${cutSectionTitle('🍽️','Cardápio do dia','Mesmas refeições os 6 dias. Zero decisão. Janela '+w.start+' → '+w.end+'.')}
+    ${meals.map((m,mi)=>`
+      <div style="background:var(--s2);border:1px solid ${done[mi]?'rgba(82,168,120,.4)':'var(--bdr)'};border-radius:12px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          ${c?`<div onclick="cutToggleMeal('${iso}',${mi})" style="width:22px;height:22px;flex-shrink:0;border-radius:7px;border:1px solid ${done[mi]?'var(--green)':'var(--bdr2)'};background:${done[mi]?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;cursor:pointer">${done[mi]?'✓':''}</div>`:''}
+          <div style="flex:1">
+            <div style="font-size:14px;color:var(--text);font-weight:700">${m.name}</div>
+            <div style="font-size:11px;color:var(--dim)">${m.time} · ${m.tag}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold);font-style:italic;line-height:1">${m.kcal}</div>
+            <div style="font-size:10px;color:var(--dim)">kcal</div>
+          </div>
+        </div>
+        ${m.items.map(it=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--bdr)">
+          <div style="font-size:12px;color:var(--text)">${it.n}${it.hint?` <span style="color:var(--dim)">(${it.hint})</span>`:''}</div>
+          <div style="font-size:12px;color:var(--gold);white-space:nowrap;font-weight:700">${it.g} g</div>
+        </div>`).join('')}
+        <div style="font-size:11px;color:var(--mid);margin-top:7px">P ${m.p} g · C ${m.c} g · G ${m.f} g</div>
+      </div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:4px">
+      ${[['kcal',tot.kcal,plan.kcal],['P',tot.p,plan.prot],['C',tot.c,plan.carb],['G',tot.f,plan.fat]].map(t=>`
+        <div style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:9px;padding:9px 4px;text-align:center">
+          <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:700">${t[0]}</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:19px;color:var(--text);font-style:italic;line-height:1.1">${t[1]}</div>
+          <div style="font-size:10px;color:var(--dim)">alvo ${t[2]}</div>
+        </div>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.5">Pesos em gramas, proteína e carboidrato já cozidos. Vegetais podem passar do peso à vontade. Café e chá sem açúcar liberados o dia todo.</div>
+    <div style="margin-top:12px">
+      <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:6px">Trocas equivalentes</div>
+      ${CUT_SUBS.map(s=>`<div style="font-size:11px;color:var(--mid);padding:4px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--text);font-weight:600">${s.de}</span> → ${s.por}</div>`).join('')}
+    </div>
+  `);
+}
+// treino do dia
+function cutTrainHTML(i){
+  const c=cutState(); const tr=cutTrainingOfDay(i);
+  const sid=(c.sessionIds||[])[i];
+  const sess=sid!=null?(D.customPlan.sessions||[]).find(s=>s.id===sid):null;
+  const w=cutWindow(c);
+  const trainTime=c.trainTime||'17:00';
+  const inWindow = trainTime>=w.start && trainTime<=w.end;
+  const pre = inWindow
+    ? 'Pré-treino: faça a refeição principal 60–90 min antes. É onde está a maior parte do carboidrato.'
+    : 'Você treina fora da janela, então treina em jejum: água + eletrólitos antes, nada de caloria. Pós-treino: quebre o jejum em até 60 min com a refeição principal.';
+  const post = inWindow
+    ? 'Pós-treino: próxima refeição em até 2 h, com proteína alta.'
+    : 'Se sentir tontura treinando em jejum, corte a sessão e coma. Isso não é falha, é segurança.';
+  return cutCard(`
+    ${cutSectionTitle('🏋️','Treino de hoje', tr?tr.focus:'')}
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--text);letter-spacing:.5px;line-height:1.1;margin-bottom:6px">${tr?tr.name:'—'}</div>
+    ${sess?`<div style="font-size:12px;color:var(--mid);margin-bottom:10px">${(sess.exercises||[]).length} exercícios · cargas e progressão continuam vindo do motor normal do app.</div>`:''}
+    <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:11px 13px;font-size:12px;color:var(--mid);line-height:1.5;margin-bottom:10px">
+      ⏰ Treino às ${trainTime}. ${pre}<br>${post}
+    </div>
+    <button onclick="goPage('workout')" class="btn btn-gold btn-full" style="font-size:12px">ABRIR O TREINO</button>
+    <div style="font-size:11px;color:var(--dim);margin-top:9px;line-height:1.5">Musculação em primeiro lugar: é ela que segura o músculo no déficit. O cardio é Zona 2, baixo impacto, depois do peso. Nada de duas sessões exaustivas no mesmo dia.</div>
+  `);
+}
+// projeção
+function cutProjectionHTML(){
+  const pr=cutProjection(); if(!pr) return '';
+  const c=cutState();
+  const sign=v=>(v>0?'+':'')+v.toFixed(2);
+  return cutCard(`
+    ${cutSectionTitle('📈','Projeção','Balança e gordura são coisas diferentes. Aqui estão separadas.')}
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:11px;text-align:center">
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;font-weight:700">Balança</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;font-style:italic;color:${pr.scaleChange<0?'var(--green)':'var(--text)'};line-height:1.1">${sign(D.weightUnit==='kg'?pr.scaleChange*0.453592:pr.scaleChange)}</div>
+        <div style="font-size:10px;color:var(--dim)">${cutWunit()} desde o dia 1</div>
+      </div>
+      <div style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:11px;text-align:center">
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;font-weight:700">Gordura (est.)</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;font-style:italic;color:var(--gold);line-height:1.1">-${(D.weightUnit==='kg'?pr.fatLb*0.453592:pr.fatLb).toFixed(2)}</div>
+        <div style="font-size:10px;color:var(--dim)">${cutWunit()} pelo déficit</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--mid);line-height:1.6">
+      Peso inicial: <strong style="color:var(--text)">${cutW(pr.start)}</strong><br>
+      Peso atual: <strong style="color:var(--text)">${cutW(pr.cur)}</strong>${pr.avg3?` · média dos últimos 3 dias: ${cutW(pr.avg3)}`:''}<br>
+      Déficit acumulado: <strong style="color:var(--text)">${pr.deficit.toLocaleString('pt-BR')} kcal</strong> em ${pr.daysWithFood} dia(s) registrado(s)<br>
+      Provável água, glicogênio e conteúdo intestinal: <strong style="color:var(--text)">${(D.weightUnit==='kg'?Math.abs(pr.otherLb)*0.453592:Math.abs(pr.otherLb)).toFixed(2)} ${cutWunit()}</strong>
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.5">A parte "água/glicogênio/intestino" é o que sobra entre o que a balança mostrou e o que o déficit explica. Ela volta quando você voltar a comer normal. Isso é esperado e não é recaída.</div>
+  `);
+}
+// sintomas
+function cutSymptomsHTML(iso){
+  const l=cutLogOf(iso); const sym=l.sym||{};
+  return cutCard(`
+    ${cutSectionTitle('🚨','Sintomas','Marque se acontecer. Marcar não é fracasso, é dado.')}
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${CUT_SYMPTOMS.map(s=>`<div onclick="cutToggleSymptom('${iso}','${s.k}')" style="padding:8px 11px;border-radius:18px;border:1px solid ${sym[s.k]?'var(--red)':'var(--bdr)'};background:${sym[s.k]?'var(--red-bg)':'var(--s2)'};color:${sym[s.k]?'var(--red)':'var(--mid)'};font-size:11px;font-weight:700;cursor:pointer">${sym[s.k]?'⚠️ ':''}${s.l}</div>`).join('')}
+    </div>
+  `);
+}
+function cutRedFlagHTML(){
+  const rf=cutRedFlag(); if(!rf) return '';
+  return `<div style="background:var(--red-bg);border:1px solid rgba(224,82,82,.45);border-radius:var(--r);padding:16px;margin:0 0 12px">
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--red);font-weight:800;margin-bottom:6px">🚨 Pare de apertar</div>
+    <div style="font-size:13px;color:var(--text);line-height:1.6">Você registrou ${rf.map(r=>(CUT_SYMPTOMS.find(s=>s.k===r.k)||{}).l).filter((v,i,a)=>a.indexOf(v)===i).join(', ').toLowerCase()} nas últimas 48 h. Nenhum aumento de déficit, de cardio ou de treino é recomendado agora.</div>
+    <div style="font-size:13px;color:var(--text);line-height:1.6;margin-top:8px">Hoje: coma o alvo cheio, beba água, durma. Dor no peito, desmaio, palpitação persistente ou confusão pedem avaliação médica agora, não amanhã.</div>
+    <button onclick="cutStop()" class="btn btn-red btn-full" style="margin-top:12px;font-size:12px">ENCERRAR O CUT AGORA</button>
+  </div>`;
+}
+function cutSafetyTextHTML(){
+  return cutCard(`
+    ${cutSectionTitle('🛡️','Regras de segurança','Fixas. O app não vai sugerir nada fora disso.')}
+    <div style="font-size:12px;color:var(--mid);line-height:1.7">
+      Nada de diurético, laxante, sauna para perder água, corte de sal, redução de água, vômito, jejum de vários dias ou dia de quase zero caloria.<br>
+      Calorias nunca abaixo do piso de ${(cutState()?cutState().plan:cutComputePlan({})).floor} kcal.<br>
+      Uma sessão de treino por dia. Sem duas ou três exaustivas.<br>
+      Dia ruim não se paga no dia seguinte: o alvo continua o mesmo.<br>
+      Sintoma importante interrompe qualquer recomendação de apertar.
+    </div>
+  `);
+}
+function cutFooterHTML(){
+  const c=cutState(); if(!c) return '';
+  return `<div style="padding:0 0 30px">
+    <button onclick="cutStop()" class="btn btn-outline btn-full" style="font-size:11px;margin-bottom:8px">${c.stopped?'CUT ENCERRADO':'ENCERRAR O CUT'}</button>
+    <button onclick="cutReset()" class="btn btn-outline btn-full" style="font-size:11px;color:var(--red);border-color:rgba(224,82,82,.3)">APAGAR O CUT E COMEÇAR DE NOVO</button>
+  </div>`;
+}
+
+// ── RESULTADO (sexta de manhã) ──
+function cutSaveFinalWeight(){
+  const el=document.getElementById('cut-final-w'); if(!el) return;
+  const v=parseFloat(String(el.value).replace(',','.'));
+  if(isNaN(v)||v<=0){ toast('Informe o peso'); return; }
+  const c=cutState(); if(!c) return;
+  c.finalWeightLbs=(typeof inpToLbs==='function')?inpToLbs(v):v;
+  c.finalWeightAt=Date.now();
+  if(!D.weightLog) D.weightLog=[];
+  D.weightLog=D.weightLog.filter(x=>x.date!==TODAY);
+  D.weightLog.push({date:TODAY, lbs:c.finalWeightLbs, ts:Date.now()});
+  D.weightLbs=c.finalWeightLbs;
+  save(); renderCutPage(); toast('Medição final registrada ✓');
+}
+function cutSaveFinalWaist(){
+  const el=document.getElementById('cut-final-waist'); if(!el) return;
+  const v=parseFloat(String(el.value).replace(',','.'));
+  if(isNaN(v)||v<=0){ toast('Informe a cintura'); return; }
+  const c=cutState(); if(!c) return;
+  c.finalWaist=v; save(); renderCutPage(); toast('Cintura final registrada ✓');
+}
+function cutReportHTML(stopped){
+  const c=cutState(); const p=c.plan;
+  const pr=cutProjection();
+  const dates=c.dates||[];
+  const logs=dates.map(d=>(c.log||{})[d]||{});
+  const startW=c.baseline.weightLbs;
+  const endW = c.finalWeightLbs || pr.cur;
+  const lost = startW-endW;
+  const pct = startW ? (lost/startW*100) : 0;
+  const waistStart=c.baseline.waist;
+  const waistEnd=c.finalWaist || (logs.map(l=>l.waist).filter(v=>v!=null).pop());
+  const adherence=cutAdherenceAvg();
+  const sleepQ=logs.map(l=>l.sleepQ).filter(v=>v!=null);
+  const sleepQAvg=sleepQ.length?(sleepQ.reduce((a,b)=>a+b,0)/sleepQ.length):null;
+  const wtimes=logs.map(l=>l.workoutMin).filter(v=>v!=null);
+  const wu=cutWunit();
+  const cv=v=>(D.weightUnit==='kg'?v*0.453592:v);
+  const row=(k,v,sub)=>`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr)">
+    <div style="flex:1"><div style="font-size:13px;color:var(--text)">${k}</div>${sub?`<div style="font-size:11px;color:var(--dim)">${sub}</div>`:''}</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:21px;color:var(--gold);font-style:italic;white-space:nowrap">${v}</div></div>`;
+  const perDay=dates.map((d,i)=>{
+    const s=cutScore(d); const l=logs[i];
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+      <div style="width:54px;font-size:11px;color:var(--mid);font-weight:700">DIA ${i+1}</div>
+      <div style="flex:1;font-size:11px;color:var(--dim)">${l.kcal!=null?l.kcal+' kcal':'—'} · ${l.prot!=null?l.prot+'g P':'—'} · ${l.steps!=null?Math.round(l.steps/100)/10+'k passos':'—'}${l.lift?' · treino ✓':''}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;font-style:italic;color:${s&&s.score>=70?'var(--green)':'var(--gold)'}">${s?s.score:'—'}</div>
+    </div>`;
+  }).join('');
+  return `
+  ${cutCard(`
+    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">${stopped?'Cut encerrado antes do fim':'Resultado'}</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:var(--text);letter-spacing:1px;line-height:1.05;margin:4px 0 10px">OPUS X 6-DAY CUT RESULT</div>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;font-weight:700">Weight lost</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;font-style:italic;color:${lost>0?'var(--green)':'var(--text)'};line-height:1.1">${cv(lost).toFixed(2)}</div>
+        <div style="font-size:10px;color:var(--dim)">${wu} na balança</div>
+      </div>
+      <div style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;font-weight:700">Estimated fat lost</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;font-style:italic;color:var(--gold);line-height:1.1">${cv(pr.fatLb).toFixed(2)}</div>
+        <div style="font-size:10px;color:var(--dim)">${wu} pelo déficit</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.5">A diferença entre os dois é água, glicogênio e conteúdo intestinal. Isso volta e não significa que você engordou.</div>
+  `, 'rgba(201,169,110,.35)')}
+  ${cutCard(`
+    ${cutSectionTitle('📊','Os seis dias','')}
+    ${row('Peso inicial', cutW(startW), c.baseline.date)}
+    ${row('Peso final', cutW(endW), c.finalWeightLbs?'medição final':'último registro')}
+    ${row('Mudança absoluta', (lost>0?'-':'+')+cv(Math.abs(lost)).toFixed(2)+' '+wu, '')}
+    ${row('Mudança percentual', (lost>0?'-':'+')+Math.abs(pct).toFixed(2)+'%', '')}
+    ${row('Cintura inicial', waistStart!=null?waistStart.toFixed(1)+' '+((typeof waistUnit==='function')?waistUnit():'in'):'—','')}
+    ${row('Cintura final', waistEnd!=null?waistEnd.toFixed(1)+' '+((typeof waistUnit==='function')?waistUnit():'in'):'—','')}
+    ${row('Déficit acumulado', pr.deficit.toLocaleString('pt-BR')+' kcal', pr.daysWithFood+' dia(s) com comida registrada')}
+    ${row('Média de calorias', pr.kcalAvg!=null?pr.kcalAvg+' kcal':'—','alvo '+p.kcal)}
+    ${row('Média de proteína', pr.protAvg!=null?pr.protAvg+' g':'—','alvo '+p.prot)}
+    ${row('Média de passos', pr.stepsAvg!=null?pr.stepsAvg.toLocaleString('pt-BR'):'—','alvo '+p.steps.toLocaleString('pt-BR'))}
+    ${row('Treinos feitos', pr.lifts+'/6','')}
+    ${row('Minutos de cardio', pr.cardio+' min','')}
+    ${row('Tempo médio de treino', wtimes.length?Math.round(wtimes.reduce((a,b)=>a+b,0)/wtimes.length)+' min':'—','')}
+    ${row('Aderência total', adherence!=null?adherence+'/100':'—','média dos scores diários')}
+    ${row('Qualidade média do sono', sleepQAvg!=null?['','Ruim','Ok','Bom','Ótimo'][Math.round(sleepQAvg)]:'—', pr.sleepAvg!=null?pr.sleepAvg+' h por noite':'')}
+  `)}
+  ${cutCard(`
+    ${cutSectionTitle('🗓️','Dia a dia','')}
+    ${perDay}
+  `)}
+  ${cutCard(`
+    ${cutSectionTitle('⚖️','Medição final','Sexta de manhã já vale. Se quiser os 6 dias fechados, meça também no sábado de manhã e registre aqui.')}
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input id="cut-final-w" type="number" inputmode="decimal" step=".1" placeholder="peso final (${wu})" style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:22px;font-style:italic;padding:9px 12px;outline:none">
+      <button onclick="cutSaveFinalWeight()" style="background:var(--gold);color:var(--gold-ink);border:none;border-radius:8px;font-size:11px;font-weight:800;letter-spacing:1px;padding:0 14px;cursor:pointer">SALVAR</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <input id="cut-final-waist" type="number" inputmode="decimal" step=".1" placeholder="cintura final" style="flex:1;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;color:var(--text);font-size:14px;padding:11px 12px;outline:none">
+      <button onclick="cutSaveFinalWaist()" style="background:var(--s3);color:var(--gold);border:1px solid var(--bdr2);border-radius:8px;font-size:11px;font-weight:800;letter-spacing:1px;padding:0 14px;cursor:pointer">SALVAR</button>
+    </div>
+  `)}
+  ${cutCard(`
+    ${cutSectionTitle('➡️','Depois do cut','')}
+    <div style="font-size:12px;color:var(--mid);line-height:1.7">
+      Volte para a manutenção em 2 ou 3 dias, subindo o carboidrato aos poucos. A balança vai subir 1 a 2 ${wu} de água e glicogênio: isso não é gordura.<br>
+      Mantenha a proteína no mesmo nível.<br>
+      Se quiser continuar perdendo, o déficit sustentável é bem menor que o destes 6 dias (algo perto de 15% a 20% do TDEE).
+    </div>
+  `)}`;
+}
+
+// ── card na Home ──
+function renderCutHome(){
+  const el=document.getElementById('h-cut'); if(!el) return;
+  const c=cutState();
+  const today=cutTodayISO();
+  const dates=cutDateList(CUT_START_ISO);
+  if(!c){
+    if(today > dates[dates.length-1]){ el.innerHTML=''; return; }   // janela passou e nunca começou
+    el.innerHTML=`<div onclick="goPage('cut')" style="background:linear-gradient(150deg,var(--gold-bg),var(--s1));border:1px solid rgba(201,169,110,.35);border-radius:18px;padding:15px;cursor:pointer;display:flex;align-items:center;gap:12px">
+      <div style="font-size:22px">🔥</div>
+      <div style="flex:1">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">Opus X</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--text);letter-spacing:1px;line-height:1.1">6-DAY CUT</div>
+        <div style="font-size:11px;color:var(--mid);margin-top:2px">27/09 a 02/10 · toque para ver os números e começar</div>
+      </div>
+      <div style="color:var(--gold);font-size:20px;font-weight:700">›</div>
+    </div>`;
+    return;
+  }
+  const i=cutDayIndex(c);
+  if(c.stopped || i>=CUT_TOTAL_DAYS){
+    el.innerHTML=`<div onclick="goPage('cut')" style="background:var(--s1);border:1px solid rgba(201,169,110,.3);border-radius:18px;padding:14px;cursor:pointer;display:flex;align-items:center;gap:12px">
+      <div style="font-size:20px">🏁</div>
+      <div style="flex:1"><div style="font-size:13px;color:var(--gold);font-weight:800">6-DAY CUT ${c.stopped?'encerrado':'concluído'}</div><div style="font-size:11px;color:var(--dim)">Toque para ver o resultado.</div></div>
+      <div style="color:var(--gold);font-size:18px;font-weight:700">›</div>
+    </div>`;
+    return;
+  }
+  if(i<0){
+    const d=Math.max(0, Math.ceil((cutParseISO(c.dates[0])-new Date(new Date().toDateString()))/86400000));
+    el.innerHTML=`<div onclick="goPage('cut')" style="background:linear-gradient(150deg,var(--gold-bg),var(--s1));border:1px solid rgba(201,169,110,.35);border-radius:18px;padding:15px;cursor:pointer">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">6-DAY CUT</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--text);letter-spacing:1px;line-height:1.1">COMEÇA EM ${d} DIA${d===1?'':'S'}</div>
+    </div>`;
+    return;
+  }
+  const p=c.plan, l=cutLogOf(c.dates[i]), s=cutScore(c.dates[i]);
+  const chip=(lbl,val,ok)=>`<div style="flex:1;min-width:0;background:var(--s2);border:1px solid ${ok?'rgba(82,168,120,.35)':'var(--bdr)'};border-radius:10px;padding:8px 4px;text-align:center">
+    <div style="font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);font-weight:700">${lbl}</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;font-style:italic;color:${ok?'var(--green)':'var(--text)'};line-height:1.2">${val}</div></div>`;
+  const tr=cutTrainingOfDay(i);
+  el.innerHTML=`<div onclick="goPage('cut')" style="background:linear-gradient(150deg,var(--gold-bg),var(--s1));border:1px solid rgba(201,169,110,.4);border-radius:18px;padding:15px;cursor:pointer">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:800">🔥 6-Day Cut</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--text);letter-spacing:1px;line-height:1">DAY ${i+1} OF 6</div>
+        <div style="font-size:11px;color:var(--mid);margin-top:2px">${tr?tr.name.replace(/^DIA \d+ · /,''):''}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);font-weight:700">Score</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;font-style:italic;color:${s&&s.score>=70?'var(--green)':'var(--gold)'};line-height:1">${s?s.score:0}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:11px">
+      ${chip('kcal', (l.kcal!=null?l.kcal:'—')+'/'+p.kcal, l.kcal!=null&&Math.abs(l.kcal-p.kcal)<=150)}
+      ${chip('Proteína', (l.prot!=null?l.prot:'—')+'/'+p.prot, l.prot!=null&&l.prot>=p.prot*0.95)}
+      ${chip('Passos', (l.steps!=null?Math.round(l.steps/100)/10+'k':'—')+'/'+Math.round(p.steps/100)/10+'k', l.steps!=null&&l.steps>=p.steps)}
+      ${chip('Treino', l.lift?'✓':'—', !!l.lift)}
+    </div>
+  </div>`;
+}
+
 </script>
 <script>
 /* AUTO-UPDATE — checa o GitHub e recarrega quando uma versão nova é publicada */
