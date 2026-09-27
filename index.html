@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=2">
 <link rel="manifest" href="manifest.webmanifest?v=2">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="app-version" content="2026-09-27T00:46:44Z">
+<meta name="app-version" content="2026-09-27T09:31:20Z">
 <meta name="app-update-url" content="https://raw.githubusercontent.com/ewertondecastro/opusx/main/index.html">
 <style>
 /* ══════════════════════════════════
@@ -12553,13 +12553,14 @@ function cutBuildMeals(plan, c){
 }
 
 // ── treino da semana (6 dias) ──
+const CUT_SPLIT_VER = 3;
 const CUT_SPLIT = [
-  { key:'upperA', name:'DIA 1 · Superior A', focus:'Costas · Peito · Ombro · Bíceps · Tríceps', muscles:['costas','peito','ombro','triceps','biceps'], n:6, cardio:20 },
-  { key:'lowerA', name:'DIA 2 · Inferior A', focus:'Quadríceps · Posterior · Glúteo · Panturrilha', muscles:['quadriceps','posterior','gluteo','panturrilha'], n:5, cardio:20 },
-  { key:'recov',  name:'DIA 3 · Cardio + Core', focus:'Recuperação ativa · Abdômen · Zona 2', muscles:['abdomen','costas'], n:4, cardio:40 },
-  { key:'upperB', name:'DIA 4 · Superior B', focus:'Costas · Ombro · Peito · Braços', muscles:['costas','ombro','peito','biceps','triceps'], n:6, cardio:20 },
-  { key:'lowerB', name:'DIA 5 · Inferior B', focus:'Posterior · Glúteo · Quadríceps · Abdômen', muscles:['posterior','gluteo','quadriceps','abdomen'], n:5, cardio:20 },
-  { key:'full',   name:'DIA 6 · Full body pump', focus:'Corpo inteiro · bomba final', muscles:['costas','peito','quadriceps','ombro','posterior','abdomen'], n:6, cardio:30 }
+  { key:'pushA', name:'DIA 1 · Empurrar A', focus:'Peito · Ombro · Tríceps', muscles:['peito','ombro','triceps'], n:6, cardio:20 },
+  { key:'pullA', name:'DIA 2 · Puxar A',    focus:'Costas · Deltóide posterior · Bíceps', muscles:['costas','biceps'], fixed:['Facepull na Polia'], n:6, cardio:20 },
+  { key:'legA',  name:'DIA 3 · Pernas A',   focus:'Quadríceps · Posterior · Glúteo · Panturrilha', muscles:['quadriceps','posterior','gluteo','panturrilha'], n:6, cardio:25 },
+  { key:'pushB', name:'DIA 4 · Empurrar B', focus:'Peito · Ombro · Tríceps', muscles:['peito','ombro','triceps'], n:6, cardio:20 },
+  { key:'pullB', name:'DIA 5 · Puxar B',    focus:'Costas · Trapézio · Bíceps', muscles:['costas','biceps'], fixed:['Crucifixo Invertido','Remada Alta'], n:6, cardio:20 },
+  { key:'legB',  name:'DIA 6 · Pernas B + core', focus:'Posterior · Glúteo · Quadríceps · Abdômen', muscles:['posterior','gluteo','quadriceps','abdomen','panturrilha'], n:6, cardio:30 }
 ];
 // exercícios que ele já treinou entram na frente (carga conhecida = progressão real)
 function cutKnownScore(name){
@@ -12572,23 +12573,42 @@ function cutKnownScore(name){
 }
 function cutBuildSessions(){
   // poupa o joelho sempre: em 6 dias seguidos não vale o risco de agachamento profundo/impacto
-  const pools={};
+  const pools={}, used={};
   const take=(m)=>{
     if(!pools[m] || !pools[m].length){
       let pool=(typeof orderedPool==='function') ? orderedPool(m, true) : [];
       pool=pool.slice().sort((a,b)=>cutKnownScore(b.name)-cutKnownScore(a.name));
       pools[m]=pool;
     }
-    return pools[m].length ? pools[m].shift() : null;
+    while(pools[m].length){
+      const ex=pools[m].shift();
+      if(!used[ex.name]) return ex;
+    }
+    return null;
+  };
+  const mk=(name, m, detail)=>{
+    const d = (typeof exDefaults==='function') ? exDefaults(m) : {sets:3,reps:'10-12',rest:'60s'};
+    used[name]=true;
+    return { name, sets:d.sets, reps:d.reps, rest:d.rest, load:'', notes:detail||'', muscle:m };
   };
   return CUT_SPLIT.map(sp=>{
-    const picks=[]; let gi=0, guard=0;
+    const picks=[];
+    // fixos da sessão (posterior de ombro e trapézio nos dias de puxar)
+    (sp.fixed||[]).forEach(nm=>{
+      if(used[nm]) return;
+      let mm='ombro', det='';
+      Object.keys(MUSCLE_ALTS||{}).forEach(k=>{
+        const hit=(MUSCLE_ALTS[k]||[]).find(e=>e.name===nm);
+        if(hit){ mm=k; det=hit.detail||''; }
+      });
+      picks.push(mk(nm, mm, det));
+    });
+    let gi=0, guard=0;
     while(picks.length<sp.n && guard<60){
       const m = sp.muscles[gi%sp.muscles.length];
       const ex = take(m);
       if(ex && !picks.some(x=>x.name===ex.name)){
-        const d = (typeof exDefaults==='function') ? exDefaults(m) : {sets:3,reps:'10-12',rest:'60s'};
-        picks.push({ name:ex.name, sets:(sp.key==='recov'?2:d.sets), reps:d.reps, rest:d.rest, load:'', notes:ex.detail||'', muscle:m });
+        picks.push(mk(ex.name, m, ex.detail));
       }
       gi++; guard++;
     }
@@ -12660,6 +12680,7 @@ function cutInstallTraining(){
     D.cuOpen = {};
     c.sessionIds = installed.map(s=>s.id);
     c.planInstalled = true;
+    c.splitVer = CUT_SPLIT_VER;
     if(typeof refreshWorkoutViews==='function') refreshWorkoutViews();
   }catch(e){ console.warn('[cut] instalar treino', e); }
 }
@@ -12671,6 +12692,17 @@ function cutRestoreTraining(){
     c.planInstalled = false;
     if(typeof refreshWorkoutViews==='function') refreshWorkoutViews();
   }catch(e){ console.warn('[cut] restaurar treino', e); }
+}
+// refaz as 6 sessões com o split atual (usado quando o split muda de versão)
+function cutRebuildTraining(){
+  const c=cutState(); if(!c) return;
+  cutRestoreTraining();
+  c.sessions = cutBuildSessions();
+  c.planInstalled = false;
+  cutInstallTraining();
+  save();
+  if(typeof renderCutPage==='function') renderCutPage();
+  toast('Treinos do cut refeitos ✓');
 }
 function cutStop(){
   const c=cutState(); if(!c) return;
@@ -12968,6 +13000,14 @@ function renderCutPage(){
   if(i>=CUT_TOTAL_DAYS){
     if(c.planInstalled){ cutRestoreTraining(); save(); }   // acabou: devolve o plano de treino anterior
     body.innerHTML = cutReportHTML(false) + cutFooterHTML(); return;
+  }
+  // split mudou de versão → refaz os treinos sem mexer no resto
+  if(c.planInstalled && c.splitVer!==CUT_SPLIT_VER){
+    cutRestoreTraining();
+    c.sessions = cutBuildSessions();
+    c.planInstalled = false;
+    cutInstallTraining();
+    save();
   }
   if(i<0){ body.innerHTML = cutPreHTML() + cutPlanHTML(c.plan) + cutMealsHTML(c.dates[0]) + cutFooterHTML(); return; }
   body.innerHTML =
@@ -13288,6 +13328,7 @@ function cutTrainHTML(i){
       ⏰ Treino às ${trainTime}. ${pre}<br>${post}
     </div>
     <button onclick="goPage('workout')" class="btn btn-gold btn-full" style="font-size:12px">ABRIR O TREINO</button>
+    <button onclick="cutRebuildTraining()" class="btn btn-outline btn-full" style="font-size:11px;margin-top:8px">REFAZER OS 6 TREINOS</button>
     <div style="font-size:11px;color:var(--dim);margin-top:9px;line-height:1.5">Musculação em primeiro lugar: é ela que segura o músculo no déficit. O cardio é Zona 2, baixo impacto, depois do peso. Nada de duas sessões exaustivas no mesmo dia.</div>
   `);
 }
